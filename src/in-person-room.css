@@ -1,0 +1,12 @@
+.in-person-room {
+  width: min(100%, 1024px);
+  margin-inline: auto;
+  padding: clamp(16px, 4vw, 40px);
+  display: grid;
+  gap: 20px;
+  overflow-wrap: anywhere;
+}
+
+.in-person-room .btn {
+  white-space: normal;
+}

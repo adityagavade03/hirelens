@@ -1,0 +1,59 @@
+# Separate production template; does not reuse or modify the local development database.
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD}
+    volumes:
+      - production-mongo:/data/db
+      - ./deploy/mongo-init.js:/docker-entrypoint-initdb.d/app.js:ro
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes", --requirepass, "${REDIS_PASSWORD:?Set REDIS_PASSWORD}"]
+    volumes:
+      - production-redis:/data
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      APP_ORIGIN: https://${SITE_DOMAIN:?Set SITE_DOMAIN}
+      MONGODB_URI: mongodb://hirelens:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD}@mongo:27017/hirelens?authSource=hirelens
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379
+      MESSAGE_PREVIEW: "false"
+      ALLOW_DEMO_LOGIN: "false"
+      FACE_MODEL_URL: /vendor/mediapipe/blaze_face_short_range.tflite
+      MEDIAPIPE_WASM_URL: /vendor/mediapipe/wasm
+      RESUME_OCR_ENABLED: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile.container:/etc/caddy/Caddyfile:ro
+      - production-caddy:/data
+      - production-caddy-config:/config
+    depends_on: [app]
+volumes:
+  production-mongo:
+  production-redis:
+  production-caddy:
+  production-caddy-config:

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-08",
+  "status": "Local room improvements implemented; external service and physical-device work remains.",
+  "implemented": [
+    "Optional face-presence consent, withdrawal and server-side consent intervals; frames stay local, model runs in a worker, and camera outages are not no-face evidence.",
+    "Face model startup verified in the actual browser; module-loader compatibility corrected using the installed MediaPipe factory/debug bindings.",
+    "Connection panel with actual selected ICE route, round-trip time and media-byte counters; explicit forced-relay data probe with timeout, cancellation and cleanup.",
+    "Automatic bounded-backoff retry of failed draft saves, timeout for stalled requests, tab draft backup and ordered writes preserved.",
+    "Expanded Judge0 check covers accepted programs, wrong answers, compilation errors, runtime errors and timeout.",
+    "Persistent MongoDB launcher kept alive; local startup waits for API and website listeners.",
+    "Device requests have cancellation and a 30-second deadline; late streams are immediately stopped.",
+    "Authentication context extracted from route components to avoid a blank screen during development hot updates. Login routes and permissions are unchanged."
+  ],
+  "checks": {
+    "regression": "npm run check passed: production client/server build and 140 tests in 13 files. The final context refactor also has a fresh production build and browser reload check.",
+    "log": ".data/runtime/remaining-parts-complete-check.log",
+    "finalBuildLog": ".data/runtime/remaining-parts-auth-build.log",
+    "browser": "Isolated temporary MongoDB with candidate and HR accounts on port 5174. Verified setup, waiting/admission, actual local WebRTC transport without physical media tracks, PDF sharing/rendering, question assignment, exact candidate Java draft visible in HR editor, missing-service states and optional model startup/withdrawal.",
+    "layout": "Light and dark desktop room; mobile width 390 and tablet width 820. Checked visible layout and mobile document overflow. No complete accessibility certification or all-page re-audit is claimed.",
+    "screenshots": [".data/runtime/room-connection-light.jpg", ".data/runtime/room-connection-dark.jpg", ".data/runtime/room-device-timeout.jpg"],
+    "normalData": "Normal company, HR, candidate and recruitment records were not used as fixtures or reset.",
+    "health": "After the launcher fix: MongoDB ping passed and API health returned 200. A fresh local Whisper synthetic transcription, Qwen question generation and answer assessment passed; log: .data/runtime/remaining-parts-ai-check.log.",
+    "deviceAttempt": "The user approved camera/microphone testing. The interviewer tab subsequently showed Microphone ready and changing nonzero input levels. The candidate camera/microphone request timed out after 30 seconds with a recovery message and enabled controls. The interviewer camera check remained pending before that tab closed. Camera capture and remote audio playback are unverified. No recording was started.",
+    "buildWarning": "Existing large Monaco bundle warning remains."
+  },
+  "remaining": [
+    "Judge0 is unconfigured. Docker Desktop's backend is unavailable; its official disable-model-runner command could not connect. WSL cgroup v2 is also incompatible with the current official Judge0 deployment helper. No unsafe host execution fallback was added.",
+    "TURN and public HTTPS hosting are unconfigured. Cross-network camera/audio and actual relay connectivity are not verified.",
+    "Physical camera, screen selection, remote microphone playback, device unplug/recovery, playable recordings, and face-detection accuracy still need successful hardware testing. Local interviewer microphone input was observed; this does not prove a two-person media call.",
+    "Real company verification, email and SMS delivery still require services; local messages remain previews.",
+    "Calibrated gaze, additional-speaker identification and a trained integrity-risk model remain outside the implemented local observations."
+  ],
+  "limits": [
+    "Client observations and camera checks are not tamper-proof; integrity signals are for human review, not an automatic cheating or hiring decision.",
+    "A direct transport connection without media tracks is not a successful camera/audio call. A relay data check is not a cross-network meeting test.",
+    "The optional detector starts off, requires a working one-face camera check, and can be disabled without preventing interview participation."
+  ]
+}

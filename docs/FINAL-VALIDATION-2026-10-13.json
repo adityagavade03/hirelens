@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-13",
+  "status": "Implementation fixes completed; physical accuracy and exact template matching remain partially unverified",
+  "dataIsolation": {
+    "deviceTesting": "User-authorized physical camera/microphone checks used a separate temporary MongoDB and loopback services. Capture stopped, the fixture exited, and temporary recordings were discarded. Only metadata evidence remains.",
+    "training": "Device-test consent explicitly excluded training. No recordings or recruitment records were reused for research, no consent was fabricated, and no trained production integrity model was created.",
+    "uiTesting": "Synthetic Candidate, Company and HR accounts used two disposable fixture instances. Normal recruitment records were not changed."
+  },
+  "recording": {
+    "confirmed": [
+      "Physical USB webcam and Realtek microphone preview worked; microphone meter changed.",
+      "Candidate device recording saved two independent WebM segments and stopped successfully.",
+      "Both clips fully decoded as 640x480 VP8 with mono 48 kHz Opus: 30.00 and 17.34 seconds of audio, 713 and 414 video frames.",
+      "Browser playback reached the first segment's end without a media error; the user reported clear video and speech.",
+      "The interviewer tab decoded the candidate's incoming video at 640x480 in the same-computer WebRTC session.",
+      "Optional local speaker analysis returned one sustained cluster for the second clip. This is one observation, not speaker-detection accuracy."
+    ],
+    "notPassed": [
+      "Local Whisper base.en did not reproduce the intended script: the first transcript was empty and the second said Thank you. Actual spoken content could not be established from the expected script alone; no word-error-rate claim was made.",
+      "A requested clean retry did not produce a new segment visible in the refreshed test recording list, so it was not counted as a successful retry.",
+      "Interviewer microphone permission requests repeatedly timed out. No interviewer recording or two-way audible conversation was verified.",
+      "Two independent physical devices on different networks, remote participant audio audibility, overlapping speakers and multi-person speaker accuracy remain unverified."
+    ],
+    "fixed": [
+      "Recorder startup failure no longer leaves Stop and save hanging.",
+      "Late capture creation cannot start recording after leaving, unmounting, or withdrawing consent.",
+      "Audio-only MIME selection, ended/replaced devices, recorder errors, concurrent stop and upload retry have regression coverage.",
+      "Blank speech-service results become explicit failed, retryable transcripts instead of blank ready results. Unreviewed text can be re-transcribed; reviewed evidence is protected.",
+      "Playback failures have a visible error message.",
+      "After failed recognition, refreshing the clip revision preserves a typed manual transcript so reviewed saves do not fail with a stale-version conflict."
+    ],
+    "metadataEvidence": [
+      ".data/runtime/device-review-evidence.json",
+      ".data/runtime/device-review-speech-evidence.json"
+    ]
+  },
+  "proctoring": {
+    "confirmed": "Real local face processing initialized and passed its one-face preflight. Seven sustained no-face events, approximately 5.2 seconds each against the existing five-second threshold, reached the isolated server after the controlled absence/cover checks.",
+    "limits": "Event timestamps were retained, but physical-action timing was not independently ground-truthed. Event delivery does not establish detection accuracy, multiple-face sensitivity, or false-positive rates.",
+    "gaze": "Two real-device calibration attempts stopped with insufficient clear eye images. No gaze estimates were accepted; no thresholds were weakened. Gaze remains experimental and accuracy-unvalidated.",
+    "fixed": "Frozen frames now show paused/unavailable status instead of indefinitely active. Delayed results from replaced camera tracks or earlier admission state are ignored. Current zero/multiple-face estimates are visible locally.",
+    "metadataEvidence": ".data/runtime/device-review-face-evidence.json"
+  },
+  "integrityResearch": {
+    "implemented": "Explicit research-consent provenance/withdrawal/expiry, independent labels and adjudication, empty collection template, preflight, participant-disjoint training, baselines, calibration, clustered uncertainty intervals and device/browser slices.",
+    "result": "No legitimate reviewed research dataset existed. Empty data is correctly rejected; no real-data model was trained. Research artifacts remain deploymentApproved:false and do not change recruitment scoring.",
+    "instructions": "docs/INTEGRITY-RESEARCH-PROTOCOL.md",
+    "emptyTemplate": "docs/integrity-collection-template.json"
+  },
+  "aiQuality": {
+    "result": "Final 18-case synthetic resume/JD and interview-report corpus passed after corrections; baseline and intermediate failures are preserved.",
+    "details": "docs/AI-QUALITY-VERIFICATION.json",
+    "limits": "A small synthetic regression corpus is not real-world hiring accuracy, fairness, or general model reliability validation. Existing stored assessments were not silently rewritten."
+  },
+  "ui": {
+    "confirmed": [
+      "Ninety-five route/layout observations across public, Candidate, Company and HR screens at 390, 768 and 1440 CSS-pixel widths; no document-level horizontal overflow in those observations.",
+      "Representative resume/profile, signup, application-evidence, job-creation and interview-preflight screens visually inspected in light/dark combinations; screenshots saved.",
+      "Mobile navigation traps focus and Escape returns it to its opener. Application dialog and notification Escape also return focus correctly.",
+      "Theme selection survives reload/navigation; unsaved form input survives theme switching.",
+      "Signup/filter selected states are announced. Shared field labels exclude help text from control names and preserve existing descriptions.",
+      "Flat-surface input borders/focus and text/status token contrast checks pass.",
+      "Unexpected render/page-module failures now have accessible user-controlled recovery instead of a blank page."
+    ],
+    "referenceLimits": "User selected Amber Video Editor. Both official Hostinger live-preview URLs failed with ERR_CERT_AUTHORITY_INVALID; no certificate bypass was attempted. Exact 7Heven/Amber layout, fonts and colors cannot be confirmed without accessible references or screenshots.",
+    "otherLimits": "Fresh browser checks used Codex's Chromium in-app browser. Physical mobile, Firefox/WebKit, screen-reader speech and OS reduced-motion behavior remain unverified. Reduced-motion CSS and first-paint theme behavior have source/unit coverage. Some route snapshots were loading or expected role-denied states; these are not counted as full visual inspection of loaded content.",
+    "evidence": ".data/runtime/final-ui-qa/route-observations.json",
+    "screenshots": ".data/runtime/final-ui-qa"
+  },
+  "projectChecks": {
+    "status": "Passed relevant final checks",
+    "fullSuite": "npm run check passed: production build and 313 tests across 26 files. This preceded the final MediaReview stale-version fix.",
+    "finalChange": "After that final isolated fix, npm run build passed and 36 relevant tests across six files passed, including the new failed-transcription-to-manual-save regression. No later source edits remain.",
+    "health": "Doctor passed: normal database ping and API health200. Provider configuration health is not proof of speech quality or cross-network calling.",
+    "knownWarning": "Existing large Monaco/coding-editor bundle warning."
+  }
+}

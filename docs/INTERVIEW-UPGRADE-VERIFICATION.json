@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-08",
+  "status": "Local implementation, final build/regressions and the listed browser/media checks passed. External service, cross-network and model-validation dependencies remain.",
+  "scope": "Existing HireLens coding, live video, delivery, company verification, saved recordings, transcription and optional advanced observations. Existing roles, routes, database records and AI resume screening are preserved.",
+  "implemented": [
+    "C and C++ added alongside Java, Python and JavaScript in editors, separate language drafts, starter programs and the coding question library; compiler IDs are discovered from the connected Judge0 service.",
+    "Eleven real-execution diagnostic cases cover all five languages plus compile errors, runtime errors, timeout and wrong-answer behavior; activation still requires a functioning isolated Judge0 host.",
+    "WebRTC camera/screen transceivers are mapped by media purpose after an actual browser trial exposed a late-track ordering error. Both camera directions and a user-selected window share passed after the correction.",
+    "Restricted same-computer Coturn 4.18.0 relay in WSL, expiring credentials, production guard, restart helper and explicit browser relay check.",
+    "SMTP TLS and provider-configuration validation, preview/provider status metadata, redacted configuration diagnostics and no-send SMTP authentication check.",
+    "Reusable isolated synthetic-media verification command covering real VP8/Opus encoding, API upload, exact authenticated/range playback, full decode, local Whisper transcription and explicit transcript review.",
+    "Separately consented optional local speaker-cluster analysis of saved candidate clips; ownership/removal/retention/finalization protections, anonymous per-clip labels and no integrity-score effect.",
+    "Experimental candidate-only eye-image gaze calibration with held-out target validation, local processing, invalidation on device/layout changes and no uploaded coordinates or scoring.",
+    "Offline research-only integrity trainer with explicit dataset protocol, independent-review metadata, participant-disjoint evaluation and deploymentApproved=false artifacts. No real dataset or trained custom integrity model was fabricated."
+  ],
+  "checks": {
+    "preRtcFixRegression": {
+      "command": "npm run check",
+      "result": "passed before the later RTC correction",
+      "productionBuild": true,
+      "tests": 183,
+      "suites": 18,
+      "log": ".data/runtime/remaining-update-full-check.log"
+    },
+    "finalRegression": {
+      "command": "npm run check",
+      "result": "passed after the RTC correction",
+      "productionBuild": true,
+      "tests": 185,
+      "suites": 18,
+      "testDurationSeconds": 85.56,
+      "clientBuildDurationSeconds": 23.3,
+      "log": ".data/runtime/remaining-update-final-check.log",
+      "postListKeyCorrection": {
+        "command": "npm run build",
+        "result": "passed; browser showed no new errors after list-key prefixes were corrected",
+        "clientBuildDurationSeconds": 12,
+        "log": ".data/runtime/remaining-update-final-build.log"
+      }
+    },
+    "browser": {
+      "environment": "Isolated temporary Candidate and HR records; two browser sessions on the same physical Windows laptop.",
+      "camera": "After the RTC correction, both camera directions received 640x480 video with readyState=4 and paused=false.",
+      "microphone": "Physical microphone readiness/input activity observed. Remote audio audibility was not verified.",
+      "screenSharing": "The user selected a window in the native picker; HR received Candidate shared screen at 1920x1020, readyState=4, paused=false after the track-mapping fix.",
+      "relay": "Forced-relay peer data exchange passed through the restricted WSL Coturn service. This proves same-computer relay data connectivity, not a public or cross-network media call.",
+      "reconnection": "HR reconnected and again received the 640x480 camera and 1920x1020 shared screen with readyState=4 and paused=false. Both participants' camera/microphone/screen tracks were stopped after testing.",
+      "codingLanguages": "C and C++ selections and starter programs were verified in the actual browser. No compile/run success is claimed without Judge0.",
+      "savedMediaUi": "Browser playback and actual Whisper/speaker-analysis UI were exercised with an explicitly synthetic saved fixture, not a physical-device recording.",
+      "gaze": "Face/landmark assets loaded. No completed physical gaze calibration or accuracy measurement.",
+      "layout": "Saved-media/speaker-review UI verified in light and dark modes. The attempted mobile viewport override did not apply; no new mobile verification is claimed.",
+      "screenshots": [
+        ".data/runtime/interview-speaker-review-dark.jpg",
+        ".data/runtime/interview-speaker-review-light.jpg"
+      ]
+    },
+    "savedMedia": {
+      "command": "npm run media:check",
+      "result": "passed",
+      "evidence": ".data/runtime/media-check-result.json",
+      "playableDownloadedFixture": ".data/runtime/media-check-CWcZtd/api-playback.webm",
+      "bytes": 50255,
+      "videoCodec": "vp8",
+      "audioCodec": "opus",
+      "decodedVideoFrames": 71,
+      "decodedAudioFrames": 293,
+      "decodedAudioSeconds": 5.8336,
+      "transcript": "This is an interview practice session. A hash map provides fast key lookup.",
+      "normalDatabaseUsed": false,
+      "physicalDevicesCaptured": false
+    },
+    "speakerModels": {
+      "evidence": ".data/runtime/diarization-live-result.json",
+      "model": "sherpa-onnx/pyannote-segmentation-3.0-int8+nemo-en-titanet-small",
+      "syntheticSingleVoice": "One cluster returned by actual inference.",
+      "publicFourSpeakerSample": "Seven raw cluster labels returned with the unchanged default threshold: observed over-segmentation, not an exact speaker-count success.",
+      "interviewAccuracyValidated": false
+    },
+    "providerConfiguration": "Historical pre-activation check: npm run providers:check confirmed email=preview, SMS=preview and company verification=unconfigured. --require-external correctly rejected that setup. No messages or registry requests were sent. Superseded for email by emailActivation below.",
+    "normalServices": "Main API doctor returned HTTP 200 and health=ready. Idempotent npm run local:start passed, and the normal app was reopened at http://localhost:5173/. This does not establish inbox receipt or a public deployment.",
+    "emailActivation": {
+      "date": "2026-10-08",
+      "credentialEntry": "The user entered their own Gmail App Password privately through the local hidden-input helper; no sender address or secret is recorded here.",
+      "smtpAuthentication": "Actual Gmail connection/authentication passed without sending a message.",
+      "eligibleQueuedNotificationsBeforeActivation": { "email": 0, "sms": 0 },
+      "configuration": { "emailMode": "smtp", "smsMode": "unconfigured", "companyVerificationMode": "unconfigured", "messagePreview": false },
+      "liveAuthOptionsAfterApiRestart": { "messagePreview": false, "email": true, "companyOtp": true },
+      "apiHealth": "ready",
+      "assistantSentEmail": false,
+      "inboxReceiptVerified": false,
+      "nextCheck": "User performs normal company sign-in and confirms receipt of the fresh emailed code. Previous preview codes are not automatically resent.",
+      "setupChecks": "Ten focused setup tests and TypeScript validation passed with mocked SMTP and temporary files; actual authentication was subsequently performed by the user's setup helper."
+    },
+    "temporaryFixtureCleanup": "The temporary room fixture stopped successfully; ports 4001 and 5174 have no listeners. The cleanup log confirms normal recruitment data was untouched.",
+    "normalData": "Normal recruitment records were neither reset nor used as test fixtures. No sample accounts were installed into the normal database.",
+    "buildWarning": "The existing large Monaco editor chunk warning remains."
+  },
+  "remaining": [
+    "Actual code execution: Judge0 remains unconfigured. Docker Desktop fails while initializing its inference-manager socket; the current WSL cgroup environment is not a validated Judge0 host. No Docker reset, kernel change or unsafe host execution fallback was performed.",
+    "Gmail SMTP is activated and authenticated; actual company OTP inbox receipt still needs user confirmation. SMS and business verification remain unconfigured and require providers. The shared preview mode is now off; company verification states are unchanged.",
+    "Public HTTPS/TURN and a real two-device interview on different networks, including audible remote microphone playback, reconnect/device-unplug behavior and physical recording quality.",
+    "A completed physical gaze calibration and independent accuracy/usability evaluation; experimental gaze is not attention or cheating detection.",
+    "Speaker-clustering evaluation using real consented interview audio, multiple languages, overlapping voices and noise; current observed over-segmentation prevents an accuracy claim.",
+    "A legitimately collected, independently reviewed and consented dataset before a custom integrity model can actually be trained and validated. Runtime integrity remains transparent rules and human review."
+  ],
+  "guides": [
+    "CODE-EXECUTION.md",
+    "TURN-SETUP.md",
+    "DELIVERY-AND-VERIFICATION.md",
+    "MEDIA-VERIFICATION.md",
+    "ADVANCED-PROCTORING.md"
+  ]
+}

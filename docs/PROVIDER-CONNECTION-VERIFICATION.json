@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-13",
+  "emailOtp": {
+    "transport": "Gmail SMTP",
+    "request": "One company sign-in OTP requested through the normal browser login form with explicit user permission.",
+    "providerAccepted": true,
+    "requestedAtUtc": "2026-10-13T05:18:56.221Z",
+    "inboxReceiptConfirmedByUser": true,
+    "userConfirmation": "Yes, I received the OTP email",
+    "accountPasswordsChanged": false,
+    "note": "No OTP code, password, SMTP secret or recipient address is recorded in this file. Login completion with the received code was not tested."
+  },
+  "codeExecution": {
+    "checkedOn": "2026-10-13",
+    "endpoint": "https://ce.judge0.com",
+    "mode": "official public demonstration API",
+    "adapter": "Existing HireLens executeCode with temporary process configuration only",
+    "passed": 11,
+    "total": 11,
+    "checks": [
+      "Python execution and expected output",
+      "JavaScript execution and expected output",
+      "Java compilation/execution and expected output",
+      "C compilation/execution and expected output",
+      "C++ compilation/execution and expected output",
+      "C compilation error",
+      "C++ compilation error",
+      "Java compilation error",
+      "Python runtime error",
+      "Python time limit",
+      "Wrong-answer verdict"
+    ],
+    "candidateDataSubmitted": false,
+    "savedConfigurationChanged": true,
+    "productionReady": false,
+    "note": "Only fixed synthetic diagnostic programs were submitted. The public service stores submitted source and has no availability guarantee. This proves current adapter compatibility, not private candidate-data handling or production readiness.",
+    "localExecutor": {
+      "ready": false,
+      "docker": "Docker Desktop 4.74.0 failed normal startup at the dockerInference runtime socket; read-only reparse query returned Windows error 1920.",
+      "wsl": "Installed Ubuntu uses cgroup v2, while the official Judge0 CE 1.13.1 deployment expects cgroup v1.",
+      "vm": "KVM accessible; 15.26 GiB total RAM, only 1.24 GiB currently free in Windows. Approximately 4–5 GB download and additional guest RAM/storage would be needed. No VM installation/download, data deletion, kernel change, WSL shutdown or host code execution performed."
+    },
+    "userApprovedPracticeActivation": true,
+    "activeUse": "Local personal practice only; hiring and production blocked server-side.",
+    "browserVerification": {
+      "database": "isolated temporary MongoDB, separate preview hostname",
+      "customRun": "Accepted with expected synthetic output",
+      "submission": "4/4 Pair sum tests passed; hidden outputs remained hidden",
+      "normalRecruitmentRecordsChanged": false,
+      "cameraOrMicrophoneUsed": false,
+      "notice": "Source/input upload and public-service retention/availability limits shown before Run/Submit; corrected spacing verified in light mode",
+      "screenshot": ".data/runtime/practice-code-verified.png"
+    }
+  },
+  "otherProviders": {
+    "accountsAvailable": false,
+    "userClarification": "I want all services, but haven't created the accounts yet",
+    "status": "Native Twilio SMS/TURN and Cashfree live Indian CIN integrations implemented. Accounts and credentials still missing; no paid signup, live SMS, registry lookup or public relay token request was made.",
+    "sms": {
+      "implemented": true,
+      "provider": "Twilio",
+      "liveVerified": false
+    },
+    "companyVerification": {
+      "implemented": true,
+      "provider": "Cashfree Secure ID CIN",
+      "scope": "Active Indian CIN, matching legal name and registry email; sandbox cannot verify",
+      "liveVerified": false
+    },
+    "publicTurn": {
+      "implemented": true,
+      "provider": "Twilio NTS or self-hosted Coturn",
+      "localHmacPreserved": true,
+      "closedRoomTokenIssuanceBlocked": true,
+      "twoDeviceCrossNetworkVerified": false
+    }
+  },
+  "regression": {
+    "command": "npm test",
+    "passed": 258,
+    "suites": 21,
+    "liveProvidersUsed": false
+  },
+  "build": {
+    "command": "npm run build",
+    "passed": true,
+    "warning": "Existing large Monaco editor chunk warning"
+  }
+}

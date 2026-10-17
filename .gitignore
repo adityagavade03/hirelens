@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-server/
+.env
+.env.*
+!.env.example
+!.env.production.example
+.data/
+coverage/
+*.log
+test-results/
+
+public/vendor/mediapipe/
+.venv/
+__pycache__/
+*.pyc

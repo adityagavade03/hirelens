@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-17",
+  "purpose": "Temporary HTTPS access to the existing HireLens workspace for user-led interviews on different devices and networks",
+  "approval": "User explicitly approved the existing database-backed workspace being served through Cloudflare for up to eight hours with both preview and account authentication",
+  "mode": "Compiled production server on loopback port 4003 behind Cloudflare Quick Tunnel",
+  "permanentHosting": false,
+  "data": "Existing local database; user actions change existing records. No seed, migration, account password reset, or fabricated company verification.",
+  "protections": [
+    "Independent random preview password with Secure HttpOnly cookie",
+    "Normal account authentication, role permissions and company OTP retained",
+    "Temporary access scoped to the selected development company; company remains unverified",
+    "Eight-hour maximum lifetime, including HTTP and WebSocket expiry",
+    "Database port, development server and source files not tunneled",
+    "Visible testing banner and no-store/noindex responses"
+  ],
+  "fix": "Same-origin referrer policy lets native password-form navigation preserve Origin while null and cross-origin submissions remain rejected",
+  "checks": {
+    "productionBuild": "passed",
+    "targetedTests": "38 passed across private preview, live interview and local company suites",
+    "normalDatabaseAndApi": "database ping passed; API health 200",
+    "browserGateSubmission": "passed on actual public HTTPS origin; HireLens role selector and Company sign-in rendered",
+    "publicApiGate": "unauthenticated request blocked, preview password accepted, health ready, account authentication still required",
+    "publicWebSocket": "transport reached normal account authentication; no-account connection rejected as expected",
+    "realAccountPasswordAndOtp": "not exercised during this hosting check",
+    "twoDeviceMedia": "not yet tested"
+  },
+  "limits": [
+    "Laptop and local services must stay awake and running",
+    "Both interview participants must use the same public preview URL, including the interviewer on this laptop",
+    "Public TURN is not configured; a successful website or WebSocket check does not prove cross-network camera/audio connectivity",
+    "Public Judge0 demo is unavailable in production preview; hiring code execution requires its own service",
+    "No real business-verification or SMS provider configured"
+  ],
+  "accessDetails": ".data/private-preview/access.txt (local ignored file; not committed)",
+  "runtimeVerification": ".data/private-preview/verification.json",
+  "stopCommand": "npm run preview:stop"
+}

@@ -1,0 +1,33 @@
+.application-form .application-fields {
+  border: 0;
+  padding: 0;
+  margin: 1.5rem 0;
+  min-width: 0;
+}
+.application-form .application-fields legend {
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+.application-form .application-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin: 0.9rem 0;
+  line-height: 1.5;
+}
+.application-form .application-choice input {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0.3rem;
+}
+.application-form input[type="file"] {
+  max-width: 100%;
+}
+.application-stage-detail {
+  display: block;
+  margin-top: 0.4rem;
+  max-width: 21rem;
+  white-space: normal;
+}

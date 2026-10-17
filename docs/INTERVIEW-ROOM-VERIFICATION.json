@@ -1,0 +1,88 @@
+{
+  "latestVerification": "REMAINING-PARTS-VERIFICATION.json — 8 October 2026, including optional face controls and browser verification",
+  "date": "2026-10-06",
+  "scope": "Teams-inspired human interview room for the assigned candidate and HR, from the attached prompt",
+  "status": "Implemented; real-browser visual and two-device media verification remain outstanding.",
+  "route": "/room/:id — use Open room from Interviews",
+  "implemented": [
+    "Real participant names, selected-device setup and microphone meter, camera requirement with HR accommodation, prepared PDF resume, monitoring consent, waiting room and HR admission",
+    "Compact meeting header, elapsed time, persistent video tiles, expandable and resizable workspace, bottom controls, existing themes, responsive layout and reduced-motion support",
+    "Candidate-only screen controls, receive-only HR screen transceiver, server rejection of HR publication SDP/status, separate webcam/screen tracks, stop-sharing events and optional entire-screen validation",
+    "Authenticated local PDF viewer with page navigation, zoom, accessible text, loading/error/retry, validated uploads, ownership checks and explicit candidate sharing",
+    "Java-first Monaco editor, ordered autosave, tab draft backup, socket-triggered read-only HR code updates, question selection/written instructions, stdin, Run/Submit and version-associated provider output with stale-result notice",
+    "Visibility, focus, fullscreen, camera, screen, network and editor-only clipboard metadata; duration/connection context, HR timeline, candidate return warning and suppression of expected permission-dialog focus events",
+    "HR admission, screen-share request, instructions, private notes/evaluations and end-for-everyone; typed/spoken answers, AI follow-ups and separate recording consent preserved",
+    "Face processing stays off in the new human room pending real-camera validation. No automatic cheating or hiring verdict is made.",
+    "Practice and AI-led interviews retain the existing room. Recruitment routes, application snapshots, authentication and database configuration are preserved."
+  ],
+  "newFiles": [
+    "src/HumanRoom.tsx",
+    "src/RoomConversation.tsx",
+    "src/RoomResume.tsx",
+    "src/room-updates.ts",
+    "src/meeting.css",
+    "shared/room.ts",
+    "server/interview-room.ts",
+    "server/room-events.ts",
+    "tests/room-browser-behavior.test.ts"
+  ],
+  "updatedFiles": [
+    "src/Room.tsx",
+    "src/RoomMedia.tsx",
+    "src/InterviewMedia.tsx",
+    "src/interview-devices.ts",
+    "src/live-call.ts",
+    "src/monitoring.ts",
+    "server/app.ts",
+    "server/models.ts",
+    "server/realtime.ts",
+    "server/security.ts",
+    "shared/types.ts",
+    "tests/live-interview.test.ts",
+    "tests/room-media.test.ts",
+    "tests/workflow.test.ts",
+    "tests/finalization.test.ts",
+    "tests/remaining.test.ts",
+    "package.json",
+    "package-lock.json",
+    "vitest.config.ts",
+    "docs/SETUP-REMAINING.md",
+    "docs/LIVE-INTERVIEW-VERIFICATION.json"
+  ],
+  "validation": {
+    "commands": ["npm run build", "npx vitest run --pool=forks --maxWorkers=1"],
+    "result": "PASS: production client/server build; full regression suite 128 tests in 12 files, including 12 additional room tests.",
+    "logs": [
+      ".data/runtime/interview-room-final-check.log",
+      ".data/runtime/interview-room-forks-check.log",
+      ".data/runtime/interview-room-final-build.log"
+    ],
+    "testRunner": "One repeated thread-pool run exited with Windows native access violation 0xC0000005. The entire suite passed with --pool=forks --maxWorkers=1; those settings are now the default. See https://vitest.dev/guide/common-errors.html#segfaults-and-native-code-errors",
+    "environment": "Real local Socket.IO and isolated temporary MongoDB; jsdom for browser events and device hooks; mock WebRTC for peer logic. Normal recruitment data is untouched.",
+    "executionTests": "Isolated Judge0 contract fixtures check resource/network limits and immutable output/source-version association; these are not proof of live code execution.",
+    "browserAttempt": "CUA failed to start with Windows sandbox helper_unknown_error / setup refresh had errors. No visual or actual camera-call success is claimed.",
+    "health": "Doctor passed database ping and API health 200. Website, HumanRoom, RoomResume and meeting CSS served HTTP 200. Judge0 and TURN remain unconfigured.",
+    "buildWarning": "Existing large Monaco chunk warning remains; build succeeds."
+  },
+  "setup": {
+    "start": "npm install; npm run local:start; open http://localhost:5173/",
+    "database": "Keep the existing MONGODB_URI. Local MongoDB is configured; use an Atlas URI only when you have that deployment. No migration or seeding is needed.",
+    "publicOrigin": "Use HTTPS and set APP_ORIGIN to the actual origin for access from other devices. Localhost is not a public URL.",
+    "execution": "Set JUDGE0_URL and provider-required JUDGE0_API_KEY, JUDGE0_AUTH_HEADER, JUDGE0_RAPIDAPI_HOST. Run npm run code:check. See docs/CODE-EXECUTION.md. Submitted programs are never executed on the app server.",
+    "relay": "Set STUN_URL and reachable TURN_URL (UDP/TCP/TLS as appropriate), TURN_SECRET and TURN_TTL_SECONDS. Test real media between separate networks; see deploy/.",
+    "dependencies": "pdfjs-dist is a direct dependency with a locally bundled worker; jsdom and its types are development-only."
+  },
+  "remainingVerification": [
+    "Two real authenticated sessions/devices: both cameras and audio, readable candidate screen beside camera, device toggles, denial/unplug/recovery, stop-sharing, network loss/reconnect and track cleanup on end.",
+    "Visual and keyboard/screen-reader checks of setup, waiting, all internal panels and modals in both themes on desktop, tablet and mobile.",
+    "Configure/test a live Judge0 runner: Java success, compilation/runtime failures, timeout and exact-version output visible to HR.",
+    "Deploy HTTPS and TURN and test a real cross-network call. No hosting or relay account was created.",
+    "Optional face analysis requires separate consent controls and real-camera validation before being connected to the new room."
+  ],
+  "limits": [
+    "Peer-to-peer signaling restricts the dedicated screen slot; it cannot attest that a modified client's allowed webcam track originated from a camera. An SFU would be needed for media-server publication control.",
+    "Camera readiness, display surface and activity are browser-reported, not tamper-proof. External application identity and OS switching cannot be controlled.",
+    "Tab backup/retry supports transient disconnect, but browser storage deletion or closing before delivery can lose unsent data. Execution is not simulated offline.",
+    "No zero-error or production-readiness claim is made."
+  ]
+}

@@ -1,0 +1,46 @@
+.gaze-preview {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.gaze-calibration-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: var(--canvas);
+}
+.gaze-calibration-help {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90vw, 520px);
+  text-align: center;
+}
+.gaze-calibration-help h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.gaze-calibration-help p {
+  font-size: 0.85rem;
+  margin: 0.4rem 0;
+}
+.gaze-target {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  border: 4px solid var(--text);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px var(--canvas);
+  pointer-events: none;
+}

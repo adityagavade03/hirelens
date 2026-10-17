@@ -1,0 +1,5 @@
+# Replace this domain and set APP_ORIGIN=https://hirelens.example.com.
+# Run Caddy on the host; the application listens on loopback port 4000.
+hirelens.example.com {
+  reverse_proxy 127.0.0.1:4000
+}

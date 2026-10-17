@@ -1,0 +1,73 @@
+{
+  "supersededForHumanRoomsBy": "docs/INTERVIEW-ROOM-VERIFICATION.json",
+  "reviewDate": "2026-10-06",
+  "scope": "Live video interview reliability and consented proctoring",
+  "status": "Software changes implemented and automated checks passed. Real-device and cross-network media validation remains outstanding.",
+  "implemented": {
+    "video": [
+      "Separate tested peer-session lifecycle with collision-safe negotiation and serialized incoming signalling",
+      "ICE queued until its matching description arrives, including during connection restarts",
+      "Camera and microphone can be enabled or replaced after joining without leaving the room",
+      "Screen sharing uses a separate video track and keeps the webcam available for face monitoring",
+      "Explicit screen selection, stop-sharing control, browser stop-sharing handling, and expandable native video controls",
+      "Automatic bounded ICE recovery with renewed TURN credentials and a manual Reconnect video control",
+      "Authenticated participant-only camera, microphone and screen status updates",
+      "Reconnect restores the other participant's current media status; stale duplicate participant tabs are disconnected",
+      "Microphone-only recovery, local input-level meter, friendly permission/device failure messages and autoplay recovery button",
+      "Local tracks, screen capture and spoken-answer microphone capture stop when leaving or ending the session"
+    ],
+    "proctoring": [
+      "Existing explicit monitoring consent remains required; personal practice remains unmonitored",
+      "Browser focus, visibility, fullscreen, copy/paste and connection metadata",
+      "Camera/microphone availability and screen-share start/stop metadata without clipboard contents",
+      "Sustained no-face and multiple-face observations; coarse head orientation remains contextual and does not affect technical scores or integrity points",
+      "Camera outages reset face observations instead of becoming no-face events; hidden-tab time is excluded from sustained visual observation",
+      "Landmark-model failure falls back to face-presence detection; unavailable coverage is disclosed and can be retried",
+      "Metadata-only, interview-scoped tab storage supports retry after transient network failure and same-tab refresh",
+      "Batched idempotent event uploads prevent duplicate records after uncertain responses",
+      "HR-only live Monitoring panel with manual refresh and five-second updates while open",
+      "Existing report event timeline and human review remain separate from technical evaluation"
+    ]
+  },
+  "validation": {
+    "standardCommand": "npm run check",
+    "result": "PASS: client TypeScript, Vite production build, server TypeScript, 11 test files, 116 tests",
+    "newRegressionTests": 22,
+    "testFiles": ["tests/room-media.test.ts", "tests/live-interview.test.ts"],
+    "testsUse": "Mock browser media objects for peer logic, real local Socket.IO connections and an isolated temporary MongoDB for authorization/event delivery. No test fixtures were inserted into the normal recruitment database.",
+    "windowsTestRunner": "An initial fork-worker startup timed out. Isolated worker threads passed the complete suite and are now selected by vitest.config.ts on Windows.",
+    "health": "Database ping passed; API health and localhost website returned HTTP 200",
+    "developmentModules": "Room, live-call, monitoring and RoomMedia modules returned HTTP 200 from Vite",
+    "models": "BlazeFace and Face Landmarker returned HTTP 200 and matched the pinned SHA-256 checksums. MediaPipe WASM returned HTTP 200.",
+    "buildWarning": "Existing large Monaco editor chunk warning remains."
+  },
+  "remainingVerification": [
+    "Browser automation could not start because the Windows sandbox helper failed. Actual camera/audio playback, permissions UI, screen selection and changed room layout were not visually verified in this run.",
+    "TURN_URL and TURN_SECRET are not configured on this installation. UDP/TCP/TLS relay URLs and expiring per-user credentials are supported, but no live relay connection was tested.",
+    "The running application is localhost-only. A public HTTPS origin is needed for access from independent devices; no public deployment was created.",
+    "Test real Candidate and assigned HR devices on separate networks, including muted audio, screen sharing, temporary disconnect, reconnect and stopping all tracks at session end.",
+    "Face presence/multiple-person behavior still needs real-camera testing under different lighting. No extra-speaker identity model, calibrated gaze inference or trained integrity classifier was added."
+  ],
+  "operationalBounds": {
+    "monitoringQueue": "At most 200 metadata events in the current browser tab; overflow is disclosed with a coverage-gap event. Storage-blocked browsers use memory only. Closing the tab may lose unsent metadata.",
+    "monitoringUploads": "Batches contain at most 30 events. Recent in-call metadata can arrive for 10 minutes after completion; timestamps beyond the accepted session window are rejected.",
+    "screenAndRecording": "Screen sharing is live and explicitly selected. The existing optional recording captures the participant's camera/microphone, not the shared screen.",
+    "evidence": "Client monitoring is incomplete and can be inaccurate or manipulated. It never automatically selects or rejects a candidate."
+  },
+  "manualCheckSequence": [
+    "Use separate browser profiles or devices for the candidate and assigned HR so their login cookies do not replace each other.",
+    "Open the scheduled interview within its joining window. Check camera/microphone; candidate accepts the monitoring notice; both join.",
+    "Verify two-way video and speech, microphone mute/unmute, camera off/on, and enabling devices after joining.",
+    "Select Share screen, choose a harmless window, verify the remote view, then stop using the browser's sharing control.",
+    "Temporarily disconnect one participant and reconnect. Confirm that media recovers without losing unsaved code or typed answers.",
+    "In HR's Monitoring tab, check consented events, their timestamps, camera outages, screen-share changes and sustained face observations. Review context rather than treating an event as proof.",
+    "Finish the interview and confirm camera, microphone and screen indicators stop on both devices; review the report timeline."
+  ],
+  "primaryReferences": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation",
+    "https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/restartIce",
+    "https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpSender/replaceTrack",
+    "https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia",
+    "https://socket.io/docs/v4/client-api/"
+  ]
+}

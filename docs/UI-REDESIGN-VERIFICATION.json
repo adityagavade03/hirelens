@@ -1,0 +1,298 @@
+{
+  "status": "Implemented and verified; reference-inspired appearance, not an exact template reproduction",
+  "references": {
+    "light": {
+      "name": "7Heven",
+      "provided": true,
+      "gallery": "https://www.hostinger.com/templates/website/service",
+      "preview": "https://suspended-ceiling-cost-394223.hostingersite.com/",
+      "basis": "Visible gallery thumbnail: warm paper/grid surfaces, charcoal typography and burnt orange accents. Live preview did not load."
+    },
+    "dark": {
+      "name": "Amber Video Editor",
+      "provided": true,
+      "gallery": "https://www.hostinger.com/templates/website",
+      "preview": "https://cinematic-video-editor-amber-374889.hostingersite.com/",
+      "basis": "User selected Amber Video Editor on 2026-10-13. Gallery listing confirmed; live-preview appearance remains unverified.",
+      "selectionConfirmed": "2026-10-13"
+    }
+  },
+  "publicRoutes": [
+    "/",
+    "/auth/company",
+    "/auth/hr",
+    "/auth/candidate",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/verify-contact",
+    "/auth/resend-verification"
+  ],
+  "workspaceRoutes": [
+    "/room/:id",
+    "/company",
+    "/company/profile",
+    "/hr",
+    "/candidate",
+    "/interviewers",
+    "/assignments",
+    "/jobs/new",
+    "/notifications",
+    "/jobs",
+    "/jobs/:id",
+    "/applications",
+    "/interviews",
+    "/practice",
+    "/profile",
+    "/team",
+    "/reports",
+    "/reports/:id",
+    "/governance",
+    "/coding-library",
+    "/settings"
+  ],
+  "components": {
+    "AccountFeatures.tsx": [
+      "AccountAccess",
+      "AccountSecurityPanel"
+    ],
+    "App.tsx": [
+      "App",
+      "Brand"
+    ],
+    "Assessment.tsx": [
+      "AssessmentPanel",
+      "PerformanceHistory"
+    ],
+    "AuthPage.tsx": [
+      "AuthPage"
+    ],
+    "CodeHistory.tsx": [
+      "CodeHistory"
+    ],
+    "CodingLibrary.tsx": [
+      "CodingLibrary"
+    ],
+    "company-fields.tsx": [
+      "CompanyIdentityFields"
+    ],
+    "company.tsx": [
+      "CompanyDashboard",
+      "CompanyProfilePage",
+      "InterviewersPage",
+      "AssignmentsPage",
+      "HrRequestsSummary",
+      "NotificationsPage"
+    ],
+    "Governance.tsx": [
+      "GovernancePage"
+    ],
+    "InterviewBatches.tsx": [
+      "InterviewBatches"
+    ],
+    "InterviewInstructions.tsx": [
+      "InterviewInstructions"
+    ],
+    "InterviewMedia.tsx": [
+      "MediaReview",
+      "InterviewCapture",
+      "SimilarityPanel"
+    ],
+    "InterviewRounds.tsx": [
+      "InterviewRounds"
+    ],
+    "management.tsx": [
+      "ProfilePage",
+      "TeamPage",
+      "ReportsPage",
+      "ReportPage",
+      "SettingsPage"
+    ],
+    "recruitment.tsx": [
+      "JobDetailsPage"
+    ],
+    "Room.tsx": [
+      "Room"
+    ],
+    "ui.tsx": [
+      "Badge",
+      "Status",
+      "Avatar",
+      "ErrorBox",
+      "Notice",
+      "Loading",
+      "Empty",
+      "PageTitle",
+      "Panel",
+      "Field",
+      "Submit",
+      "Modal",
+      "LinkArrow"
+    ],
+    "workflows.tsx": [
+      "JobsPage",
+      "JobEditor",
+      "ApplicationsPage",
+      "ScheduleEditor",
+      "InterviewsPage",
+      "PracticePage"
+    ]
+  },
+  "additionalSurfaces": [
+    "Company identity verification and account OTP forms",
+    "Job detail and job create/edit modal",
+    "Application review, status filters, allocation and shortlisting",
+    "HR job requests, company invitations and availability modal",
+    "Interview scheduling, batches and rounds",
+    "Practice setup modal",
+    "Interview preflight, video, questions, coding, recording, notes and completion modal",
+    "Assessment rubrics, integrity timeline, similarity, performance history and PDF action",
+    "Notification popover, notification page and delivery preferences",
+    "Coding question editor and retention confirmation",
+    "Loading, empty, error, disabled, selected, focus and success states"
+  ],
+  "themeSpecific": {
+    "stylesheets": [
+      "src/styles.css",
+      "src/company.css"
+    ],
+    "hardcodedComponents": [
+      "src/ui.tsx:Avatar",
+      "src/App.tsx:dashboard chart",
+      "src/InterviewMedia.tsx:video surface",
+      "src/Room.tsx:Monaco theme"
+    ],
+    "bootstrap": "index.html (theme must resolve before first paint)",
+    "toggleLocations": [
+      "Public auth/account pages",
+      "Workspace topbar",
+      "Interview preflight and room",
+      "Settings appearance"
+    ]
+  },
+  "qaPlan": {
+    "widths": [
+      390,
+      768,
+      1440
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "states": [
+      "keyboard focus and navigation",
+      "persisted mode and reload",
+      "system preference and blocked storage fallback",
+      "reduced motion",
+      "mobile sidebar focus/escape",
+      "modal open/close/focus restoration",
+      "empty/loading/error/data-filled screens",
+      "editor draft preserved on theme change",
+      "active interview/media unaffected"
+    ],
+    "dataIsolation": "Use temporary database for page/state fixtures; do not add visual-testing accounts to normal database."
+  },
+  "reviewDate": "2026-10-05",
+  "implementation": {
+    "tokens": "src/theme.css",
+    "preferences": "src/theme.tsx; light, dark and system preferences; saved browser selection and cross-tab/system updates",
+    "firstPaint": "public/theme-init.js, loaded synchronously in index.html before React and CSS; external script compatible with the existing self-only script policy",
+    "editor": "src/CodingEditor.tsx; two Monaco themes without remounting the editor",
+    "accessibility": "Focus indicators, skip link, labeled dialogs and room textareas, mobile drawer focus trap/inert background, Escape and focus restoration",
+    "motion": "Short page/card/button/sidebar/dialog transitions; prefers-reduced-motion overrides; no theme-based route/editor remount"
+  },
+  "verification": {
+    "command": "npm run check",
+    "result": "PASS: client TypeScript, Vite production build, server TypeScript, 9 test files and 94 tests",
+    "newTests": "tests/theme.test.ts: actual first-paint bootstrap under explicit/system/blocked-storage conditions; actual light/dark text and semantic status token contrast at least 4.5:1",
+    "desktop": "Public account pages and all role-accessible routes across Company, HR and Candidate reviewed in light and dark modes, including report details, room preflight and coding workspace",
+    "responsive": "Desktop 1440, tablet 768 and mobile 390 CSS pixels; representative dashboards, jobs, applications, profiles, interviews, reports, settings and every public account route. No document-level horizontal overflow in 172 recorded observations.",
+    "interactionChecks": [
+      "Theme choice survives navigation and reload",
+      "System preference control resolves appearance",
+      "Mobile drawer traps keyboard focus; Escape returns focus to menu trigger",
+      "Modal Escape dismisses and returns focus to its opener",
+      "Notification Escape returns focus to the notification button",
+      "Code, undo history, unsaved answers and private notes survive theme changes",
+      "Search and unsaved signup fields survive theme changes",
+      "Expected unavailable-code-service error is readable",
+      "Loading, empty, success, disabled and error states use theme tokens"
+    ],
+    "evidenceDirectory": ".data/runtime/theme-qa",
+    "dataIsolation": "Authenticated browser checks used a separate ephemeral Mongo database and local test server. No QA accounts or fixtures were added to the normal application database."
+  },
+  "limitations": [
+    "Exact Hostinger template colors, fonts and layout could not be verified because the live previews failed to load. The result is reference-inspired.",
+    "Production build retains the existing large Monaco bundle warning (approximately 2.75 MB chunk).",
+    "Camera/microphone permissions, live multi-person WebRTC, external email/AI/speech/Judge0/TURN services and production deployment were not exercised by this UI review.",
+    "Reduced-motion behavior was reviewed in CSS; OS preference changes and cross-tab storage events were implemented but not separately browser-emulated.",
+    "Automated contrast checks cover shared token pairs, not every possible dynamic image or video background."
+  ],
+  "followUpReview": {
+    "date": "2026-10-13",
+    "scope": "Source accessibility, theme contrast, route inventory and current official reference discovery. Fresh browser evidence is recorded separately by the device/UI audit.",
+    "references": {
+      "galleryListings": "Official Hostinger galleries list 7Heven and both Amber variants. User selected Amber Video Editor.",
+      "lightThumbnail": "https://www.hostinger.com/cdn-cgi/imagedelivery/LqiWLm-3MGbYHtFuUbcBtA/horizons-desktop-suspended-ceiling-cost-394223-v3/public",
+      "darkThumbnail": "https://www.hostinger.com/cdn-cgi/imagedelivery/LqiWLm-3MGbYHtFuUbcBtA/horizons-desktop-cinematic-video-editor-amber-374889-v2/public",
+      "webFetch": "Both selected live previews returned errors; both gallery thumbnails returned cache-miss errors. No exact layout, font, or color match claimed from these failures.",
+      "browserFetch": {
+        "result": "Both selected official preview hosts failed in the browser with net::ERR_CERT_AUTHORITY_INVALID.",
+        "security": "Certificate warnings were not bypassed.",
+        "conclusion": "Exact 7Heven and Amber Video Editor appearance remains unverified; screenshots or theme configuration are needed."
+      }
+    },
+    "routeInventory": {
+      "public": 8,
+      "workspace": 21,
+      "changes": "Current App/AuthPage route definitions match the recorded inventory."
+    },
+    "completed": [
+      "Authentication, jobs, interviews, and interviewer-directory filter buttons announce their selected state with aria-pressed inside named groups.",
+      "Shared Field controls have stable label and hint references. Existing custom labels and aria-describedby references are retained; hints no longer form part of the default control name.",
+      "Light-mode input borders changed from #b4aa9b to #918675: contrast improved from 2.02–2.29:1 to 3.15–3.58:1 across surface, canvas, and muted surfaces.",
+      "Existing dark-mode control borders and light/dark focus indicators satisfy 3:1 contrast on those surfaces.",
+      "Existing theme tests: 7 passed, including saved/system/blocked-storage first-paint resolution, 4.5:1 text/status contrast and 3:1 boundary/focus contrast."
+    ],
+    "sourceReviewed": [
+      "src/App.tsx",
+      "src/AuthPage.tsx",
+      "src/AccountFeatures.tsx",
+      "src/ui.tsx",
+      "src/navigation.ts",
+      "src/theme.tsx",
+      "src/theme.css",
+      "src/styles.css",
+      "src/company.css",
+      "src/company.tsx",
+      "src/workflows.tsx",
+      "src/management.tsx",
+      "src/recruitment.tsx",
+      "src/ResumeProfile.tsx",
+      "src/ResumeScreening.tsx",
+      "src/resume.css"
+    ],
+    "browserReview": {
+      "date": "2026-10-13",
+      "engine": "Codex in-app Chromium browser",
+      "observations": 95,
+      "widths": [390, 768, 1440],
+      "horizontalOverflow": 0,
+      "evidence": ".data/runtime/final-ui-qa/route-observations.json",
+      "screenshots": ".data/runtime/final-ui-qa",
+      "visualChecks": "Structured candidate resume, light/dark mobile signup, evidence-based application review, job-creation modal, and interview preflight inspected. Screenshot evidence contains synthetic fixture accounts only.",
+      "interactions": [
+        "Mobile navigation Shift+Tab remains trapped; Escape returns focus to Open navigation.",
+        "Application modal Escape returns focus to Review; notification Escape returns focus to Notifications.",
+        "Theme selection survives reload and route navigation; an unsaved project name survives theme switching.",
+        "Signup mode exposes aria-pressed. Password has a separate accessible name and described hint."
+      ],
+      "qualification": "Route observations include some loading and expected role-denied states; metrics are not a claim that every loaded page was visually inspected again in every theme and viewport. Earlier full route visual review remains separately dated. The first disposable server expired during a host suspension; the room was rechecked after restarting it."
+    },
+    "pending": [
+      "Exact 7Heven/Amber Video Editor appearance needs accessible live previews or user screenshots/theme configuration.",
+      "Cross-engine Safari/Firefox and physical mobile screen-reader checks are not established by source review or Chromium checks.",
+      "Contrast tests cover shared flat-surface tokens; they do not establish contrast over every dynamic image/video."
+    ]
+  }
+}

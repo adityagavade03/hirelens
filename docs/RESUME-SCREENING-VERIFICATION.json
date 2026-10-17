@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-08",
+  "scope": "Automatic LLM resume screening, structured candidate resume form, and removal of duplicate/manual-shortlist UI",
+  "automated": {
+    "command": "npm run check",
+    "result": "Production build, server/client TypeScript checks and 153 tests in 14 suites passed.",
+    "log": ".data/runtime/resume-full-check.log",
+    "coverage": "Semantic evidence contracts, blank/invented/incorrectly attributed quotes, required and optional criteria, missing AI results, durable retries, duplicate applies, multiple workers, expired leases, authorization, application-stage changes, frozen JD/profile evidence and legacy/structured profile persistence."
+  },
+  "liveAi": {
+    "command": "npm run resume:check",
+    "result": "Local configured Qwen/Ollama returned an evidence-supported 100% match for the synthetic Java/Spring Boot/MySQL/REST APIs candidate with 3 years against a 2-year requirement.",
+    "log": ".data/runtime/resume-live-ai.log"
+  },
+  "browser": {
+    "environment": "Temporary isolated MongoDB; API 4001, website 5174; synthetic candidate and company accounts only.",
+    "passed": [
+      "Saved named education, work experience and project entries; refreshed and confirmed persistence.",
+      "Changed the company threshold and received a successful job save.",
+      "Applied through the UI and observed automatic screening progress.",
+      "Final real-LLM run on structured profile plus PDF changed the new application to Shortlisted with a 100% score and 80% threshold, without a manual shortlist action.",
+      "Company application details display criterion evidence and a single interview-rounds section.",
+      "Resume and screening result views checked in both light and dark mode.",
+      "Resume form checked at mobile 390px and tablet 820px. Measured document widths equal viewport client widths, with no horizontal document overflow.",
+      "Final company browser error log was empty."
+    ],
+    "screenshots": [
+      ".data/runtime/resume-profile-light.jpg",
+      ".data/runtime/resume-profile-dark.jpg",
+      ".data/runtime/resume-profile-mobile.jpg",
+      ".data/runtime/resume-auto-shortlist-light.jpg",
+      ".data/runtime/resume-auto-shortlist-dark.jpg"
+    ]
+  },
+  "dataSafety": "Normal recruitment data was neither used for fixtures nor reset. Older applications retain legacy scores unless an eligible application is explicitly queued for its first AI assessment.",
+  "limits": [
+    "LLM judgments and self-reported qualifications are not independently verified. The example's 100% match is not a model-accuracy claim.",
+    "Provider failures remain visibly queued/failed and do not receive fabricated scores or automatic rejections.",
+    "Oversized or uncertain evidence requires further review; no automatic shortlist is made.",
+    "The existing large Monaco bundle warning remains. External services and physical interview-device limits documented elsewhere are unchanged."
+  ]
+}

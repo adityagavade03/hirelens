@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2,
+  "purpose": "research-only-human-follow-up",
+  "protocolReference": "replace-with-approved-protocol-id",
+  "collectionProtocol": "Replace this placeholder with your actual consent, retention, withdrawal, de-identification, independent review and frozen-holdout procedures before collecting any sessions.",
+  "rows": []
+}
