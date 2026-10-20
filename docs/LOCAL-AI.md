@@ -16,6 +16,7 @@ This command does not reinstall models, reset the database, seed demo records, o
 - `.data/speech/models`: pretrained Whisper model. Inference runs locally on CPU with INT8; silence is filtered with the included VAD model.
 - `.data/speech/token`: randomly generated local speech authentication secret. Never copy this into frontend code, screenshots, or chat.
 - `scripts/speech-server.py`: bounded audio decoding (6 MB / 120 seconds), one inference request at a time, model-name validation, authenticated transcription endpoint.
+- `scripts/speech_audio.py`: complete resampler output, signal diagnostics, and explicit retryable failures for missing microphone audio or unusable speech. See [SPEECH-QUALITY.md](SPEECH-QUALITY.md) for repeatable checks and physical-test limits.
 
 The `.env` connection is enabled only after `scripts/check-local-ai.ts --configure` successfully transcribes a synthetic spoken sample, generates an interview question, and produces schema-validated answer feedback. `npm run ai:check` repeats those checks. The synthetic fixture is `.data/speech/check.wav`; it contains no personal microphone recording.
 

@@ -3,16 +3,18 @@
 Loads a real faster-whisper model; never synthesizes answers or speaker identities.
 The API matches the application's existing /v1/audio/transcriptions contract.
 """
-import io
 import os
 import secrets
+import sys
 import threading
 from pathlib import Path
 
-import av
-import numpy as np
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from faster_whisper import WhisperModel
+
+# Explicit sibling import also works with Python -I (no current-directory imports).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from speech_audio import SpeechInputError, recognize_audio
 from starlette.concurrency import run_in_threadpool
 import uvicorn
 
@@ -30,30 +32,11 @@ app = FastAPI(docs_url=None, redoc_url=None)
 
 
 def recognize(data):
-    # Decode only the first audio track and stop at a strict two-minute bound.
-    pieces, count = [], 0
     try:
-        with av.open(io.BytesIO(data)) as source:
-            if not source.streams.audio:
-                raise HTTPException(400, "This segment contains no microphone track.")
-            resampler = av.AudioResampler(format="fltp", layout="mono", rate=16000)
-            for frame in source.decode(source.streams.audio[0]):
-                for converted in resampler.resample(frame):
-                    chunk = converted.to_ndarray().flatten()
-                    count += chunk.size
-                    if count > 16000 * 120:
-                        raise HTTPException(413, "Audio is longer than two minutes.")
-                    pieces.append(chunk)
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(400, "The recording could not be decoded.")
-    if not pieces:
-        return {"text": ""}
-    samples = np.concatenate(pieces)
-    segments, _ = engine.transcribe(samples, beam_size=3, vad_filter=True,
-                                    condition_on_previous_text=False)
-    return {"text": " ".join(s.text.strip() for s in segments).strip()}
+        return recognize_audio(data, engine)
+    except SpeechInputError as exc:
+        raise HTTPException(exc.status, detail={"code": exc.code, "message": str(exc),
+                                               "diagnostics": exc.diagnostics}) from exc
 
 
 @app.get("/health")

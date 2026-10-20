@@ -1,5 +1,19 @@
 # HireLens progress
 
+## Optional object detection — 19 October 2026
+
+Implemented experimental camera object detection with a separately consented Candidate preview, local worker inference and bounding boxes. Only sustained phone/book observations are shared for human review after admission; they produce no automatic cheating verdict or hiring-score change. The installed model ran on the physical camera, but missed the phone and misclassified the book in low light, so accuracy remains unvalidated.
+
+`npm run check` passed the production client/server build, TypeScript checks and **479 tests in 45 files**; the final wording-only update also passed `npm run build`. The isolated database confirmed consent withdrawal, zero captures/recording clips and only ordinary monitoring events. The temporary fixture and test tabs were closed. See the [object-detection guide](docs/OBJECT-DETECTION.md) and [device evidence](docs/OBJECT-DETECTION-DEVICE-CHECK-2026-10-19.json). Earlier dated entries below retain their original results.
+
+## Provider preparation and device checks — 19 October 2026
+
+Added private, staged-only provider setup and clearer readiness checks for Judge0, public TURN, SMS and company verification. The owner has no provider accounts or second device yet, so these external activations and cross-network validation remain pending. Gmail settings and recruitment data were preserved. [Activation guide](docs/PROVIDER-ACTIVATION.md).
+
+Fixed Candidate/HR dashboard crashes on legacy applications with missing matching results; missing scores now remain explicitly unavailable. The final build, TypeScript checks and **423 JavaScript/TypeScript tests** passed, along with **15 Python speech-processing tests**.
+
+The physical gaze trial collected all 14 calibration/validation targets but failed the independent accuracy gate; gaze preview stayed disabled. Frozen camera frames now expire an old gaze estimate. Candidate camera/microphone recording, decoding and user-confirmed playback passed for one clip; recognition failed, and a low-confidence guard now reports that failure. HR microphone permission timed out, leaving separate-participant audio unverified. [Current status](docs/PROJECT-STATUS.md).
+
 ## Provider connections — 13 October 2026
 
 One authorized company-login OTP was sent through Gmail and the user confirmed receipt. Added direct Twilio SMS and public TURN integrations, Cashfree Indian CIN verification, bounded provider responses and sanitized errors. Native provider behavior is checked with fixtures; the user has not created the required external accounts. Existing Gmail settings, accounts and local TURN remain unchanged.

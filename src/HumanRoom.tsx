@@ -39,6 +39,13 @@ import { useInterviewDevices } from "./interview-devices";
 import { useLiveCall } from "./live-call";
 import { useMonitoring } from "./monitoring";
 import { useFacePresence } from "./face-presence";
+import { useObjectDetection } from "./object-detection";
+import {
+  useObjectConsent,
+  ObjectDetectionControls,
+  ObjectDetectionLabels,
+  ObjectDetectionOverlay,
+} from "./ObjectDetectionControls";
 import { useDraftSync } from "./draft-sync";
 import { useRoomUpdates } from "./room-updates";
 import { MediaVideo, MicrophoneLevel, MonitoringSummary } from "./RoomMedia";
@@ -68,6 +75,7 @@ const labels: Record<string, string> = {
   "connection-restored": "Connection restored",
   "no-face": "No face detected for a sustained interval",
   "multiple-faces": "Multiple faces detected for a sustained interval",
+  "object-detected": "Phone or book estimated · review the context",
 };
 
 export default function HumanRoom({ id }: { id: string }) {
@@ -137,6 +145,14 @@ export default function HumanRoom({ id }: { id: string }) {
   const devices = useInterviewDevices(monitoring.record);
   const face = useFacePresence({
     enabled: candidate && faceEnabled && !ended,
+    active: !!active && consent,
+    video: faceVideo,
+    services: services.data,
+    record: monitoring.record,
+  });
+  const objectConsent = useObjectConsent(id);
+  const objects = useObjectDetection({
+    enabled: candidate && objectConsent.enabled && !ended,
     active: !!active && consent,
     video: faceVideo,
     services: services.data,
@@ -501,6 +517,17 @@ export default function HumanRoom({ id }: { id: string }) {
       <MicrophoneLevel stream={devices.stream} muted={!devices.mic} />
       {faceControls}
       {candidate && (
+        <ObjectDetectionControls
+          consent={objectConsent}
+          configured={!!services.data?.objects}
+          savedConsent={room?.objectConsent}
+          status={objects.status}
+          ready={objects.ready}
+          detections={objects.detections}
+          retry={objects.retry}
+        />
+      )}
+      {candidate && (
         <CalibratedGaze
           video={faceVideo}
           services={services.data}
@@ -559,6 +586,13 @@ export default function HumanRoom({ id }: { id: string }) {
                 muted
                 onVideo={setFaceVideo}
               />
+              {candidate && objectConsent.enabled && devices.camera && (
+                <ObjectDetectionOverlay
+                  video={faceVideo}
+                  detections={objects.detections}
+                  frameAspect={objects.frameAspect}
+                />
+              )}
               {!devices.camera && (
                 <div className="meeting-video-empty">Camera off</div>
               )}
@@ -772,6 +806,9 @@ export default function HumanRoom({ id }: { id: string }) {
               : "Candidate activity · human review"}
           </small>
           {candidate && faceEnabled && <small>{face.status}</small>}
+          {candidate && objectConsent.enabled && (
+            <small>{objects.status}</small>
+          )}
           {(recording || spokenRecording) && (
             <strong className="meeting-recording">
               ●{" "}
@@ -853,6 +890,7 @@ export default function HumanRoom({ id }: { id: string }) {
             "no-face",
             "multiple-faces",
             "head-turned",
+            "object-detected",
             "monitoring-unavailable",
           ].includes(events[0].kind) && (
             <div className="meeting-warning">
@@ -913,6 +951,13 @@ export default function HumanRoom({ id }: { id: string }) {
                 muted
                 onVideo={setFaceVideo}
               />
+              {candidate && objectConsent.enabled && devices.camera && (
+                <ObjectDetectionOverlay
+                  video={faceVideo}
+                  detections={objects.detections}
+                  frameAspect={objects.frameAspect}
+                />
+              )}
               {!devices.camera && (
                 <div className="meeting-video-empty">Camera off</div>
               )}
@@ -922,6 +967,9 @@ export default function HumanRoom({ id }: { id: string }) {
               </span>
             </div>
           </div>
+          {candidate && objectConsent.enabled && objects.ready && (
+            <ObjectDetectionLabels detections={objects.detections} />
+          )}
           <div className="meeting-screen">
             <div className="meeting-section-title">
               <h2>Candidate’s shared screen</h2>

@@ -269,6 +269,9 @@ async function applicationJob(user: User, jobId: string) {
 }
 async function interviewView(interview: any, user: User) {
   const result = interview.toObject({ flattenMaps: true });
+  result.objectConsent = !!interview.objectConsentWindows?.some(
+    (window: any) => !window.revokedAt,
+  );
   delete result.problemSnapshot;
   delete result.aiBusyToken;
   delete result.aiBusyUntil;
@@ -285,6 +288,7 @@ async function interviewView(interview: any, user: User) {
     "codingPrompt",
     "codingSentAt",
     "faceConsentWindows",
+    "objectConsentWindows",
   ])
     delete result[key];
   if (user.role === "candidate" && interview.type !== "practice") {
@@ -1205,7 +1209,7 @@ export function createApp() {
       "Your interview was cancelled. The hiring team will follow up.",
       "/interviews",
     );
-    res.json(cancelled);
+    res.json(await interviewView(cancelled, req.user));
   });
   app.post(
     "/api/interviews/:id/consent",
@@ -1639,107 +1643,155 @@ export function createApp() {
     "/api/interviews/:id/events",
     permit("candidate"),
     async (req, res) => {
-      const interview = await accessibleInterview(
-        req.user,
-        objectId.parse(req.params.id),
-      );
-      await mustAttendInterview(req.user, interview);
-      if (
-        !interview.consentAt ||
-        interview.type === "practice" ||
-        interview.mode === "in_person"
-      )
-        throw new ApiError(403, "Monitoring consent is required.");
-      if (!admitted(interview))
-        throw new ApiError(403, "Monitoring starts after admission.");
-      const ended = interview.endedAt ? +new Date(interview.endedAt) : 0;
-      // Allow metadata already collected during a call to finish uploading after HR ends it.
-      if (
-        interview.status !== "live" &&
-        !(
-          interview.status === "completed" &&
-          ended &&
-          Date.now() - ended <= 600000
-        )
-      )
-        throw new ApiError(
-          409,
-          "Monitoring uploads are closed for this interview.",
+      const persistEvents = async () => {
+        const interview = await accessibleInterview(
+          req.user,
+          objectId.parse(req.params.id),
         );
-      const eventSchema = z.object({
-        clientEventId: z.uuid().optional(),
-        kind: z.enum(monitoringKinds),
-        occurredAt: z.iso.datetime({ offset: true }),
-        durationMs: z.number().min(0).max(86400000).default(0),
-        detail: text(200).default(""),
-      });
-      const input = z
-        .union([
-          eventSchema,
-          z.object({
-            events: z
-              .array(eventSchema.extend({ clientEventId: z.uuid() }))
-              .min(1)
-              .max(30),
-          }),
-        ])
-        .parse(req.body);
-      const events = "events" in input ? input.events : [input];
-      for (const event of events) {
-        const at = +new Date(event.occurredAt);
+        await mustAttendInterview(req.user, interview);
         if (
-          humanRoom(interview) &&
-          ["no-face", "multiple-faces", "head-turned"].includes(event.kind) &&
-          !interview.faceConsentWindows.some(
-            (w: any) =>
-              w.grantedAt &&
-              at >= +w.grantedAt &&
-              (!w.revokedAt || at <= +w.revokedAt),
+          !interview.consentAt ||
+          interview.type === "practice" ||
+          interview.mode === "in_person"
+        )
+          throw new ApiError(403, "Monitoring consent is required.");
+        if (!admitted(interview))
+          throw new ApiError(403, "Monitoring starts after admission.");
+        const ended = interview.endedAt ? +new Date(interview.endedAt) : 0;
+        // Allow metadata already collected during a call to finish uploading after HR ends it.
+        if (
+          interview.status !== "live" &&
+          !(
+            interview.status === "completed" &&
+            ended &&
+            Date.now() - ended <= 600000
           )
         )
           throw new ApiError(
-            403,
-            "Separate face monitoring consent is required for this observation.",
+            409,
+            "Monitoring uploads are closed for this interview.",
           );
-        if (
-          Math.abs(at - Date.now()) > 86400000 ||
-          (ended && at > ended + 15000)
-        )
-          throw new ApiError(
-            400,
-            "Event timestamp is outside the accepted interview window.",
-          );
-      }
-      const saved = [];
-      for (const event of events) {
-        const document = {
-          ...event,
-          interviewId: interview._id.toString(),
-          candidateId: req.user._id,
-        };
-        if (event.clientEventId) {
-          const key = {
-            interviewId: document.interviewId,
-            clientEventId: event.clientEventId,
-          };
-          try {
-            saved.push(
-              await MonitoringModel.findOneAndUpdate(
-                key,
-                { $setOnInsert: document },
-                { upsert: true, returnDocument: "after" },
-              ),
+        const eventSchema = z.object({
+          clientEventId: z.uuid().optional(),
+          kind: z.enum(monitoringKinds),
+          occurredAt: z.iso.datetime({ offset: true }),
+          durationMs: z.number().min(0).max(86400000).default(0),
+          detail: text(200).default(""),
+        });
+        const input = z
+          .union([
+            eventSchema,
+            z.object({
+              events: z
+                .array(eventSchema.extend({ clientEventId: z.uuid() }))
+                .min(1)
+                .max(30),
+            }),
+          ])
+          .parse(req.body);
+        const events = "events" in input ? input.events : [input];
+        for (const event of events) {
+          const at = +new Date(event.occurredAt);
+          if (event.kind === "object-detected") {
+            if (
+              event.durationMs < config.objectThreshold * 1000 ||
+              !Number.isInteger(event.durationMs) ||
+              !event.detail ||
+              /[\r\n\0]/.test(event.detail)
+            )
+              throw new ApiError(
+                400,
+                "Object observations require a sustained interval and a short single-line description.",
+              );
+            const began = at - event.durationMs;
+            const monitoringStart = Math.max(
+              +interview.consentAt,
+              interview.startedAt ? +interview.startedAt : 0,
+              humanRoom(interview) && interview.admittedAt
+                ? +interview.admittedAt
+                : 0,
             );
-          } catch (error) {
-            if ((error as { code?: number }).code !== 11000) throw error;
-            saved.push(await MonitoringModel.findOne(key));
+            if (
+              began < monitoringStart ||
+              !interview.objectConsentWindows.some(
+                (window: any) =>
+                  window.grantedAt &&
+                  began >= +window.grantedAt &&
+                  (!window.revokedAt || at <= +window.revokedAt),
+              )
+            )
+              throw new ApiError(
+                403,
+                "Separate object observation consent must cover the entire observed interval.",
+                "OBJECT_CONSENT_REQUIRED",
+              );
           }
-        } else saved.push(await MonitoringModel.create(document));
-      }
-      roomChanged(interview.id, "monitoring");
-      res
-        .status(201)
-        .json("events" in input ? { accepted: saved.length } : saved[0]);
+          if (
+            humanRoom(interview) &&
+            ["no-face", "multiple-faces", "head-turned"].includes(event.kind) &&
+            !interview.faceConsentWindows.some(
+              (w: any) =>
+                w.grantedAt &&
+                at >= +w.grantedAt &&
+                (!w.revokedAt || at <= +w.revokedAt),
+            )
+          )
+            throw new ApiError(
+              403,
+              "Separate face monitoring consent is required for this observation.",
+            );
+          if (
+            Math.abs(at - Date.now()) > 86400000 ||
+            (ended && at > ended + 15000)
+          )
+            throw new ApiError(
+              400,
+              "Event timestamp is outside the accepted interview window.",
+            );
+        }
+        const saved = [];
+        for (const event of events) {
+          const document = {
+            ...event,
+            interviewId: interview._id.toString(),
+            candidateId: req.user._id,
+          };
+          if (event.clientEventId) {
+            const key = {
+              interviewId: document.interviewId,
+              clientEventId: event.clientEventId,
+            };
+            try {
+              saved.push(
+                await MonitoringModel.findOneAndUpdate(
+                  key,
+                  { $setOnInsert: document },
+                  { upsert: true, returnDocument: "after" },
+                ),
+              );
+            } catch (error) {
+              if ((error as { code?: number }).code !== 11000) throw error;
+              saved.push(await MonitoringModel.findOne(key));
+            }
+          } else saved.push(await MonitoringModel.create(document));
+        }
+        roomChanged(interview.id, "monitoring");
+        res
+          .status(201)
+          .json("events" in input ? { accepted: saved.length } : saved[0]);
+      };
+      // Serialize optional-consent changes against object observations. Other
+      // browser metadata retains its existing concurrent retry behavior.
+      const includesObjects =
+        req.body?.kind === "object-detected" ||
+        (Array.isArray(req.body?.events) &&
+          req.body.events.some((event: any) => event?.kind === "object-detected"));
+      if (includesObjects)
+        await withResources(
+          [`room:${objectId.parse(req.params.id)}`],
+          persistEvents,
+        );
+      else await persistEvents();
     },
   );
   app.get("/api/interviews/:id/events", async (req, res) => {
@@ -1866,6 +1918,10 @@ export function createApp() {
           })
         : [];
     const interviewResult = interview.toObject();
+    delete (interviewResult as any).objectConsentWindows;
+    (interviewResult as any).objectConsent = !!interview.objectConsentWindows?.some(
+      (window: any) => !window.revokedAt,
+    );
     const transcript = await reviewedTranscript(interview.id);
     delete interviewResult.aiBusyToken;
     delete interviewResult.aiBusyUntil;

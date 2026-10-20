@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-19",
+  "timezone": "Asia/Calcutta",
+  "scope": "Consented physical camera check in an isolated Candidate/HR interview room with synthetic test accounts",
+  "normalRecruitmentDatabaseUsed": false,
+  "model": {
+    "name": "MediaPipe EfficientDet-Lite0",
+    "precision": "float16",
+    "version": 1,
+    "localPath": "public/vendor/mediapipe/efficientdet_lite0.tflite",
+    "bytes": 7254339,
+    "format": "TFL3",
+    "sha256": "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993",
+    "loadedInCandidateRoom": true,
+    "apiProviderRequired": false
+  },
+  "configuration": {
+    "OBJECT_MODEL_URL": "/vendor/mediapipe/efficientdet_lite0.tflite",
+    "OBJECT_EVENT_SECONDS": 3,
+    "separateCandidateOptIn": true,
+    "candidateControlLocation": "Devices > Phones, books & objects; also available during device preparation",
+    "sharing": "Only sustained phone/book observation metadata after admission is shared for authorized human review; other labels stay in the local preview"
+  },
+  "physicalObservations": {
+    "generalInference": {
+      "observedLabel": "person",
+      "approximateModelScoreRange": [0.81, 0.85],
+      "actualBoundingBoxesObserved": true,
+      "conclusion": "Local model inference ran; this does not validate phone/book accuracy"
+    },
+    "phone": {
+      "participantHeldPhone": true,
+      "cellPhoneLabelObserved": false,
+      "lighting": "Dark; the participant could not improve the lighting during this test",
+      "result": "Expected detection was not observed; phone accuracy remains unvalidated"
+    },
+    "book": {
+      "participantHeldBook": true,
+      "observedLabel": "laptop",
+      "approximateModelScore": 0.63,
+      "sustainedBookEventObserved": false,
+      "additionalAngleRetries": 1,
+      "reviewEventObservedAfterRetry": false,
+      "result": "Misclassification and no sustained book event; book accuracy remains unvalidated"
+    },
+    "hrActivity": {
+      "phoneBookObservationCount": 0,
+      "ordinaryMonitoringEventsContinued": true,
+      "limit": "A zero count does not establish absence of a phone or book"
+    },
+    "cameraOff": {
+      "estimatesCleared": true,
+      "processingPaused": true
+    },
+    "localConsentWithdrawal": {
+      "checkboxChecked": false,
+      "visibleStatus": "Object detection is off"
+    }
+  },
+  "privacy": {
+    "recordingStarted": false,
+    "rawAnalysisFramesSavedByFeature": false,
+    "rawAnalysisFramesUploadedByFeature": false,
+    "ordinaryInterviewVideoBehaviorChanged": false
+  },
+  "databaseVerification": {
+    "checkedAt": "2026-10-19T13:21:59.445Z",
+    "source": ".data/runtime/object-physical-evidence-20261019.json",
+    "readOnly": true,
+    "isolated": true,
+    "objectConsentWithdrawn": true,
+    "captures": 0,
+    "clips": 0,
+    "eventKinds": ["monitoring-started", "connection-restored", "microphone-off", "camera-off"],
+    "phoneBookObservations": 0
+  },
+  "automatedValidation": {
+    "assetSetupCompleted": true,
+    "modelSizeFormatChecksumVerified": true,
+    "finalFullSuiteStatus": "passed",
+    "command": "npm run check",
+    "productionClientServerBuildPassed": true,
+    "typecheckPassed": true,
+    "testsPassed": 479,
+    "testFilesPassed": 45,
+    "finalWordingOnlyBuildPassed": true,
+    "physicalAccuracyEstablishedByAutomatedChecks": false,
+    "publicSamplePhotoInferenceRun": false
+  },
+  "cleanup": {
+    "temporaryFixtureStopped": true,
+    "testTabsClosed": true
+  },
+  "overall": {
+    "accuracyValidated": false,
+    "phoneBookPhysicalResult": "Failed or uncertain under the tested lighting",
+    "automaticCheatingConclusion": false,
+    "hiringScoreChangedByObjectObservations": false,
+    "performanceGuarantee": false,
+    "nextValidation": "Further consented tests across cameras, lighting, object sizes and occlusion; human review of observations"
+  }
+}

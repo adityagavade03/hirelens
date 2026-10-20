@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceStatus } from "../shared/types";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import { headTurned } from "../shared/orientation";
 import { MonitoringQueue } from "./monitoring-queue";
 import { SustainedObservation, tabSwitchThreshold } from "../shared/monitoring";
@@ -33,13 +33,34 @@ export function useMonitoring(
     return new MonitoringQueue(
       id,
       storage,
-      (events, keepalive) =>
-        api(`/interviews/${id}/events`, {
-          method: "POST",
-          body: JSON.stringify({ events }),
-          keepalive,
-          signal: AbortSignal.timeout(10000),
-        }),
+      async (events, keepalive) => {
+        try {
+          return await api(`/interviews/${id}/events`, {
+            method: "POST",
+            body: JSON.stringify({ events }),
+            keepalive,
+            signal: AbortSignal.timeout(10000),
+          });
+        } catch (error) {
+          if (
+            events.length === 1 &&
+            events[0].kind === "object-detected" &&
+            error instanceof ApiError &&
+            error.status === 403 &&
+            error.code === "OBJECT_CONSENT_REQUIRED"
+          ) {
+            setWarning(
+              "Optional object detection stopped because saved consent did not cover the observation. Browser monitoring can continue; the omitted estimate is not evidence of misconduct.",
+            );
+            window.dispatchEvent(
+              new CustomEvent("hirelens:object-consent-withdrawn", {
+                detail: { id },
+              }),
+            );
+          }
+          throw error;
+        }
+      },
       (count, failed) =>
         setDelivery(
           failed
@@ -53,7 +74,7 @@ export function useMonitoring(
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const record = useCallback(
-    (kind: string, durationMs = 0, detail = "") => {
+    (kind: string, durationMs = 0, detail = "", occurredAt?: number) => {
       if (enabledRef.current) {
         const messages: Record<string, string> = {
           "no-face":
@@ -62,6 +83,8 @@ export function useMonitoring(
             "More than one face was estimated in the camera view. Check your surroundings and explain any context to your interviewer.",
           "head-turned":
             "A sustained head turn was estimated. This is not a measure of attention; your interviewer can review the context.",
+          "object-detected":
+            "A phone or book was estimated in view for a sustained interval. Tell your interviewer about any permitted materials or a mistaken detection.",
           "camera-off":
             "Your camera is unavailable. Restore it in device settings, or tell your interviewer about a technical issue or accommodation.",
           "monitoring-unavailable":
@@ -78,6 +101,7 @@ export function useMonitoring(
             0,
             200,
           ),
+          occurredAt,
         );
         void queue.flush();
       }

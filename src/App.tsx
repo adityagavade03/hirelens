@@ -610,7 +610,7 @@ function Shell() {
     </div>
   );
 }
-function Dashboard() {
+export function Dashboard() {
   const { user } = useAuth();
   const applicationResource = useResource<Application[]>("/applications", []);
   const apps = {...applicationResource, data: applicationResource.data.filter(a => user.role === "candidate" || a.assignedHrId === user._id)};
@@ -729,10 +729,10 @@ function Dashboard() {
             const appointment = upcoming.find(i => i.applicationId === a._id);
             return <div className="evidence" key={a._id}>
               <h3>{a.jobTitle} · {a.companyName}</h3>
-              <p><Status value={a.status} /> · AI match: <strong>{a.match.score == null ? "Awaiting screening" : `${a.match.score}%`}</strong></p>
+              <p><Status value={a.status} /> · AI match: <strong>{a.match?.score == null ? (a.screening && ["queued", "processing"].includes(a.screening.state) ? "Awaiting screening" : "Not available") : `${a.match.score}%`}</strong></p>
               {a.screening?.state === "completed" && <p>{a.status === "Shortlisted" ? "You have been shortlisted for the next stage." : a.screening.outcome === "not_shortlisted" && a.status === "Rejected" ? "Your resume does not currently meet the required matching threshold." : `Original AI result: ${a.screening.outcome === "shortlisted" ? "match threshold met" : a.screening.outcome === "not_shortlisted" ? "below the matching threshold" : "further review needed"}. Current stage: ${a.status}.`}</p>}
-              {!!a.match.matching.length && <p><strong>Matched skills:</strong> {a.match.matching.join(", ")}</p>}
-              {!!a.match.missing.length && <p><strong>Missing or partial evidence:</strong> {a.match.missing.join(", ")}</p>}
+              {!!a.match?.matching?.length && <p><strong>Matched skills:</strong> {a.match.matching.join(", ")}</p>}
+              {!!a.match?.missing?.length && <p><strong>Missing or partial evidence:</strong> {a.match.missing.join(", ")}</p>}
               {a.assignedHrId ? <p><strong>Assigned HR:</strong> {a.assignedHrName || "Hiring team interviewer"}</p> : a.status === "Shortlisted" ? <p>Shortlisted — waiting for an available HR interviewer.</p> : null}
               {appointment && <p>{dateLabel(appointment.scheduledAt)} · {appointment.mode === "in_person" ? `In person: ${appointment.venue}` : "Video interview"} · <Link className="text-link" to={`/room/${appointment._id}`}>View interview</Link></p>}
             </div>;
@@ -1074,8 +1074,8 @@ function Dashboard() {
                           </span>
                         </span>
                       )}
-                      <small>Matched: {a.match.matching.join(", ") || "None recorded"}</small>
-                      <small>Missing / partial: {a.match.missing.join(", ") || "None recorded"}</small>
+                      <small>Matched: {a.match?.matching?.join(", ") || "None recorded"}</small>
+                      <small>Missing / partial: {a.match?.missing?.join(", ") || "None recorded"}</small>
                     </td>
                     <td>
                       <Status value={a.status} />

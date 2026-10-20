@@ -10,6 +10,7 @@ export interface RoomState {
   screenRequired: boolean;
   entireScreen: boolean;
   faceConsent: boolean;
+  objectConsent?: boolean;
   instruction?: {
     text: string;
     at: string;

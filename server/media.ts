@@ -15,7 +15,7 @@ import {
   objectId,
   requireLive,
 } from "./security.js";
-import { transcribeAudio } from "./providers.js";
+import { transcribeAudio, transcriptionErrors } from "./providers.js";
 import { serviceStatus } from "./config.js";
 import { withResources } from "./locks.js";
 import type { User } from "../shared/types.js";
@@ -349,8 +349,9 @@ export function registerMedia(app: Express, providerLimit: RequestHandler) {
           $set: {
             transcriptState: "failed",
             transcriptError:
-              e instanceof ApiError && e.code === "NO_USABLE_TRANSCRIPT"
-                ? "Speech recognition returned no usable text. The recording is saved. Retry transcription or enter and review the transcript manually."
+              e instanceof ApiError &&
+              Object.hasOwn(transcriptionErrors, e.code)
+                ? `${transcriptionErrors[e.code]} The recording is saved.`
                 : "Transcription failed. Retry or enter a reviewed transcript.",
           },
           $unset: { transcriptLease: 1, transcriptToken: 1 },

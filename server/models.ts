@@ -360,6 +360,10 @@ export const InterviewModel = mongoose.model(
         type: [{ _id: false, grantedAt: Date, revokedAt: Date }],
         default: [],
       },
+      objectConsentWindows: {
+        type: [{ _id: false, grantedAt: Date, revokedAt: Date }],
+        default: [],
+      },
       waitingAt: Date,
       admittedAt: Date,
       roomResumeId: String,

@@ -1,4 +1,5 @@
 import { monitoringKinds, type MonitoringEvent } from "../shared/monitoring";
+import { ApiError } from "./api";
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 function eventId() {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -60,12 +61,18 @@ export class MonitoringQueue {
       /* Remain usable with an in-memory queue. */
     }
   }
-  add(kind: string, durationMs = 0, detail = "") {
+  add(kind: string, durationMs = 0, detail = "", occurredAt = Date.now()) {
     if (!monitoringKinds.includes(kind as MonitoringEvent["kind"])) return;
+    if (
+      !Number.isFinite(occurredAt) ||
+      !Number.isFinite(new Date(occurredAt).getTime()) ||
+      !Number.isFinite(durationMs)
+    )
+      return;
     this.events.push({
       clientEventId: eventId(),
       kind: kind as MonitoringEvent["kind"],
-      occurredAt: new Date().toISOString(),
+      occurredAt: new Date(occurredAt).toISOString(),
       durationMs: Math.min(86400000, Math.max(0, durationMs)),
       detail: detail.slice(0, 200),
     });
@@ -87,8 +94,49 @@ export class MonitoringQueue {
     if (this.running) return this.running;
     this.running = (async () => {
       while (this.events.length) {
-        const batch = this.events.slice(0, 30);
-        await this.deliver(batch, keepalive);
+        // A revoked optional observation must not make unrelated browser metadata
+        // fail in the same server transaction. Preserve order, isolate every object.
+        const objectAt = this.events.findIndex(
+          (event) => event.kind === "object-detected",
+        );
+        const batch = this.events.slice(
+          0,
+          objectAt === 0 ? 1 : objectAt > 0 ? Math.min(30, objectAt) : 30,
+        );
+        try {
+          await this.deliver(batch, keepalive);
+        } catch (error) {
+          if (
+            batch.length === 1 &&
+            batch[0].kind === "object-detected" &&
+            error instanceof ApiError &&
+            error.status === 403 &&
+            error.code === "OBJECT_CONSENT_REQUIRED"
+          ) {
+            const rejected = batch[0].clientEventId;
+            const present = this.events.some(
+              (event) => event.clientEventId === rejected,
+            );
+            this.events = this.events.filter(
+              (event) => event.clientEventId !== rejected,
+            );
+            // Replacing one rejected event keeps the queue bounded without dropping
+            // any ordinary event. Overflow may already have removed this old item.
+            if (present)
+              this.add(
+                "monitoring-unavailable",
+                0,
+                "Optional object observation omitted because saved consent did not cover its observation interval.",
+                // Describe the coverage gap at its original observation time, so
+                // a permitted late upload cannot create a post-interview event.
+                Date.parse(batch[0].occurredAt),
+              );
+            this.persist();
+            this.changed(this.events.length, false);
+            continue;
+          }
+          throw error;
+        }
         const accepted = new Set(batch.map((e) => e.clientEventId));
         this.events = this.events.filter((e) => !accepted.has(e.clientEventId));
         this.persist();

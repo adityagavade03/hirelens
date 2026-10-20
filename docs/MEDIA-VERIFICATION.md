@@ -1,6 +1,16 @@
 # Saved recording and speech verification
 
-## Latest result — 8 October 2026
+## Current physical check — 19 October 2026
+
+A consented 25-second Candidate recording saved successfully in the isolated local test workspace. It contains 640 × 480 VP8 video and mono Opus microphone audio; all 379 video frames and 419 audio frames decoded. The participant confirmed that the full spoken script was clear in browser playback. The local `base.en` model nevertheless returned only one unrelated word, including on a repeated request. Full-audio and alternative-VAD diagnostic runs also failed to recover the script. Physical recognition accuracy therefore failed; recording and playback passed for this clip.
+
+Recording now checks microphone availability and shows input state; local speech errors distinguish missing audio, unusable samples, absent clear speech, low-confidence recognition and decoding/length failures. The exact physical clip returned `LOW_CONFIDENCE_TRANSCRIPT` in the final API check, with its saved bytes preserved and actionable guidance visible to HR. An earlier application attempt produced 38 characters of inaccurate text instead. The guard rejects uniformly low-confidence output; it does not guarantee accurate text or consistent rejection. Automated coverage passed, including 15 Python speech-processing tests. Manual review is still required.
+
+The Interviewer microphone request timed out twice, so no separate HR audio recording or two-device result was obtained. Both test participants left the room afterward. Normal recruitment data was untouched, media was processed locally, and the clip is not training data. See [the device check record](DEVICE-CHECK-2026-10-19.json) and [speech diagnostics](SPEECH-QUALITY.md).
+
+The synthetic result below remains historical evidence only. See [current project status](PROJECT-STATUS.md) for the latest complete verification summary.
+
+## Synthetic result — 8 October 2026
 
 `npm run media:check` passed against the real media APIs and the installed local Whisper `base.en` model. The test used a separate temporary MongoDB with synthetic candidate/HR accounts. It did not connect to the normal recruitment database or use any camera or microphone.
 

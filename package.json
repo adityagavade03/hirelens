@@ -20,6 +20,7 @@
     "setup:assets": "tsx scripts/setup-assets.ts",
     "doctor": "tsx scripts/doctor.ts",
     "providers:check": "tsx scripts/check-providers.ts",
+    "providers:setup": "powershell -NoProfile -File scripts/setup-providers.ps1",
     "email:setup:gmail": "powershell -NoProfile -File scripts/setup-gmail.ps1",
     "media:check": "tsx scripts/check-media.ts",
     "code:prepare": "tsx scripts/local-code.ts --prepare",

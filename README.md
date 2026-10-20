@@ -1,5 +1,18 @@
 # HireLens
 
+## Current status — 20 October 2026
+
+The latest checked build passes **479 automated tests in 45 files**, plus client/server builds and TypeScript checks. The project includes recruitment, automatic resume screening, HR assignment, interview rooms, coding editors, recordings and optional proctoring. Automated tests do not establish real-world AI or device accuracy.
+
+- Optional camera object detection now provides local labels and boxes, with separate consent and sustained phone/book metadata for human review. The physical phone/book checks failed in the tested lighting; gaze calibration also failed its accuracy check. These features remain experimental and do not change candidate scores. See [object detection](docs/OBJECT-DETECTION.md).
+- Candidate recording and playback worked, but reliable speech transcription and both participants' audio still need verification. See [speech quality](docs/SPEECH-QUALITY.md).
+- Real hiring code execution, cross-network video, SMS and business verification require private Judge0, public TURN and the corresponding provider accounts. Public Judge0 is limited to local practice. Use the [provider setup guide](docs/PROVIDER-ACTIVATION.md).
+- Permanent hosting, broader AI/device evaluation and a trained integrity model remain unfinished. See [current project status](docs/PROJECT-STATUS.md) for the full list.
+
+This repository contains application source, setup scripts and synthetic tests. Credentials, database records, private resumes, recordings and local runtime files are excluded. After downloading, follow the setup steps below and create your own accounts; integrations need your own configuration. Making the source available does not host the application or include a working production service.
+
+The dated notes below describe earlier milestones; the current status and linked verification records supersede their older test counts and provider results.
+
 **Interview upgrades (8 October 2026):** C/C++ editor and execution integration, a verified local TURN data relay, playable synthetic-media/Whisper checks, optional speaker clustering, and experimental local gaze calibration are documented in [INTERVIEW-UPGRADE-VERIFICATION.json](docs/INTERVIEW-UPGRADE-VERIFICATION.json). Judge0, real delivery/company verification, public cross-network calls and a genuinely trained integrity model still have explicit dependencies; see [PROJECT-STATUS.md](docs/PROJECT-STATUS.md).
 
 **Automatic resume screening (8 October 2026):** see [AI-RESUME-SCREENING.md](docs/AI-RESUME-SCREENING.md) for the guided resume form, LLM match scores and automatic shortlist workflow.

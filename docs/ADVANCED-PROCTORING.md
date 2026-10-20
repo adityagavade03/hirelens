@@ -1,5 +1,11 @@
 # Advanced observations and research limits
 
+## Physical gaze check — 19 October 2026
+
+The user completed all 14 on-screen targets: nine calibration targets and five independent validation targets. The collected samples **failed the independent accuracy gate**, so gaze preview remained disabled for that calibration. Completing collection is not a successful accuracy validation. No gaze result affects integrity points, technical scores or shortlisting.
+
+Face-detection and additional-speaker accuracy remain unvalidated on representative physical-device recordings. No second device was available for a complete interview test. Current recording/transcription verification is still underway; no new speech-quality success is claimed.
+
 ## Experimental calibrated gaze preview
 
 Candidate device setup now offers a separate opt-in eye-image calibration. It uses the existing local MediaPipe Face Landmarker to locate eye image patches, then fits ridge regressions to nine screen targets. Five additional target presentations validate predictions after fitting; those samples are never added to training. At least six clear samples per target are required. The preview is enabled only when median validation error is at most 8% of the normalized screen diagonal and every target's median error is at most 15%. These are conservative engineering gates, not validated clinical or research accuracy specifications.

@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-19",
+  "environment": "One laptop, isolated local test database, synthetic Candidate and Interviewer accounts",
+  "scope": {
+    "externalMediaUpload": false,
+    "trainingUse": false,
+    "normalRecruitmentDataChanged": false,
+    "crossNetworkCallTested": false
+  },
+  "candidateRecording": {
+    "consented": true,
+    "saved": true,
+    "durationMs": 25193,
+    "bytes": 729032,
+    "decodedVideo": { "codec": "vp8", "width": 640, "height": 480, "frames": 379 },
+    "decodedAudio": { "codec": "opus", "sampleRate": 48000, "channels": 1, "frames": 419, "seconds": 25.14 },
+    "browserPlaybackLoaded": true,
+    "participantConfirmedFullScriptAudible": true,
+    "transcriptionQualityPassed": false,
+    "transcriptionFinding": "The local base.en model returned one word rather than the spoken script. Full-audio and alternative VAD diagnostics did not recover the script. A later application attempt produced 38 characters of inaccurate text, followed by a retry rejected as LOW_CONFIDENCE_TRANSCRIPT. The guard is not an accuracy guarantee; physical recognition validation failed."
+  },
+  "interviewerAudio": {
+    "verified": false,
+    "reason": "The browser microphone request timed out twice; no separate Interviewer recording was captured."
+  },
+  "proctoring": {
+    "facePresenceObserved": true,
+    "faceAccuracyValidated": false,
+    "gazeTargetsCollected": 14,
+    "independentGazeValidationPassed": false,
+    "gazeEstimatesEnabledAfterTest": false,
+    "speakerAccuracyValidated": false,
+    "trainedIntegrityModel": false
+  },
+  "externalServices": {
+    "privateJudge0": "Awaiting owner account/server",
+    "publicTurn": "Awaiting owner account/server and second device on another network",
+    "sms": "Awaiting provider account, sender and handset delivery test",
+    "companyVerification": "Awaiting provider account and eligible business verification"
+  }
+}

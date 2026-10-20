@@ -3,6 +3,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code?: string,
   ) {
     super(message);
   }
@@ -42,8 +43,11 @@ export async function api<T>(
     window.dispatchEvent(new Event("hirelens:session-expired"));
   if (!response.ok)
     throw new ApiError(
-      data.error?.message || "Request failed.",
+      typeof data?.error?.message === "string"
+        ? data.error.message
+        : "Request failed.",
       response.status,
+      typeof data?.error?.code === "string" ? data.error.code : undefined,
     );
   return data;
 }

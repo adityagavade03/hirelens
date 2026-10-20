@@ -1,6 +1,24 @@
 # HireLens — current implementation and review guide
 
+## Object-detection update — 19 October 2026
+
+Optional object detection is implemented and remains experimental. Separate Candidate consent enables local browser-worker inference and preview boxes; only sustained phone/book metadata after admission is shared for human review, with no automatic cheating verdict or hiring-score change. Physical inference ran, but the phone was missed and the book misclassified in low light. Phone/book accuracy is not validated.
+
+`npm run check` passed the production client/server build, TypeScript checks and **479 tests in 45 files**. A final wording-only update also passed `npm run build`. Read-only isolated database verification confirmed object consent withdrawn, zero captures/recording clips and only ordinary monitoring events; the temporary fixture and test tabs were closed afterward. See the [guide](OBJECT-DETECTION.md) and [physical check evidence](OBJECT-DETECTION-DEVICE-CHECK-2026-10-19.json). These results update the object feature and test totals; earlier dated entries are preserved below.
+
 Reference: the user's HireLens ecosystem, automatic AI resume-screening requirements, and 8 October 2026 request to complete coding, video, delivery, verification and proctoring. Automatic LLM shortlisting supersedes the manual-shortlist step; HR assignment and interview workflows are preserved. At the user's request on 5 October, the local fictional workspace and its linked testing records were removed; demo login and seeding are disabled by default.
+
+## Latest update — 19 October 2026
+
+The final client/server build, TypeScript checks and **423 JavaScript/TypeScript tests in 40 files** passed, including the final gaze/recognition guards. **15 Python speech-processing tests** also passed. These automated results check software behavior, not physical-device accuracy or external provider delivery.
+
+Provider setup now includes a hidden-input terminal prompt that validates and stages private settings without changing the live environment, Gmail, accounts or notification delivery. The expanded readiness check distinguishes public practice execution and a same-computer relay from services configured for hiring and public interviews. The owner still has no provider accounts or second test device. Current configuration remains Gmail/OTP enabled, SMS and company verification unconfigured, Judge0 public-practice-only, and TURN local-test-only. See [provider activation](PROVIDER-ACTIVATION.md).
+
+Candidate and HR dashboards now handle legacy applications without matching results or skill arrays. An absent score displays **Not available**; **Awaiting screening** requires an actual queued/processing screening state. Genuine zero scores remain visible.
+
+The physical gaze trial collected all **14 targets** (nine fit targets and five independent validation targets), but **failed the independent accuracy check**. Gaze preview remains disabled for that calibration and contributes no hiring or integrity score. Frozen camera frames now also expire a previously successful gaze preview. Face and speaker-detection accuracy remain unvalidated. A fresh Candidate recording saved and decoded successfully; the user confirmed clear playback. Physical speech recognition failed and now reports low confidence rather than a misleading successful transcript. HR microphone permission timed out, so separate-participant audio remains unverified. See [media status](MEDIA-VERIFICATION.md), [device check evidence](DEVICE-CHECK-2026-10-19.json) and [advanced proctoring limits](ADVANCED-PROCTORING.md).
+
+The current recruitment workflow is documented in [workflow enhancements](WORKFLOW-ENHANCEMENTS.md). Dated audits below are historical; their old provider, test-count and device statements are superseded by newer entries.
 
 ## Provider update — 13 October 2026
 

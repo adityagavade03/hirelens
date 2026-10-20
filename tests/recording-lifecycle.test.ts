@@ -52,6 +52,8 @@ function makeStream(audioOnly = false) {
   const tracks = (audioOnly ? ["audio"] : ["video", "audio"]).map((kind) => ({
     kind,
     readyState: "live",
+    enabled: true,
+    muted: false,
     stop: vi.fn(),
   }));
   return {
@@ -242,4 +244,73 @@ it("keeps failed uploads retryable before closing their capture", async () => {
   );
   expect(send).toHaveBeenCalledWith("/captures/capture-id/stop");
   expect(host.textContent).toContain("All captured segments saved.");
+});
+
+it("requires a live unmuted microphone before creating a recording", async () => {
+  Object.assign(deviceStream.getAudioTracks()[0], { enabled: false });
+  await start();
+  expect(Recorder.instances).toHaveLength(0);
+  expect(send).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("Your microphone is muted.");
+  Object.assign(deviceStream.getAudioTracks()[0], {
+    enabled: true,
+    muted: true,
+  });
+  await act(async () => button("Start my recording").click());
+  expect(Recorder.instances).toHaveLength(0);
+  expect(host.textContent).toContain(
+    "Your microphone is temporarily unavailable.",
+  );
+});
+
+it("rejects a video-only stream instead of claiming to record speech", async () => {
+  const cameraOnly = {
+    getTracks: () => deviceStream.getVideoTracks(),
+    getVideoTracks: () => deviceStream.getVideoTracks(),
+    getAudioTracks: () => [],
+  } as unknown as MediaStream;
+  await act(async () => render(true, cameraOnly));
+  await start();
+  expect(Recorder.instances).toHaveLength(0);
+  expect(send).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("No microphone track is available.");
+});
+
+it("closes a pending capture if the microphone is muted before recording begins", async () => {
+  let resolve!: (value: { _id: string }) => void;
+  vi.mocked(send).mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done as typeof resolve;
+      }),
+  );
+  await start();
+  Object.assign(deviceStream.getAudioTracks()[0], { enabled: false });
+  await act(async () => resolve({ _id: "late-capture" }));
+  expect(Recorder.instances).toHaveLength(0);
+  expect(send).toHaveBeenCalledWith("/captures/late-capture/stop");
+});
+
+it("ends capture after microphone loss even when the camera remains live", async () => {
+  await start();
+  Object.assign(deviceStream.getAudioTracks()[0], { readyState: "ended" });
+  now += 5000;
+  await act(async () => Recorder.instances[0].stop());
+  expect(deviceStream.getVideoTracks()[0].readyState).toBe("live");
+  expect(Recorder.instances).toHaveLength(1);
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(send).toHaveBeenCalledWith("/captures/capture-id/stop");
+  expect(host.textContent).not.toContain("● Recording");
+});
+
+it("preserves the participant's mute choice during an existing recording", async () => {
+  await start();
+  const microphone = deviceStream.getAudioTracks()[0];
+  microphone.enabled = false;
+  now += 5000;
+  await act(async () => Recorder.instances[0].stop());
+  expect(microphone.enabled).toBe(false);
+  expect(Recorder.instances).toHaveLength(2);
+  expect(Recorder.instances[1].state).toBe("recording");
+  expect(send).not.toHaveBeenCalledWith("/captures/capture-id/stop");
 });

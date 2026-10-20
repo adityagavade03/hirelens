@@ -1,6 +1,7 @@
 import { config } from "../server/config.js";
 import { providerConfiguration } from "../server/provider-configuration.js";
 import { verifySmtpConnection } from "../server/delivery.js";
+import { interviewProviderReadiness } from "./provider-readiness.js";
 
 const args = new Set(process.argv.slice(2));
 if ([...args].some((arg) => !["--smtp", "--require-external"].includes(arg))) {
@@ -11,7 +12,10 @@ if ([...args].some((arg) => !["--smtp", "--require-external"].includes(arg))) {
 }
 
 const report = providerConfiguration(config);
-console.log("HireLens email, SMS and company verification configuration");
+const interview = interviewProviderReadiness(config);
+console.log(
+  "HireLens delivery, verification, code execution and relay configuration",
+);
 console.log(
   "This command never sends messages, issues codes, verifies companies or modifies accounts.",
 );
@@ -19,6 +23,8 @@ for (const [label, item] of [
   ["Email", report.email],
   ["SMS", report.sms],
   ["Company verification", report.companyVerification],
+  ["Interview code execution", interview.execution],
+  ["Public interview relay", interview.relay],
 ] as const) {
   console.log(`${label}: ${item.mode}`);
   for (const issue of item.issues) console.log(`  Setup: ${issue}`);
@@ -56,11 +62,16 @@ if (
   (!["smtp", "http"].includes(report.email.mode) ||
     !["http", "twilio"].includes(report.sms.mode) ||
     !["http", "cashfree"].includes(report.companyVerification.mode) ||
-    !report.otpReady)
+    !report.otpReady ||
+    !interview.execution.configuredForExternalUse ||
+    !interview.relay.configuredForExternalUse)
 ) {
   console.error(
     "External setup is incomplete. Configure the missing services; preview mode does not pass this check.",
   );
   process.exitCode = 1;
 }
-console.log("Setup guide: docs/DELIVERY-AND-VERIFICATION.md");
+console.log(
+  "Readiness is configuration only, not confirmed code execution, public media connectivity or delivery.",
+);
+console.log("Setup guide: docs/PROVIDER-ACTIVATION.md");

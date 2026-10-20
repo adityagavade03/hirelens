@@ -4,6 +4,33 @@ import { ErrorBox, Notice, Panel } from "./ui";
 import type { Interview, ServiceStatus } from "../shared/types";
 import { useAuth } from "./auth-context";
 import { SpeakerReview } from "./SpeakerReview";
+import { MicrophoneLevel } from "./RoomMedia";
+
+type RecordingMicrophoneState =
+  "missing" | "disconnected" | "muted" | "unavailable" | "ready";
+function recordingMicrophone(
+  stream: MediaStream | null,
+): RecordingMicrophoneState {
+  const tracks = stream?.getAudioTracks() || [];
+  if (!tracks.length) return "missing";
+  const live = tracks.filter((track) => track.readyState === "live");
+  if (!live.length) return "disconnected";
+  if (!live.some((track) => track.enabled)) return "muted";
+  if (!live.some((track) => track.enabled && !track.muted))
+    return "unavailable";
+  return "ready";
+}
+const recordingMicrophoneMessages = {
+  missing:
+    "No microphone track is available. Check your devices before recording.",
+  disconnected:
+    "Your microphone disconnected. Check your devices and start a new recording; saved segments remain available.",
+  muted:
+    "Your microphone is muted. Unmute it to record your speech. Muted intervals contain no microphone audio.",
+  unavailable:
+    "Your microphone is temporarily unavailable. Check browser and device permissions; speech is not being captured.",
+  ready: "",
+};
 
 type Clip = {
   _id: string;
@@ -219,6 +246,25 @@ export function InterviewCapture({
   inputs.current = { active, stream, accepted };
   const stopping = useRef<Promise<void> | null>(null);
   const transcription = useRef(Promise.resolve());
+  const [microphone, setMicrophone] = useState(() =>
+    recordingMicrophone(stream),
+  );
+  useEffect(() => {
+    const check = () => setMicrophone(recordingMicrophone(stream));
+    check();
+    // enabled changes do not dispatch track events. Read only the track state;
+    // this neither requests access nor turns a muted microphone back on.
+    const timer = window.setInterval(check, 250);
+    return () => window.clearInterval(timer);
+  }, [stream]);
+  useEffect(() => {
+    if (recording && ["missing", "disconnected"].includes(microphone)) {
+      setError(recordingMicrophoneMessages[microphone]);
+      void stop().catch((e) => {
+        if (mounted.current) setError(e.message);
+      });
+    }
+  }, [microphone, recording]);
   useEffect(() => {
     onRecordingChange?.(recording);
   }, [recording, onRecordingChange]);
@@ -316,6 +362,9 @@ export function InterviewCapture({
         throw new Error(
           "Enable your camera and microphone in the device check first. This browser must support recording.",
         );
+      const microphoneState = recordingMicrophone(stream);
+      if (microphoneState !== "ready")
+        throw new Error(recordingMicrophoneMessages[microphoneState]);
       if (queue.current.length || state.current) await stop();
       const hasVideo = stream
         .getVideoTracks()
@@ -336,6 +385,7 @@ export function InterviewCapture({
         !mounted.current ||
         !inputs.current.active ||
         !inputs.current.accepted ||
+        recordingMicrophone(stream) !== "ready" ||
         inputs.current.stream !== stream ||
         version !== startVersion.current
       ) {
@@ -353,12 +403,12 @@ export function InterviewCapture({
       state.current = s;
       const segment = () => {
         if (!s.running) return;
-        if (!stream.getTracks().some((t) => t.readyState === "live")) {
+        if (!stream.getAudioTracks().some((t) => t.readyState === "live")) {
           s.running = false;
           if (mounted.current) {
             setRecording(false);
             setStatus(
-              "Device recording ended. Saved segments remain available.",
+              "Microphone recording ended. Check your devices before recording again. Saved segments remain available.",
             );
           }
           void stop().catch((e) => {
@@ -473,6 +523,10 @@ export function InterviewCapture({
         interruptions.
       </Notice>
       <ErrorBox message={error} />
+      <MicrophoneLevel stream={stream} muted={microphone !== "ready"} />
+      {microphone !== "ready" && (
+        <p role="status">{recordingMicrophoneMessages[microphone]}</p>
+      )}
       <label className="checkbox-field">
         <input
           type="checkbox"

@@ -1,4 +1,9 @@
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import {
+  gazeEyeFeatures,
+  gazeEyePatch,
+  type GazeFrameQuality,
+} from "../shared/gaze-calibration";
 
 let detector: FaceLandmarker | undefined;
 const canvas = new OffscreenCanvas(10, 4);
@@ -23,10 +28,11 @@ self.onmessage = async ({ data }: MessageEvent) => {
       self.postMessage({ kind: "ready" });
     } else if (data.kind === "frame") {
       const frame = data.frame as ImageBitmap;
-      const reply = (features: number[] | null) =>
+      const reply = (features: number[] | null, quality: GazeFrameQuality) =>
         self.postMessage({
           kind: "sample",
           features,
+          quality,
           generation: data.generation,
           step: data.step,
           capturedAt: data.capturedAt,
@@ -39,7 +45,7 @@ self.onmessage = async ({ data }: MessageEvent) => {
           data.timestamp,
         ).faceLandmarks;
         if (faces.length !== 1) {
-          reply(null);
+          reply(null, faces.length === 0 ? "no-face" : "multiple-faces");
           return;
         }
         const points = faces[0],
@@ -54,58 +60,31 @@ self.onmessage = async ({ data }: MessageEvent) => {
             points[top],
             points[bottom],
           ];
-          const minX = Math.min(...eye.map((p) => p.x)),
-            maxX = Math.max(...eye.map((p) => p.x));
-          const minY = Math.min(...eye.map((p) => p.y)),
-            maxY = Math.max(...eye.map((p) => p.y));
-          const width = (maxX - minX) * frame.width,
-            height = (maxY - minY) * frame.height;
-          // Closed, tiny or clipped eyes have no usable estimate.
-          if (
-            width < 12 ||
-            height < 3 ||
-            height / width < 0.1 ||
-            minX < 0 ||
-            maxX > 1 ||
-            minY < 0 ||
-            maxY > 1
-          ) {
-            reply(null);
+          const patch = gazeEyePatch(eye, frame.width, frame.height);
+          if (patch.quality !== "ready") {
+            reply(null, patch.quality);
             return;
           }
           context.drawImage(
             frame,
-            minX * frame.width,
-            minY * frame.height,
-            width,
-            height,
+            patch.x,
+            patch.y,
+            patch.width,
+            patch.height,
             0,
             0,
             10,
             4,
           );
           const pixels = context.getImageData(0, 0, 10, 4).data;
-          const gray = Array.from(
-            { length: 40 },
-            (_, i) =>
-              (pixels[i * 4] * 0.299 +
-                pixels[i * 4 + 1] * 0.587 +
-                pixels[i * 4 + 2] * 0.114) /
-              255,
-          );
-          const mean = gray.reduce((n, v) => n + v, 0) / gray.length;
-          const contrast = Math.sqrt(
-            gray.reduce((n, v) => n + (v - mean) ** 2, 0) / gray.length,
-          );
-          if (contrast < 0.015) {
-            reply(null);
+          const extracted = gazeEyeFeatures(pixels);
+          if (extracted.quality !== "ready") {
+            reply(null, extracted.quality);
             return;
           }
-          features.push(
-            ...gray.map((v) => (v - mean) / Math.max(0.05, contrast)),
-          );
+          features.push(...extracted.features);
         }
-        reply(features);
+        reply(features, "ready");
       } finally {
         frame.close();
       }

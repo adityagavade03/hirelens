@@ -239,6 +239,7 @@ export interface Interview {
   roundName?: string;
   roundCount?: number;
   consentAt?: string;
+  objectConsent?: boolean;
   startedAt?: string;
   endedAt?: string;
   drafts?: Record<string, string>;
@@ -375,11 +376,14 @@ export interface ServiceStatus {
   code: boolean;
   codePublicDemo?: boolean;
   face: boolean;
+  objects?: boolean;
   turn: boolean;
   turnLocalDev?: boolean;
   faceThresholdSeconds: number;
+  objectThresholdSeconds?: number;
   tabSwitchWarningThreshold?: number;
   faceModelUrl: string;
   mediapipeWasmUrl: string;
   faceLandmarkModelUrl?: string;
+  objectModelUrl?: string;
 }

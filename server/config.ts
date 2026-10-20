@@ -5,6 +5,7 @@ import {
   providerConfiguration,
   twilioCredentialConfigurationIssues,
 } from "./provider-configuration.js";
+const objectEventSeconds = Number(process.env.OBJECT_EVENT_SECONDS);
 export const config = {
   port: Number(process.env.PORT || 4000),
   host: process.env.HOST || "127.0.0.1",
@@ -80,6 +81,13 @@ export const config = {
   turnLocalDev: process.env.TURN_LOCAL_DEV === "true",
   turnTtl: Number(process.env.TURN_TTL_SECONDS || 3600),
   faceThreshold: Math.max(3, Number(process.env.FACE_EVENT_SECONDS || 5)),
+  objectThreshold: Math.min(
+    30,
+    Math.max(
+      3,
+      Math.trunc(Number.isFinite(objectEventSeconds) ? objectEventSeconds : 3),
+    ),
+  ),
   tabSwitchWarningThreshold: Math.min(
     20,
     Math.max(
@@ -90,6 +98,7 @@ export const config = {
   faceModel: process.env.FACE_MODEL_URL || "",
   faceWasm: process.env.MEDIAPIPE_WASM_URL || "",
   faceLandmarkModel: process.env.FACE_LANDMARK_MODEL_URL || "",
+  objectModel: process.env.OBJECT_MODEL_URL || "",
 };
 export function publicJudge0Configured() {
   try {
@@ -165,6 +174,7 @@ export const serviceStatus = () => {
     code: codeExecutionConfigured(),
     codePublicDemo: publicJudge0Configured(),
     face: !!(config.faceModel && config.faceWasm),
+    objects: !!(config.objectModel && config.faceWasm),
     turn:
       config.turnProvider === "twilio"
         ? twilioCredentialConfigurationIssues(config).length === 0
@@ -173,9 +183,11 @@ export const serviceStatus = () => {
           !!(config.turnUrl && config.turnSecret),
     turnLocalDev: config.turnProvider === "hmac" && config.turnLocalDev,
     faceThresholdSeconds: config.faceThreshold,
+    objectThresholdSeconds: config.objectThreshold,
     tabSwitchWarningThreshold: config.tabSwitchWarningThreshold,
     faceModelUrl: config.faceModel,
     mediapipeWasmUrl: config.faceWasm,
     faceLandmarkModelUrl: config.faceLandmarkModel,
+    objectModelUrl: config.objectModel,
   };
 };

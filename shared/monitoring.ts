@@ -11,6 +11,7 @@ export const monitoringKinds = [
   "no-face",
   "multiple-faces",
   "head-turned",
+  "object-detected",
   "monitoring-unavailable",
   "monitoring-started",
   "monitoring-stopped",
@@ -55,6 +56,7 @@ export function summarizeMonitoring(
     focusDurationMs: duration("focus"),
     noFace: count("no-face"),
     multipleFaces: count("multiple-faces"),
+    objectObservations: count("object-detected"),
     cameraInterruptions: count("camera-off"),
     unavailable: count("monitoring-unavailable"),
   };

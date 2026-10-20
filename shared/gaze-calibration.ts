@@ -1,4 +1,132 @@
 /** Experimental eye-image calibration, never a measure of attention or integrity. */
+export const gazeCapture = {
+  settleMs: 650,
+  targetTimeoutMs: 12000,
+  samplesPerTarget: 8,
+  readySamples: 3,
+  freshFrameMs: 1500,
+  maxFrameWidth: 1280,
+} as const;
+export type GazeFrameQuality =
+  | "ready"
+  | "no-face"
+  | "multiple-faces"
+  | "eyes-too-small"
+  | "eyes-closed"
+  | "eyes-clipped"
+  | "low-contrast"
+  | "invalid-frame";
+export const gazeQualityMessages: Record<GazeFrameQuality, string> = {
+  ready:
+    "Both eye images are usable. Keep your position steady while following the targets.",
+  "no-face":
+    "No face landmarks found. Face the camera with light in front of you and check the camera preview.",
+  "multiple-faces":
+    "More than one face was found. Calibration needs only your face in the camera view.",
+  "eyes-too-small":
+    "Eye images are too small. Move a little closer to the camera or select a higher-resolution camera.",
+  "eyes-closed":
+    "Eye openings are not clear enough. Keep both eyes visible; normal blinks are skipped automatically.",
+  "eyes-clipped":
+    "An eye is outside the camera image. Center your face in the camera preview.",
+  "low-contrast":
+    "Eye-image detail is too low. Add light in front of you and reduce glare or blur around your eyes.",
+  "invalid-frame":
+    "The camera image could not be read. Check the camera preview or select another camera.",
+};
+
+/** Preserve available eye detail without inventing pixels from a small camera. */
+export function gazeFrameSize(width: number, height: number) {
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  )
+    return null;
+  const scale = Math.min(
+    1,
+    gazeCapture.maxFrameWidth / Math.max(width, height),
+  );
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+export function gazeEyePatch(
+  points: { x: number; y: number }[],
+  frameWidth: number,
+  frameHeight: number,
+):
+  | { quality: "ready"; x: number; y: number; width: number; height: number }
+  | { quality: Exclude<GazeFrameQuality, "ready"> } {
+  if (
+    points.length !== 4 ||
+    !gazeFrameSize(frameWidth, frameHeight) ||
+    points.some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))
+  )
+    return { quality: "invalid-frame" };
+  const minX = Math.min(...points.map((p) => p.x)),
+    maxX = Math.max(...points.map((p) => p.x));
+  const minY = Math.min(...points.map((p) => p.y)),
+    maxY = Math.max(...points.map((p) => p.y));
+  const width = (maxX - minX) * frameWidth,
+    height = (maxY - minY) * frameHeight;
+  if (minX < 0 || maxX > 1 || minY < 0 || maxY > 1)
+    return { quality: "eyes-clipped" };
+  // These are the original image-quality gates, not calibrated accuracy claims.
+  if (width < 12) return { quality: "eyes-too-small" };
+  if (height / width < 0.1) return { quality: "eyes-closed" };
+  if (height < 3) return { quality: "eyes-too-small" };
+  return {
+    quality: "ready",
+    x: minX * frameWidth,
+    y: minY * frameHeight,
+    width,
+    height,
+  };
+}
+
+export function gazeEyeFeatures(
+  pixels: ArrayLike<number>,
+):
+  | { quality: "ready"; features: number[] }
+  | { quality: "low-contrast" | "invalid-frame" } {
+  if (
+    pixels.length !== 160 ||
+    Array.from(pixels).some((p) => !Number.isFinite(p) || p < 0 || p > 255)
+  )
+    return { quality: "invalid-frame" };
+  const gray = Array.from(
+    { length: 40 },
+    (_, i) =>
+      (pixels[i * 4] * 0.299 +
+        pixels[i * 4 + 1] * 0.587 +
+        pixels[i * 4 + 2] * 0.114) /
+      255,
+  );
+  const mean = gray.reduce((sum, value) => sum + value, 0) / gray.length;
+  const contrast = Math.sqrt(
+    gray.reduce((sum, value) => sum + (value - mean) ** 2, 0) / gray.length,
+  );
+  if (contrast < 0.015) return { quality: "low-contrast" };
+  return {
+    quality: "ready",
+    features: gray.map((value) => (value - mean) / Math.max(0.05, contrast)),
+  };
+}
+
+export function gazeCollectionFailure(
+  accepted: number,
+  rejected: Partial<Record<GazeFrameQuality, number>>,
+) {
+  const reason = (Object.entries(rejected) as [GazeFrameQuality, number][])
+    .filter(([quality, count]) => quality !== "ready" && count > 0)
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+  return `Calibration stopped: ${accepted} of ${gazeCapture.samplesPerTarget} usable images collected for this target. ${reason ? gazeQualityMessages[reason] : "The camera did not provide enough fresh images. Check the preview and retry."} No gaze estimate is active.`;
+}
+
 export interface GazeSample {
   features: number[];
   x: number;
@@ -41,7 +169,8 @@ export function sampleMatchesGazeTarget(
     frame.step === current.step &&
     frame.cameraId === current.cameraId &&
     Number.isFinite(frame.capturedAt) &&
-    frame.capturedAt - current.started >= 650
+    frame.capturedAt - current.started >= gazeCapture.settleMs &&
+    frame.capturedAt - current.started <= gazeCapture.targetTimeoutMs
   );
 }
 const finite = (values: number[]) => values.every(Number.isFinite);

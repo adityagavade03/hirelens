@@ -1,5 +1,13 @@
 # Verification record
 
+## Provider setup, speech safeguards and dashboard regression — 19 October 2026
+
+The final production client/server build, TypeScript checks and **423 JavaScript/TypeScript tests in 40 files** passed; **15 Python speech-processing tests** passed separately. Coverage includes staged provider configuration without live activation, redacted provider errors, microphone recording safeguards, gaze-calibration validation, frozen-camera expiry and legacy applications with missing match results. Provider fixtures and synthetic audio do not establish real service delivery or model accuracy. The existing large Monaco bundle warning remains.
+
+The physical gaze trial collected nine fit targets and five independent validation targets, then failed the accuracy gate. The preview remained disabled; this is a verified rejection of an inaccurate calibration, not a gaze-accuracy success. Candidate recording saved and decoded, and the user confirmed clear playback, but recognition failed. The low-confidence guard now rejects this clip's unreliable transcript; the synthetic speech still passes. HR microphone permission timed out, so separate-participant audio remains unverified. Public TURN, private hiring execution, SMS handset receipt and real company verification remain pending because the owner has no provider accounts; no second physical device was available for cross-network checks.
+
+See [current status](PROJECT-STATUS.md), [provider activation](PROVIDER-ACTIVATION.md) and [media verification](MEDIA-VERIFICATION.md). Earlier entries retain their historical test counts and limitations.
+
 ## Interview upgrades — 8 October 2026
 
 The latest `npm run check` passed the production client/server build and **185 tests in 18 suites** after the WebRTC track-mapping correction; `.data/runtime/remaining-update-final-check.log` records the result. A subsequent React list-key prefix correction passed another production build (`.data/runtime/remaining-update-final-build.log`) and a browser check without new errors. The existing Monaco chunk-size warning remains.

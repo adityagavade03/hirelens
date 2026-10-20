@@ -21,6 +21,12 @@ const assets = [
     sha256: "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
   },
   {
+    url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+    file: "public/vendor/mediapipe/efficientdet_lite0.tflite",
+    minimum: 7000000,
+    sha256: "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993",
+  },
+  {
     url: "https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz",
     file: ".data/ocr/eng.traineddata.gz",
     minimum: 1000000,
@@ -85,5 +91,5 @@ for (const asset of assets) {
   );
 }
 console.log(
-  "Assets ready. Set RESUME_OCR_ENABLED=true, FACE_MODEL_URL=/vendor/mediapipe/blaze_face_short_range.tflite and MEDIAPIPE_WASM_URL=/vendor/mediapipe/wasm in .env.",
+  "Assets ready. Set RESUME_OCR_ENABLED=true, FACE_MODEL_URL=/vendor/mediapipe/blaze_face_short_range.tflite, OBJECT_MODEL_URL=/vendor/mediapipe/efficientdet_lite0.tflite and MEDIAPIPE_WASM_URL=/vendor/mediapipe/wasm in .env.",
 );

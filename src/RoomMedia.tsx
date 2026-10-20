@@ -25,7 +25,8 @@ export function MonitoringSummary({
       <p>
         {summary.focusLosses} window focus losses · {summary.noFace} sustained
         no-face observations · {summary.multipleFaces} multiple-face
-        observations · {summary.cameraInterruptions} camera interruptions ·{" "}
+        observations · {summary.objectObservations} phone/book observations ·{" "}
+        {summary.cameraInterruptions} camera interruptions ·{" "}
         {summary.unavailable} monitoring gaps
       </p>
       <p role="status">

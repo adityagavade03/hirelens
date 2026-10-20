@@ -7,6 +7,11 @@ import {
   sampleMatchesGazeTarget,
   gazeTargets,
   gazeValidationTargets,
+  gazeCapture,
+  gazeCollectionFailure,
+  gazeFrameSize,
+  gazeQualityMessages,
+  type GazeFrameQuality,
   type GazeCalibration,
   type GazeSample,
 } from "../shared/gaze-calibration";
@@ -28,6 +33,10 @@ export function CalibratedGaze({
   const [step, setStep] = useState<number | null>(null),
     [estimate, setEstimate] = useState<string>("");
   const [validation, setValidation] = useState<number | null>(null);
+  const [quality, setQuality] = useState<GazeFrameQuality | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [collected, setCollected] = useState(0);
+  const readiness = useRef({ count: 0, lastGoodAt: 0 });
   const dialog = useRef<HTMLDialogElement>(null);
   const collection = useRef<{
     step: number;
@@ -35,6 +44,7 @@ export function CalibratedGaze({
     train: GazeSample[];
     validation: GazeSample[];
     count: number;
+    rejected: Partial<Record<GazeFrameQuality, number>>;
   } | null>(null);
   const calibration = useRef<GazeCalibration | null>(null);
   const generation = useRef(0);
@@ -47,6 +57,7 @@ export function CalibratedGaze({
     setStep(null);
     setValidation(null);
     setEstimate("");
+    setCollected(0);
     setStatus(message);
   };
   useEffect(() => {
@@ -58,6 +69,9 @@ export function CalibratedGaze({
   }, [step]);
   useEffect(() => {
     setLoaded(false);
+    setQuality(null);
+    setCameraReady(false);
+    readiness.current = { count: 0, lastGoodAt: 0 };
     invalidate(
       enabled
         ? "Waiting for a working camera preview"
@@ -89,6 +103,7 @@ export function CalibratedGaze({
       failed = true;
       worker?.terminate();
       setLoaded(false);
+      setCameraReady(false);
       invalidate(
         "Gaze preview unavailable. Leave it off or toggle it to retry; no observation was saved.",
       );
@@ -134,6 +149,24 @@ export function CalibratedGaze({
           return;
         const features = data.features as number[] | null,
           c = collection.current;
+        const frameQuality = (data.quality ||
+          "invalid-frame") as GazeFrameQuality;
+        setQuality(frameQuality);
+        const fresh =
+          Number.isFinite(data.capturedAt) &&
+          Date.now() >= data.capturedAt &&
+          Date.now() - data.capturedAt <= gazeCapture.freshFrameMs;
+        readiness.current =
+          features && fresh
+            ? {
+                count: Math.min(
+                  gazeCapture.readySamples,
+                  readiness.current.count + 1,
+                ),
+                lastGoodAt: data.capturedAt,
+              }
+            : { count: 0, lastGoodAt: 0 };
+        setCameraReady(readiness.current.count >= gazeCapture.readySamples);
         if (c) {
           if (activeRef.current) {
             invalidate(
@@ -141,15 +174,12 @@ export function CalibratedGaze({
             );
             return;
           }
-          if (Date.now() - c.started > 12000) {
-            invalidate(
-              "Not enough clear eye images. Improve lighting, keep both eyes visible and retry calibration.",
-            );
+          if (Date.now() - c.started > gazeCapture.targetTimeoutMs) {
+            invalidate(gazeCollectionFailure(c.count, c.rejected));
             return;
           }
           // Associate a result with the target present at CAPTURE time, never arrival time.
           if (
-            !features ||
             !sampleMatchesGazeTarget(
               data,
               {
@@ -162,13 +192,20 @@ export function CalibratedGaze({
             )
           )
             return;
+          if (!features) {
+            c.rejected[frameQuality] = (c.rejected[frameQuality] || 0) + 1;
+            return;
+          }
           const training = c.step < gazeTargets.length;
           const target = training
             ? gazeTargets[c.step]
             : gazeValidationTargets[c.step - gazeTargets.length];
           (training ? c.train : c.validation).push({ features, ...target });
-          if (++c.count < 8) return;
+          setCollected(++c.count);
+          if (c.count < gazeCapture.samplesPerTarget) return;
           c.count = 0;
+          c.rejected = {};
+          setCollected(0);
           c.started = Date.now();
           c.step++;
           try {
@@ -235,6 +272,26 @@ export function CalibratedGaze({
     const timer = setInterval(async () => {
       if (disposed || failed) return;
       if (
+        Date.now() - readiness.current.lastGoodAt >
+        gazeCapture.freshFrameMs
+      ) {
+        setCameraReady(false);
+        if (readiness.current.lastGoodAt > 0) setQuality(null);
+        readiness.current.count = 0;
+        if (calibration.current && !collection.current)
+          invalidate(
+            "Calibration expired because camera images stopped updating. Calibrate again before previewing.",
+          );
+      }
+      const collecting = collection.current;
+      if (
+        collecting &&
+        Date.now() - collecting.started > gazeCapture.targetTimeoutMs
+      )
+        invalidate(
+          gazeCollectionFailure(collecting.count, collecting.rejected),
+        );
+      if (
         (!ready && Date.now() - started > 30000) ||
         (busy && Date.now() - requestAt > 10000)
       )
@@ -250,6 +307,8 @@ export function CalibratedGaze({
         video.readyState < 2 ||
         video.paused
       ) {
+        setCameraReady(false);
+        readiness.current = { count: 0, lastGoodAt: 0 };
         if (calibration.current || collection.current) pause();
         return;
       }
@@ -272,12 +331,11 @@ export function CalibratedGaze({
         cameraId: track.id,
       };
       try {
+        const size = gazeFrameSize(video.videoWidth, video.videoHeight);
+        if (!size) throw new Error("Camera image size unavailable");
         const frame = await createImageBitmap(video, {
-          resizeWidth: 640,
-          resizeHeight: Math.max(
-            1,
-            Math.round((640 * video.videoHeight) / video.videoWidth),
-          ),
+          resizeWidth: size.width,
+          resizeHeight: size.height,
         });
         if (disposed || failed) {
           frame.close();
@@ -334,12 +392,31 @@ export function CalibratedGaze({
         I consent to this local eye-image calibration and preview
       </label>
       <p role="status">{status}</p>
+      {enabled && loaded && (
+        <p role="status">
+          {quality
+            ? gazeQualityMessages[quality]
+            : "Checking fresh camera images…"}
+          {!cameraReady &&
+            " Calibration is available after three consecutive usable eye images."}
+        </p>
+      )}
       {enabled && (
         <button
           type="button"
           className="btn secondary"
-          disabled={!loaded || active || step != null}
+          disabled={!loaded || !cameraReady || active || step != null}
           onClick={() => {
+            if (
+              Date.now() - readiness.current.lastGoodAt >
+              gazeCapture.freshFrameMs
+            ) {
+              setCameraReady(false);
+              setStatus(
+                "Wait for fresh usable eye images before starting calibration.",
+              );
+              return;
+            }
             invalidate(
               "Look at each highlighted target while keeping your head comfortable and still.",
             );
@@ -349,6 +426,7 @@ export function CalibratedGaze({
               train: [],
               validation: [],
               count: 0,
+              rejected: {},
             };
             setStep(0);
           }}
@@ -373,15 +451,26 @@ export function CalibratedGaze({
           invalidate("Calibration cancelled. No gaze estimate is active.");
         }}
       >
-        <div className="gaze-calibration-help">
+        <div
+          className={`gaze-calibration-help${target && target.y < 0.5 ? " gaze-help-bottom" : ""}`}
+        >
           <h2 id="gaze-dialog-title">
-            {step != null && step >= 9
+            {step != null && step >= gazeTargets.length
               ? "Independent validation"
               : "Look at the highlighted target"}
           </h2>
           <p>
-            Target {(step ?? 0) + 1} of 14 · keep looking until it moves. About
-            40 seconds total.
+            Target {(step ?? 0) + 1} of{" "}
+            {gazeTargets.length + gazeValidationTargets.length} · keep looking
+            until it moves. Usually about 40 seconds; slower cameras may need up
+            to three minutes.
+          </p>
+          <p role="status">
+            {collected} of {gazeCapture.samplesPerTarget} usable images for this
+            target.
+            {quality &&
+              quality !== "ready" &&
+              ` ${gazeQualityMessages[quality]}`}
           </p>
           <button
             type="button"

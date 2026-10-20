@@ -24,7 +24,7 @@ if (Test-Path '.data/ollama/runtime/ollama.exe') {
 if (Test-Path '.data/speech/venv/Scripts/python.exe') {
     $env:HF_HOME = Join-Path $projectRoot '.data/speech/cache'
     $env:HF_HUB_DISABLE_SYMLINKS_WARNING = '1'
-    Start-HireLensService 'speech' 8765 (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') 'scripts/speech-server.py'
+    Start-HireLensService 'speech' 8765 (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') '-I scripts/speech-server.py'
     if (Test-Path '.data/diarization/models/nemo_en_titanet_small.onnx') {
         Start-HireLensService 'diarization' 8766 (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') 'scripts/diarization-server.py'
     }

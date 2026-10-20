@@ -23,7 +23,13 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(90vw, 520px);
+  max-height: calc(40dvh - 1rem);
+  overflow: auto;
   text-align: center;
+}
+.gaze-calibration-help.gaze-help-bottom {
+  top: auto;
+  bottom: 1rem;
 }
 .gaze-calibration-help h2 {
   font-size: 1.05rem;

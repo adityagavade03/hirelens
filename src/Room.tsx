@@ -60,6 +60,12 @@ import {
 import { useMonitoring } from "./monitoring";
 import { InterviewCapture } from "./InterviewMedia";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
+import { useObjectDetection } from "./object-detection";
+import {
+  useObjectConsent,
+  ObjectDetectionControls,
+  ObjectDetectionOverlay,
+} from "./ObjectDetectionControls";
 const Editor = lazy(() => import("./CodingEditor"));
 const HumanRoom = lazy(() => import("./HumanRoom"));
 const InPersonRoom = lazy(() => import("./InPersonRoom"));
@@ -153,6 +159,18 @@ function LegacyRoom() {
     setFaceState,
   );
   const event = monitoring.record;
+  const objectConsent = useObjectConsent(interviewId, practice);
+  const objects = useObjectDetection({
+    enabled:
+      candidate &&
+      objectConsent.enabled &&
+      !["completed", "cancelled"].includes(interview?.status || ""),
+    active: !!active && consent && !practice,
+    localOnly: practice,
+    video: videoElement,
+    services: service.data,
+    record: event,
+  });
   const devices = useInterviewDevices(event);
   const { stream, screen, camera, mic, message: deviceMessage } = devices;
   const call = useLiveCall({
@@ -428,6 +446,14 @@ function LegacyRoom() {
           <div>
             <div className="video-preview">
               <video ref={setVideoElement} muted autoPlay playsInline />
+              {candidate && objectConsent.enabled && camera && (
+                <ObjectDetectionOverlay
+                  video={videoElement}
+                  detections={objects.detections}
+                  frameAspect={objects.frameAspect}
+                  mirrored
+                />
+              )}
               {!stream && (
                 <div className="video-placeholder">
                   <Avatar name={user.name} size="large" />
@@ -455,6 +481,18 @@ function LegacyRoom() {
                 Use microphone only
               </button>
             </div>
+            {candidate && (
+              <ObjectDetectionControls
+                consent={objectConsent}
+                configured={!!service.data?.objects}
+                savedConsent={interview.objectConsent}
+                status={objects.status}
+                ready={objects.ready}
+                detections={objects.detections}
+                retry={objects.retry}
+                localOnly={practice}
+              />
+            )}
           </div>
           <div className="preflight-info">
             <h2>
@@ -622,6 +660,14 @@ function LegacyRoom() {
         <aside className="room-video-column">
           <div className="room-video">
             <video ref={setVideoElement} muted autoPlay playsInline />
+            {candidate && objectConsent.enabled && camera && (
+              <ObjectDetectionOverlay
+                video={videoElement}
+                detections={objects.detections}
+                frameAspect={objects.frameAspect}
+                mirrored
+              />
+            )}
             {(!stream || !camera) && (
               <div className="video-placeholder">
                 <Avatar name={user.name} size="large" />
@@ -796,6 +842,18 @@ function LegacyRoom() {
             <button className="btn secondary" onClick={monitoring.retryFace}>
               Retry face monitoring
             </button>
+          )}
+          {candidate && (
+            <ObjectDetectionControls
+              consent={objectConsent}
+              configured={!!service.data?.objects}
+              savedConsent={interview.objectConsent}
+              status={objects.status}
+              ready={objects.ready}
+              detections={objects.detections}
+              retry={objects.retry}
+              localOnly={practice}
+            />
           )}
           {!service.data?.turn && !practice && (
             <p className="muted small">

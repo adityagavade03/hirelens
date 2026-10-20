@@ -43,6 +43,38 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 export function registerInterviewRoom(app: Express) {
+  // Independent optional consent for object observations, including AI-led
+  // hiring interviews. Practice observations stay local and are not persisted.
+  app.post(
+    "/api/interviews/:id/object-consent",
+    permit("candidate"),
+    async (req, res) => {
+      const { accepted } = z.object({ accepted: z.boolean() }).parse(req.body);
+      const id = objectId.parse(req.params.id);
+      await withResources([`room:${id}`], async () => {
+        const i = await accessibleInterview(req.user, id);
+        await mustAttendInterview(req.user, i);
+        if (i.type === "practice" || i.mode === "in_person")
+          throw new ApiError(
+            409,
+            "Object observation consent is available only for online hiring interviews. Practice previews stay on your device.",
+          );
+        open(i);
+        const current = i.objectConsentWindows.find((w: any) => !w.revokedAt);
+        if (accepted && !current) {
+          if (i.objectConsentWindows.length >= 100)
+            throw new ApiError(
+              429,
+              "Object observation consent has changed too often. Leave the optional check off.",
+            );
+          i.objectConsentWindows.push({ grantedAt: new Date() });
+        } else if (!accepted && current) current.revokedAt = new Date();
+        await i.save();
+        roomChanged(i.id, "object-consent");
+        res.json({ accepted, objectConsent: accepted });
+      });
+    },
+  );
   app.post(
     "/api/interviews/:id/room/face-consent",
     permit("candidate"),
@@ -88,6 +120,7 @@ export function registerInterviewRoom(app: Express) {
       screenRequired: i.screenRequired,
       entireScreen: i.entireScreen,
       faceConsent: !!i.faceConsentWindows?.some((w: any) => !w.revokedAt),
+      objectConsent: !!i.objectConsentWindows?.some((w: any) => !w.revokedAt),
       instruction: i.roomInstruction,
       codingPrompt: i.codingPrompt,
       codingSentAt: i.codingSentAt,

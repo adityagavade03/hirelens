@@ -8,6 +8,7 @@ import {
 } from "./config.js";
 import { ApiError } from "./security.js";
 import type { ExecutionResult } from "../shared/types.js";
+import { readProviderJson } from "./provider-response.js";
 import {
   codingLanguageKeys,
   type CodingLanguage,
@@ -148,6 +149,22 @@ export async function assessAnswer(data: unknown) {
       `${result.uncertainty} Unverifiable provider quotations were omitted.`.trim();
   return { ...result, evidence: verified };
 }
+export const transcriptionErrors: Record<string, string> = {
+  NO_AUDIO_TRACK:
+    "This recording has no microphone audio. Check your devices and make a new recording.",
+  NO_AUDIO_SAMPLES:
+    "This recording contains no usable audio samples. Check your microphone and make a new recording.",
+  NO_SPEECH_DETECTED:
+    "No clear speech was detected. Check microphone input, speak near the microphone, or enter and review the transcript manually.",
+  NO_USABLE_TRANSCRIPT:
+    "Speech recognition returned no usable text. Retry transcription or enter and review the transcript manually.",
+  LOW_CONFIDENCE_TRANSCRIPT:
+    "Speech recognition could not produce confident text. Listen to the recording, then enter and review the transcript manually or try another recording or speech provider.",
+  INVALID_AUDIO:
+    "The speech service could not decode this recording. Check playback or make a new recording.",
+  AUDIO_TOO_LONG:
+    "This recording is too long for the speech service. Use a segment of at most two minutes.",
+};
 export async function transcribeAudio(buffer: Buffer, mime: string) {
   if (!serviceStatus().transcription)
     throw new ApiError(
@@ -162,15 +179,49 @@ export async function transcribeAudio(buffer: Buffer, mime: string) {
     mime.includes("mp4") ? "answer.m4a" : "answer.webm",
   );
   form.append("model", config.sttModel);
-  const result = await requestJson(
-    `${config.sttUrl.replace(/\/$/, "")}/audio/transcriptions`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${config.sttKey}` },
-      body: form,
-    },
-    45000,
-  );
+  let result: unknown;
+  try {
+    const response = await fetch(
+      `${config.sttUrl.replace(/\/$/, "")}/audio/transcriptions`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.sttKey}` },
+        body: form,
+        redirect: "error",
+        signal: AbortSignal.timeout(45000),
+      },
+    );
+    if (!response.ok) {
+      if ([400, 413, 422].includes(response.status)) {
+        const failure = z
+          .object({ detail: z.object({ code: z.string() }) })
+          .safeParse(await readProviderJson(response, 8192).catch(() => null));
+        const code = failure.success ? failure.data.detail.code : "";
+        if (Object.hasOwn(transcriptionErrors, code))
+          throw new ApiError(response.status, transcriptionErrors[code], code);
+      }
+      await response.body?.cancel().catch(() => undefined);
+      if (response.status === 429)
+        throw new ApiError(
+          503,
+          "The speech service is busy. Retry transcription shortly.",
+          "SPEECH_BUSY",
+        );
+      throw new ApiError(
+        502,
+        `External service returned HTTP ${response.status}. Check the provider configuration.`,
+        "PROVIDER_ERROR",
+      );
+    }
+    result = await readProviderJson(response, 131072);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      502,
+      "The speech service timed out or returned an unreadable response. Retry transcription or enter a reviewed transcript.",
+      "PROVIDER_ERROR",
+    );
+  }
   const parsed = z
     .object({
       text: z.string().trim().max(20000),
@@ -184,7 +235,7 @@ export async function transcribeAudio(buffer: Buffer, mime: string) {
   if (!parsed.data.text)
     throw new ApiError(
       422,
-      "Speech recognition returned no usable text. Retry transcription or enter and review the transcript manually.",
+      transcriptionErrors.NO_USABLE_TRANSCRIPT,
       "NO_USABLE_TRANSCRIPT",
     );
   return parsed.data.text;
