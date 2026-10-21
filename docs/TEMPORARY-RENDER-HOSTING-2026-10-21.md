@@ -34,10 +34,13 @@ to the local application. The disposable device fixture is excluded.
 The initial eight-hour deployment used expiry `2026-10-21T19:31:38.572Z`.
 At `2026-10-21T12:22:46Z`, the user explicitly authorized a one-month extension
 ending `2026-11-21T12:22:46.000Z` (**21 November 2026 at 5:52:46 PM IST**).
-The fixed Render address remains the same. This authorizes a longer
-laptop-backed test, not independent hosting; activation must apply the same
-deadline to the gateway and scoped laptop preview. The extension checks passed
-all 13 gateway tests and all 16 private-preview tests.
+The fixed Render address remains the same. The extension was deployed from
+`047dd0d4d8b9cd3d8ab2a35ba9ea77f074e1098a` and verified at
+`2026-10-21T12:35:31Z`. Both the gateway and scoped laptop preview report the
+same November deadline. The production build, all 13 gateway tests and all 16
+private-preview tests passed. Public role login pages, application health,
+account protection, cross-origin rejection and WebSocket authentication also
+passed. This remains a laptop-backed test, not independent hosting.
 
 Eight hours remains the launcher default. Longer windows require explicit
 `--days N`, where `N` is a whole number from 1 to 31; the approved month uses
@@ -48,8 +51,9 @@ Starting another session requires an explicit new preview and upstream/expiry
 update; the Render address can remain the same.
 
 Keep the laptop plugged in, online, with its lid open and local services running.
-When enabled, the bounded AC-only keep-awake helper requests wakefulness only
-during the authorized window without changing the power plan. It cannot
+The bounded AC-only keep-awake helper was verified active on mains power. It
+requests wakefulness only during this preview without changing the power plan,
+and releases the request when the preview stops or expires. It cannot
 guarantee uptime. Free Render can still sleep after 15 minutes without traffic,
 causing a wake-up delay on the next visit. Gateway-only health
 does not prove backend health; use `/api/health` for that. Internet access or
