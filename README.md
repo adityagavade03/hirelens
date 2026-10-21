@@ -193,7 +193,7 @@ For a temporary Windows device test, `npm run preview:private -- --company-email
 
 Use the separate authenticated database/Redis/HTTPS deployment template in `compose.production.yaml` and the instructions in [SETUP-REMAINING.md](docs/SETUP-REMAINING.md). Docker image execution and public deployment still need verification on a running Docker host. Multiple API servers can share Redis rate limits and Socket.IO signaling; sticky proxy routing is required for polling.
 
-For a free provider address, [Render staging setup](docs/RENDER-DEPLOYMENT.md) and `render.yaml` prepare a single free web service. No Render service has been created. A cloud database, compatible HTTPS email delivery and actual company verification are required; the laptop's local accounts and AI services do not transfer automatically.
+For a fixed free test address while the laptop stays on, [Render gateway setup](docs/RENDER-DEPLOYMENT.md) uses `deploy/preview-gateway/render.yaml` to forward to the existing scoped production preview, preserving its original expiry and normal sign-in. The gateway is not independent cloud hosting. For independent cloud deployment, the root `render.yaml` requires a cloud database, compatible HTTPS email delivery and actual company verification; local accounts and AI services do not transfer automatically. These templates alone do not create a Render service.
 
 ## Source guide
 

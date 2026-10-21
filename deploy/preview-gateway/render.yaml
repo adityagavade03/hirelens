@@ -1,0 +1,27 @@
+# Fixed free test address. The application/database remain on the owner's laptop.
+# Requires a current scoped production preview and its ORIGINAL absolute expiry.
+services:
+  - type: web
+    name: hirelens-adityagavade03
+    runtime: node
+    rootDir: deploy/preview-gateway
+    plan: free
+    region: singapore
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /__gateway/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: HIRELENS_PREVIEW_UPSTREAM
+        sync: false
+      - key: HIRELENS_PREVIEW_EXPIRES_AT
+        sync: false
+      - key: HIRELENS_BACKEND_ORIGIN
+        fromService:
+          type: web
+          name: hirelens-adityagavade03
+          envVarKey: RENDER_EXTERNAL_URL

@@ -11,7 +11,7 @@ import { z } from "zod";
 // Explicitly launched, time-limited preview. Normal account authentication always applies.
 const args = process.argv.slice(2);
 const usage =
-  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--expires-at ISO_TIMESTAMP] [--access password|account]\nDefaults to eight hours and an extra preview password. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp no more than eight hours away; use the original expiry when restarting an existing authorization.";
+  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--expires-at ISO_TIMESTAMP] [--access password|account] [--public-origin HTTPS_ORIGIN]\nDefaults to eight hours and an extra preview password. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp no more than eight hours away; use the original expiry when restarting an existing authorization. --public-origin sets the canonical origin of an owner-controlled HTTPS gateway; the underlying tunnel remains private-preview scoped and keeps the same expiry.";
 if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
   console.log(usage);
   process.exit(0);
@@ -21,7 +21,7 @@ for (let index = 0; index < args.length; index += 2) {
   const key = args[index],
     value = args[index + 1];
   if (
-    !["--company-email", "--expires-at", "--access"].includes(key) ||
+    !["--company-email", "--expires-at", "--access", "--public-origin"].includes(key) ||
     !value ||
     options.has(key)
   ) {
@@ -32,6 +32,22 @@ for (let index = 0; index < args.length; index += 2) {
 }
 const companyEmail = options.get("--company-email")?.trim().toLowerCase();
 const accessMode = options.get("--access") || "password";
+const requestedPublicOrigin = options.get("--public-origin");
+if (requestedPublicOrigin) {
+  try {
+    const parsed = new URL(requestedPublicOrigin);
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.origin !== requestedPublicOrigin ||
+      parsed.username || parsed.password || parsed.port ||
+      !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(parsed.hostname) ||
+      parsed.hostname.endsWith(".localhost")
+    ) throw new Error("invalid origin");
+  } catch {
+    console.error("--public-origin must be the exact HTTPS origin of an owner-controlled public gateway, with no credentials, port, path or query.");
+    process.exit(1);
+  }
+}
 if (!["password", "account"].includes(accessMode)) {
   console.error("--access must be password or account.");
   process.exit(1);
@@ -233,12 +249,13 @@ try {
     });
   });
   if (stopping) throw new Error("Preview was cancelled.");
+  const publicOrigin = requestedPublicOrigin || url;
   const appEnv = {
     ...process.env,
     NODE_ENV: "production",
     HOST: "127.0.0.1",
     PORT: String(port),
-    APP_ORIGIN: url,
+    APP_ORIGIN: publicOrigin,
     PRIVATE_PREVIEW_ACCESS: accessMode,
     PRIVATE_PREVIEW_PASSWORD: password,
     PRIVATE_PREVIEW_EXPIRES_AT: expiresAt,
@@ -287,7 +304,7 @@ try {
   for (let attempt = 0; attempt < 40 && !childFailed && !stopping; attempt++) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/`, {
-        headers: { Host: new URL(url).host },
+        headers: { Host: new URL(publicOrigin).host },
         signal: AbortSignal.timeout(1500),
         redirect: "manual",
       });
@@ -298,7 +315,7 @@ try {
         response.headers.get("location") === "/auth/company"
       ) {
         const login = await fetch(`http://127.0.0.1:${port}/auth/company`, {
-          headers: { Host: new URL(url).host },
+          headers: { Host: new URL(publicOrigin).host },
           signal: AbortSignal.timeout(1500),
         });
         if (
@@ -329,7 +346,7 @@ try {
     );
   writeFileSync(
     path.join(runtime, "access.txt"),
-    `HireLens temporary preview\n\nURL: ${url}\nAccess: ${accessMode === "account" ? "Direct account sign-in; no extra preview password" : "Preview password plus account sign-in"}\n${accessMode === "password" ? `Preview access password: ${password}\n` : ""}Expires: ${expiresAt}\n\n${accessMode === "account" ? "Open the link and sign in with your existing HireLens account." : "First enter this preview password, then sign in with your existing HireLens account."}\nCompany: ${url}/auth/company\nHR: ${url}/auth/hr\nCandidate: ${url}/auth/candidate\nBoth interviewer and candidate must use this public URL, not localhost.\nThis shares your local workspace; changes here are real changes to local data.\nCompanies remain unverified. Use this only with trusted testers.\nKeep this laptop and its local services running.\nPublic TURN is still needed for reliable media between different networks.\nStop: npm run preview:stop\n`,
+    `HireLens temporary preview\n\nURL: ${publicOrigin}\nAccess: ${accessMode === "account" ? "Direct account sign-in; no extra preview password" : "Preview password plus account sign-in"}\n${accessMode === "password" ? `Preview access password: ${password}\n` : ""}Expires: ${expiresAt}\n\n${accessMode === "account" ? "Open the link and sign in with your existing HireLens account." : "First enter this preview password, then sign in with your existing HireLens account."}\nCompany: ${publicOrigin}/auth/company\nHR: ${publicOrigin}/auth/hr\nCandidate: ${publicOrigin}/auth/candidate\nBoth interviewer and candidate must use this public URL, not localhost.\nThis shares your local workspace; changes here are real changes to local data.\nCompanies remain unverified. Use this only with trusted testers.\nKeep this laptop and its local services running.\nPublic TURN is still needed for reliable media between different networks.\nStop: npm run preview:stop\n`,
     { mode: 0o600 },
   );
   writeFileSync(
@@ -340,7 +357,8 @@ try {
         pid: process.pid,
         appPid: app.pid,
         tunnelPid: tunnel.pid,
-        url,
+        url: publicOrigin,
+        tunnelUrl: url,
         expiresAt,
         accessMode,
       },
@@ -351,7 +369,8 @@ try {
   console.log(
     JSON.stringify({
       ready: true,
-      url,
+      url: publicOrigin,
+      tunnelUrl: url,
       expiresAt,
       accessMode,
       accessFile: path.join(runtime, "access.txt"),
