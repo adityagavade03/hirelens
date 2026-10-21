@@ -1,0 +1,62 @@
+# Optional free staging deployment; no cloud service has been created by this file.
+# Read docs/RENDER-DEPLOYMENT.md before applying. No laptop secrets/data are copied.
+services:
+  - type: web
+    name: hirelens-adityagavade03
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: "off"
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "4000"
+      - key: APP_ORIGIN
+        fromService:
+          type: web
+          name: hirelens-adityagavade03
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: MONGODB_URI
+        sync: false
+      - key: OTP_HASH_SECRET
+        generateValue: true
+      - key: EMAIL_FROM
+        sync: false
+      # Free Render blocks SMTP. This must implement HireLens's HTTPS adapter,
+      # including its accepted/messageId response; a raw email vendor URL won't.
+      - key: EMAIL_DELIVERY_URL
+        sync: false
+      - key: EMAIL_DELIVERY_API_KEY
+        sync: false
+      - key: REDIS_URL
+        value: ""
+      - key: MESSAGE_PREVIEW
+        value: "false"
+      - key: ALLOW_DEMO_LOGIN
+        value: "false"
+      - key: ALLOW_LOCAL_COMPANY_REGISTRATION
+        value: "false"
+      - key: EMAIL_VERIFICATION_REQUIRED
+        value: "true"
+      - key: COMPANY_LOGIN_OTP_REQUIRED
+        value: "true"
+      - key: TURN_LOCAL_DEV
+        value: "false"
+      - key: FACE_MODEL_URL
+        value: /vendor/mediapipe/blaze_face_short_range.tflite
+      - key: MEDIAPIPE_WASM_URL
+        value: /vendor/mediapipe/wasm
+      - key: FACE_LANDMARK_MODEL_URL
+        value: /vendor/mediapipe/face_landmarker.task
+      - key: OBJECT_MODEL_URL
+        value: /vendor/mediapipe/efficientdet_lite0.tflite
+      - key: OBJECT_ACCURACY_MODEL_URL
+        value: /vendor/mediapipe/efficientdet_lite2.tflite
+      - key: RESUME_OCR_ENABLED
+        value: "true"
