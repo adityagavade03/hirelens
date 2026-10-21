@@ -483,6 +483,9 @@ function LegacyRoom() {
             </div>
             {candidate && (
               <ObjectDetectionControls
+                profile={objects.profile}
+                onProfileChange={objects.setProfile}
+                accuracyAvailable={objects.accuracyAvailable}
                 consent={objectConsent}
                 configured={!!service.data?.objects}
                 savedConsent={interview.objectConsent}
@@ -845,6 +848,9 @@ function LegacyRoom() {
           )}
           {candidate && (
             <ObjectDetectionControls
+              profile={objects.profile}
+              onProfileChange={objects.setProfile}
+              accuracyAvailable={objects.accuracyAvailable}
               consent={objectConsent}
               configured={!!service.data?.objects}
               savedConsent={interview.objectConsent}

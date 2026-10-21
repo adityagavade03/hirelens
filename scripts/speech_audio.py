@@ -6,6 +6,7 @@ No media or transcript is written to disk by these helpers.
 import io
 import math
 from dataclasses import dataclass
+import re
 
 import av
 import numpy as np
@@ -15,6 +16,24 @@ MAX_SECONDS = 120
 # Same threshold used by faster-whisper's decoding fallback. Reaching the final
 # fallback does not make uniformly failing segments reliable interview evidence.
 MIN_SEGMENT_LOG_PROBABILITY = -1.0
+MAX_SEGMENT_COMPRESSION_RATIO = 2.4
+
+
+@dataclass(frozen=True)
+class RecognitionOptions:
+    # A known language can help short/accented clips; auto never assumes English.
+    # This is a decoding choice, not a candidate assessment or an accuracy claim.
+    language: str | None = None
+    detect_each_segment: bool = True
+
+    def __post_init__(self):
+        if self.language is not None and not re.fullmatch(r"[a-z]{2,3}", self.language):
+            raise ValueError("Speech language must be auto or a lowercase language code.")
+
+
+def recognition_options(language="auto", detect_each_segment=True):
+    language = language.strip().lower()
+    return RecognitionOptions(None if language == "auto" else language, detect_each_segment)
 
 
 class SpeechInputError(ValueError):
@@ -86,14 +105,31 @@ def decode_audio(data):
     return DecodedAudio(samples, diagnostics)
 
 
-def recognize_audio(data, engine):
+def recognize_audio(data, engine, options=None):
+    options = options or RecognitionOptions()
+    supported = getattr(engine, "supported_languages", None)
+    if options.language is not None and supported is not None and options.language not in supported:
+        raise SpeechInputError("UNSUPPORTED_SPEECH_LANGUAGE", "The loaded speech model does not support the selected language. Select a multilingual model or a supported language.", 400)
+    multilingual = len(supported) > 1 if supported is not None else False
     decoded = decode_audio(data)
-    segments, info = engine.transcribe(decoded.samples, beam_size=3, vad_filter=True,
+    # A single zero-temperature beam search avoids the upstream sampling fallback
+    # changing words on each retry. It cannot make inaccurate words reliable.
+    segments, info = engine.transcribe(decoded.samples, beam_size=5, best_of=1,
+                                      temperature=0.0, task="transcribe",
+                                      language=options.language,
+                                      multilingual=multilingual and options.language is None and options.detect_each_segment,
+                                      vad_filter=True,
                                       log_prob_threshold=MIN_SEGMENT_LOG_PROBABILITY,
+                                      compression_ratio_threshold=MAX_SEGMENT_COMPRESSION_RATIO,
                                       condition_on_previous_text=False)
     segments = list(segments)
     speech_seconds = float(info.duration_after_vad)
     decoded.diagnostics["speechSeconds"] = round(speech_seconds, 4)
+    decoded.diagnostics["decoder"] = "beam_search_temperature_zero"
+    decoded.diagnostics["languageSelection"] = options.language or "auto"
+    language = getattr(info, "language", None)
+    if isinstance(language, str) and re.fullmatch(r"[a-z]{2,3}", language):
+        decoded.diagnostics["detectedLanguage"] = language
     text = " ".join(segment.text.strip() for segment in segments).strip()
     # Do not disable VAD or seed expected words to force a nonempty result.
     # A blank result is a retryable failure, not a successful transcript.
@@ -102,12 +138,20 @@ def recognize_audio(data, engine):
             raise SpeechInputError("NO_SPEECH_DETECTED", "No speech was detected. Check that the microphone is unmuted, speak near it, and record again.", diagnostics=decoded.diagnostics)
         raise SpeechInputError("NO_USABLE_TRANSCRIPT", "Speech was detected but could not be transcribed reliably. Retry or enter and review the transcript manually.", diagnostics=decoded.diagnostics)
     recognized_segments = [segment for segment in segments if segment.text.strip()]
-    low_confidence = [segment for segment in recognized_segments
-                      if getattr(segment, "avg_logprob", 0) < MIN_SEGMENT_LOG_PROBABILITY]
+    def weak(segment):
+        score = getattr(segment, "avg_logprob", None)
+        return not isinstance(score, (int, float)) or not math.isfinite(score) or score < MIN_SEGMENT_LOG_PROBABILITY
+
+    low_confidence = [segment for segment in recognized_segments if weak(segment)]
+    repetitive = [segment for segment in recognized_segments
+                  if getattr(segment, "compression_ratio", 0) > MAX_SEGMENT_COMPRESSION_RATIO]
     decoded.diagnostics["recognizedSegments"] = len(recognized_segments)
     decoded.diagnostics["lowConfidenceSegments"] = len(low_confidence)
+    decoded.diagnostics["repetitiveSegments"] = len(repetitive)
     if low_confidence:
         decoded.diagnostics["warnings"].append("low_recognition_confidence")
     if len(low_confidence) == len(recognized_segments):
         raise SpeechInputError("LOW_CONFIDENCE_TRANSCRIPT", "Speech recognition was too uncertain to use. Review the recording and enter the transcript manually, record again, or use another speech model.", diagnostics=decoded.diagnostics)
+    if repetitive:
+        raise SpeechInputError("LOW_CONFIDENCE_TRANSCRIPT", "Speech recognition produced repetitive text that requires manual review. Listen to the recording and enter the transcript manually or retry with another model.", diagnostics=decoded.diagnostics)
     return {"text": text, "diagnostics": decoded.diagnostics}

@@ -211,3 +211,40 @@ it("aligns boxes with cover-cropped and mirrored camera previews", async () => {
   expect(Number(box().getAttribute("x"))).toBeCloseTo(448);
   expect(host.querySelector("text")?.textContent).toBe("book 80%");
 });
+
+it("offers a detail model only when configured, without granting camera consent", async () => {
+  await render();
+  const onProfileChange = vi.fn();
+  const props = {
+    consent,
+    configured: true,
+    status: "Object detection is off",
+    ready: false,
+    detections: [],
+    retry: vi.fn(),
+    onProfileChange,
+  };
+  await act(async () =>
+    root.render(createElement(ObjectDetectionControls, props)),
+  );
+  const select = host.querySelector("select")!;
+  expect(select.closest("label")?.textContent).toContain("Local model");
+  expect(select.options[1].disabled).toBe(true);
+  await act(async () =>
+    root.render(
+      createElement(ObjectDetectionControls, {
+        ...props,
+        accuracyAvailable: true,
+      }),
+    ),
+  );
+  expect(host.querySelector("select")!.options[1].disabled).toBe(false);
+  await act(async () => {
+    host.querySelector("select")!.value = "detail";
+    host
+      .querySelector("select")!
+      .dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(onProfileChange).toHaveBeenCalledWith("detail");
+  expect(send).not.toHaveBeenCalled();
+});

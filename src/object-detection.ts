@@ -4,9 +4,12 @@ import {
   objectDetectionSettings,
   objectFrameSize,
   objectThresholdMs,
+  objectQualityMessage,
+  sanitizeObjectFrameQuality,
   sanitizeCameraObjects,
   SustainedObjectObservations,
   type CameraObject,
+  type ObjectDetectionProfile,
 } from "../shared/object-detection";
 
 export type { CameraObject } from "../shared/object-detection";
@@ -47,6 +50,12 @@ export function useObjectDetection({
   const [detections, setDetections] = useState<CameraObject[]>([]);
   const [frameAspect, setFrameAspect] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [profile, setProfile] = useState<ObjectDetectionProfile>("balanced");
+  const accuracyAvailable = !!services?.objectAccuracyModelUrl;
+  const selectedModel =
+    profile === "detail"
+      ? services?.objectAccuracyModelUrl
+      : services?.objectModelUrl;
   const observationActive = active && !localOnly;
   const latest = useRef({
     enabled,
@@ -78,11 +87,7 @@ export function useObjectDetection({
       );
       return;
     }
-    if (
-      !services?.objects ||
-      !services.objectModelUrl ||
-      !services.mediapipeWasmUrl
-    ) {
+    if (!services?.objects || !selectedModel || !services.mediapipeWasmUrl) {
       setStatus(
         "Object model is not configured; the camera and interview can continue.",
       );
@@ -201,12 +206,26 @@ export function useObjectDetection({
           return;
         }
         const objects = sanitizeCameraObjects(data.detections);
+        const quality = sanitizeObjectFrameQuality(data.quality);
+        const guidance = objectQualityMessage(
+          quality,
+          video.videoWidth,
+          video.videoHeight,
+        );
         stale = false;
+        if (quality.state !== "usable") {
+          observations.reset();
+          setDetections([]);
+          setFrameAspect(null);
+          setReady(false);
+          setStatus(guidance);
+          return;
+        }
         setDetections(objects);
         setFrameAspect(frame.aspect);
         setReady(true);
         setStatus(
-          `${latest.current.active ? "Object check active" : "Object preview"} · ${objects.length ? `${objects.length} supported object(s) estimated` : "no supported objects estimated in this frame"}${latest.current.localOnly ? "; local preview only; no observations shared." : latest.current.active ? "." : "; observations start after admission."}`,
+          `${latest.current.active ? "Object check active" : "Object preview"} · ${objects.length ? `${objects.length} supported object(s) estimated` : "no supported objects estimated in this frame"}${latest.current.localOnly ? "; local preview only; no observations shared." : latest.current.active ? "." : "; observations start after admission."}${guidance ? ` ${guidance}` : ""}`,
         );
         if (!frame.active || !latest.current.active) {
           observations.reset();
@@ -227,10 +246,12 @@ export function useObjectDetection({
       };
       worker.postMessage({
         kind: "init",
-        model: new URL(services.objectModelUrl, location.href).href,
+        model: new URL(selectedModel, location.href).href,
         wasm: new URL(services.mediapipeWasmUrl, location.href).href,
       });
-      setStatus("Loading the local object model…");
+      setStatus(
+        `Loading the local object model${profile === "detail" ? " · more detail, higher device load" : ""}…`,
+      );
     } catch {
       fail();
     }
@@ -334,10 +355,11 @@ export function useObjectDetection({
     enabled,
     video,
     services?.objects,
-    services?.objectModelUrl,
+    selectedModel,
     services?.mediapipeWasmUrl,
     services?.objectThresholdSeconds,
     attempt,
+    profile,
   ]);
 
   useEffect(() => {
@@ -354,6 +376,9 @@ export function useObjectDetection({
     ready,
     detections,
     frameAspect,
+    profile,
+    setProfile,
+    accuracyAvailable,
     retry: () => setAttempt((n) => n + 1),
   };
 }

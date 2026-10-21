@@ -1,5 +1,17 @@
 # HireLens progress
 
+## Local completion work — 21 October 2026
+
+`npm run check` passed client/server builds, TypeScript and **501 tests in 48 files**; **28 Python decoder/evaluator tests** passed separately. Added production configuration validation, dependency-aware health checks and the [Linux deployment package](docs/PRODUCTION-DEPLOYMENT.md). The owner confirmed no provider/hosting accounts and only one laptop, so activation and two-network tests remain blocked by those dependencies.
+
+The pinned multilingual `small` model is installed and connected on loopback port 8767. Separate generated Candidate and HR clips passed real codec, authenticated storage/playback, transcription and role-isolation checks; see [media-track evidence](docs/MEDIA-TRACKS-VERIFICATION.md). This does not verify fresh physical speech or remote microphone audibility. The native browser helper reported a minimized window, and a manual room check remains unresolved; no new physical recording/transcription success is claimed.
+
+Object detection adds a **More detail** model and exposure guidance. An early positive user report could not be tied to the intended test page/model; later clarification placed Chrome on New Tab/Google. The physical check is therefore inconclusive, with labels/boxes and the active-room timeline still unverified. Earlier failures remain recorded. [Device record](docs/OBJECT-DETECTION-DEVICE-CHECK-2026-10-21.json).
+
+Expanded AI evaluation to 26 resume/JD and four report fixtures, strict case selection, protected artifacts and 1–5 repeats. Latest valid runs cover 12 new resume and two report cases in 28 passing attempts, with variable scores; the full corpus was not rerun. Corrected fixture expectations to the existing threshold policy and fixed a separate real expired-certification evidence bug; original failures are preserved. [AI findings](docs/AI-QUALITY-VALIDATION.md).
+
+No trained integrity model exists without the consented, reviewed participant dataset. Exact Hostinger matching and Safari/Firefox/physical mobile checks remain unverified. The implementation was validated locally; no production deployment was performed this session. Earlier dated entries below retain their original evidence.
+
 ## Optional object detection — 19 October 2026
 
 Implemented experimental camera object detection with a separately consented Candidate preview, local worker inference and bounding boxes. Only sustained phone/book observations are shared for human review after admission; they produce no automatic cheating verdict or hiring-score change. The installed model ran on the physical camera, but missed the phone and misclassified the book in low light, so accuracy remains unvalidated.

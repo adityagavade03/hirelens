@@ -13,6 +13,14 @@
 .object-check small {
   color: var(--muted);
 }
+.object-profile {
+  display: grid;
+  gap: 6px;
+}
+.object-profile select {
+  width: 100%;
+  min-height: 42px;
+}
 .object-labels {
   display: flex;
   flex-wrap: wrap;

@@ -6,6 +6,96 @@ export interface CameraObject {
   box: { x: number; y: number; width: number; height: number };
 }
 
+export type ObjectDetectionProfile = "balanced" | "detail";
+/** Bounded exposure metadata; no image pixels are returned by the worker. */
+export interface ObjectFrameQuality {
+  state: "usable" | "dark" | "glare" | "unavailable";
+  mean: number;
+  darkFraction: number;
+  brightFraction: number;
+}
+
+/** Conservative exposure checks, not an accuracy or misconduct assessment. */
+export function objectFrameQuality(
+  rgba: ArrayLike<number>,
+): ObjectFrameQuality {
+  const unavailable: ObjectFrameQuality = {
+    state: "unavailable",
+    mean: 0,
+    darkFraction: 0,
+    brightFraction: 0,
+  };
+  if (!rgba.length || rgba.length % 4 !== 0 || rgba.length > 96 * 72 * 4)
+    return unavailable;
+  let total = 0,
+    dark = 0,
+    bright = 0;
+  const count = rgba.length / 4;
+  for (let i = 0; i < rgba.length; i += 4) {
+    const r = rgba[i],
+      g = rgba[i + 1],
+      b = rgba[i + 2];
+    if (![r, g, b].every((n) => Number.isFinite(n) && n >= 0 && n <= 255))
+      return unavailable;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    total += luma;
+    if (luma < 40) dark++;
+    if (luma > 240) bright++;
+  }
+  const mean = Math.round(total / count),
+    darkFraction = Math.round((dark / count) * 100) / 100,
+    brightFraction = Math.round((bright / count) * 100) / 100;
+  return {
+    state:
+      mean < 38 && darkFraction >= 0.7
+        ? "dark"
+        : mean > 238 && brightFraction >= 0.8
+          ? "glare"
+          : "usable",
+    mean,
+    darkFraction,
+    brightFraction,
+  };
+}
+
+export function sanitizeObjectFrameQuality(value: unknown): ObjectFrameQuality {
+  const unknown = objectFrameQuality([]);
+  if (!value || typeof value !== "object") return unknown;
+  const candidate = value as ObjectFrameQuality;
+  if (
+    !["usable", "dark", "glare", "unavailable"].includes(candidate.state) ||
+    !Number.isFinite(candidate.mean) ||
+    candidate.mean < 0 ||
+    candidate.mean > 255 ||
+    ![candidate.darkFraction, candidate.brightFraction].every(
+      (n) => Number.isFinite(n) && n >= 0 && n <= 1,
+    )
+  )
+    return unknown;
+  return {
+    state: candidate.state,
+    mean: candidate.mean,
+    darkFraction: candidate.darkFraction,
+    brightFraction: candidate.brightFraction,
+  };
+}
+
+export function objectQualityMessage(
+  quality: ObjectFrameQuality,
+  width: number,
+  height: number,
+) {
+  if (quality.state === "dark")
+    return "Camera image is too dark for object review. Add light in front of you; observations are paused.";
+  if (quality.state === "glare")
+    return "Camera image is washed out by glare. Move bright light away from the lens; observations are paused.";
+  if (quality.state === "unavailable")
+    return "Camera exposure could not be checked; object observations are paused.";
+  return width < 640 || height < 360
+    ? "Low camera resolution: select 640 × 360 or higher when available, and keep the whole object close enough to see."
+    : "";
+}
+
 export const objectDetectionSettings = {
   scoreThreshold: 0.5,
   maxResults: 8,

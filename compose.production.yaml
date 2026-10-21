@@ -1,8 +1,13 @@
 # Separate production template; does not reuse or modify the local development database.
+name: hirelens-production
+x-logging: &bounded-logs
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" }
 services:
   mongo:
     image: mongo:7.0
     restart: unless-stopped
+    logging: *bounded-logs
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD}
@@ -18,16 +23,39 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: [redis-server, --appendonly, "yes", --requirepass, "${REDIS_PASSWORD:?Set REDIS_PASSWORD}"]
+    logging: *bounded-logs
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command:
+      [
+        sh,
+        -c,
+        'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"',
+      ]
     volumes:
       - production-redis:/data
+    healthcheck:
+      test:
+        [
+          CMD-SHELL,
+          'test "$$(REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping)" = PONG',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   app:
     build: .
     restart: unless-stopped
-    env_file: .env.production
+    init: true
+    stop_grace_period: 30s
+    logging: *bounded-logs
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    env_file: ${HIRELENS_PRODUCTION_ENV_FILE:-.env.production}
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
+      PORT: "4000"
       APP_ORIGIN: https://${SITE_DOMAIN:?Set SITE_DOMAIN}
       MONGODB_URI: mongodb://hirelens:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD}@mongo:27017/hirelens?authSource=hirelens
       REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379
@@ -35,15 +63,19 @@ services:
       ALLOW_DEMO_LOGIN: "false"
       FACE_MODEL_URL: /vendor/mediapipe/blaze_face_short_range.tflite
       MEDIAPIPE_WASM_URL: /vendor/mediapipe/wasm
+      FACE_LANDMARK_MODEL_URL: /vendor/mediapipe/face_landmarker.task
+      OBJECT_MODEL_URL: ${OBJECT_MODEL_URL:-/vendor/mediapipe/efficientdet_lite0.tflite}
+      OBJECT_ACCURACY_MODEL_URL: ${OBJECT_ACCURACY_MODEL_URL:-/vendor/mediapipe/efficientdet_lite2.tflite}
       RESUME_OCR_ENABLED: "true"
     depends_on:
       mongo:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
   caddy:
     image: caddy:2
     restart: unless-stopped
+    logging: *bounded-logs
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN}
     ports: ["80:80", "443:443", "443:443/udp"]
@@ -51,7 +83,9 @@ services:
       - ./deploy/Caddyfile.container:/etc/caddy/Caddyfile:ro
       - production-caddy:/data
       - production-caddy-config:/config
-    depends_on: [app]
+    depends_on:
+      app:
+        condition: service_healthy
 volumes:
   production-mongo:
   production-redis:

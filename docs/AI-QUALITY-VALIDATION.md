@@ -4,17 +4,31 @@ This benchmark exercises HireLens's actual resume comparison and interview repor
 
 The coding assistant authored the fixtures and inspected generated outputs. These are not independent expert labels, human hiring reviews, or consented candidate training data.
 
+## Current v2 evaluation — 21 October 2026
+
+The corpus now contains **26 resume/JD and four report cases**. Twelve added resume cases cover exact/fractional experience boundaries, relevant versus total experience, PostgreSQL equivalence, learning versus experience, C/C++, C#/.NET, Docker/Kubernetes, JavaScript/TypeScript, current and expired certificates, and copied JD text. The runner accepts **1–5 repeats**, rejects unknown/duplicate case IDs and refuses to overwrite an existing artifact. It records per-case outcome/criterion differences and score ranges, rather than presenting one run as deterministic accuracy.
+
+The first expanded seven-case run passed 8/14 attempts; a corrected run passed **14/14**. This selected five new resume cases plus two existing report cases, not the whole corpus. Outcomes stayed the same across its two repeats, but fractional-experience scores ranged **71–86** and unrelated-experience scores **36–71**, with differing criterion states. Those ranges remain evidence of limited calibration even where the chosen assertions pass.
+
+The seven-case technology run initially passed 6/14 attempts. After correcting its expectations, six cases passed both repeats, while the learning-framework case failed its expected non-shortlist outcome twice: its saved JD threshold was 80 and the valid comparison scores were **82 and 91**, so the unchanged score-threshold policy legitimately shortlisted it despite missing/partial framework evidence. The original and corrected failure artifacts are preserved. Its fixture was then calibrated to threshold 100 to test that criterion deficit without changing production policy; `learning-threshold-corrected-2026-10-21.json` passed **2/2**, with the same score range and `not_shortlisted` outcomes.
+
+Across those three latest applicable artifacts, **12 new resume cases and two report cases passed 28/28 attempts**: 14 from the corrected main subset, 12 from the other six technology cases, and two from the final learning-only retry. This combines explicitly selected cases under their corrected fixtures; it is not a full 30-case run and does not erase the earlier failures.
+
+These fixture changes are distinct from a real defect: the model had treated an explicitly expired, unrenewed certificate as meeting an explicitly current certification requirement. A narrow source-grounded check and prompt correction now prevent that evidence from proving current validity; renewed evidence for the same credential remains considered. Existing recruitment records were not changed. No new all-criteria veto was added to override the current shortlisting threshold contract. In the experience/certificate fixtures, threshold 100 makes their intended full-coverage expectation explicit; negative outcomes may be `not_shortlisted` or `needs_review` as supported by the evidence.
+
+The completed subset artifacts are `expanded-2026-10-21.json`, `expanded-corrected-2026-10-21.json`, `expanded-technologies-2026-10-21.json` and `expanded-technologies-corrected-2026-10-21.json` under `.data/runtime/ai-quality/`. They retain the exact corpus and source hashes for each run, including earlier failures. Changed fixture thresholds/labels mean their pass counts must not be interpreted as like-for-like model-quality improvement. The full 30-case corpus has not been rerun under the current code, and these assistant-authored subset checks establish no hiring-accuracy or fairness percentage.
+
 ## Run
 
 Start the local services, then run `npm run ai:quality`. The command requires the configured model to use HTTP loopback (`127.0.0.1`, `localhost` or `::1`), refuses external model destinations and redirects, and does not modify `.env`. The initial Ollama model-list request has a five-second timeout; each production inference uses the configured bounded timeout. Requests run sequentially, without automatic retries. A failed or timed-out case remains a failed result and produces a nonzero exit status.
 
 The script writes incremental JSON evidence in `.data/runtime/ai-quality/`. Each artifact includes the model digest, source and corpus hashes, expectations, actual rubric decisions, source quotations, report references, latency, and every failure. Generated text is untrusted model output. Do not use it as instructions. The synthetic fixtures and evaluation criteria live in `scripts/ai-quality-cases.ts`.
 
-For focused diagnosis, use `npm run ai:quality -- --case=conflicting-years,sparse-answer --output=diagnosis-example`. The output name must be a simple filename. A subset is explicitly recorded in the artifact; it must not be presented as a complete benchmark run. Keep earlier artifacts when comparing model or prompt changes.
+For focused diagnosis, use `npm run ai:quality -- --case=conflicting-years,sparse-answer --repeats=2 --output=diagnosis-example`. The output name must be a new simple filename; an existing artifact is never overwritten. Every selected ID must exist and appear only once. A subset is explicitly recorded in the artifact; it must not be presented as a complete benchmark run. Keep earlier artifacts when comparing model, prompt or fixture changes.
 
 ## What it covers
 
-The 14 resume/JD cases include explicit Java skill matching; MySQL/SQL and REST plural equivalence; a missing mandatory framework despite a low threshold; JavaScript versus Java; insufficient, unstated and conflicting experience; a fresher/project role; relevant and unrelated education; a missing mandatory certification; embedded commands; one pair differing only in irrelevant demographic lines; and structured education/project fields. Outcomes and targeted criterion states are checked, and every retained quotation must occur in its named submitted source.
+The original v1 corpus's 14 resume/JD cases include explicit Java skill matching; MySQL/SQL and REST plural equivalence; a missing mandatory framework despite a low threshold; JavaScript versus Java; insufficient, unstated and conflicting experience; a fresher/project role; relevant and unrelated education; a missing mandatory certification; embedded commands; one pair differing only in irrelevant demographic lines; and structured education/project fields. The v2 additions are listed above. Outcomes and targeted criterion states are checked, and every retained quotation must occur in its named submitted source. Historical v1 expectations predate the current threshold-only policy and are not a claim that all old outcomes have been revalidated today.
 
 The four report cases include two supported explanations with a known 3/4 submitted coding result; one sparse answer; factually wrong answers carrying an embedded instruction; and a reviewed transcript without typed answers. Metrics must refer to actual supplied evidence. Sparse reports must request further evaluation, and coding percentages come from test counts rather than model estimates.
 
@@ -44,7 +58,7 @@ The first corrected full run completed with 14/18 checks passing. Its negative c
 
 The first corrected run also retained a required-degree provider timeout during an apparent host suspension: that call's observed wall duration was 8,268 seconds, despite a configured 120-second active timeout. The earlier failures and timeout remain in `corrected-2026-10-13.json`; they are not concealed by a retry.
 
-## Final observed result
+## Historical v1 final result — 13 October 2026
 
 The final full run on 13 October 2026 passed **18/18 synthetic cases** using the actual local `qwen2.5:3b` model (3.1B, Q4_K_M). The one synthetic personal-detail pair also kept the same score and outcome. These are regression results for this corpus, not an accuracy or fairness percentage.
 
@@ -77,4 +91,4 @@ The final full run on 13 October 2026 passed **18/18 synthetic cases** using the
 
 All four final report narratives were inspected against their supplied evidence. The previously invented sorted-input omission and sparse-answer collision claims were absent. Forty-eight focused regression tests covering screening, evidence-only assessment, report persistence and finalization passed, and TypeScript passed. The final run took about 3 minutes 40 seconds; individual cases took approximately 6–37 seconds, with a median of 10 seconds. Earlier runs were slower, so these timings are not a service guarantee.
 
-The compact [verification record](AI-QUALITY-VERIFICATION.json) preserves model and source hashes, all three run summaries, individual final checks, and the interpretation limits. Full outputs remain in `.data/runtime/ai-quality/`. The benchmark changed no recruitment records, provider settings or credentials. Independent, consented, representative evaluation and repeated-run measurement remain future work.
+The compact [verification record](AI-QUALITY-VERIFICATION.json) preserves model and source hashes, all three v1 run summaries, individual final checks, the v2 follow-up and interpretation limits. Full outputs remain in `.data/runtime/ai-quality/`. The benchmark changed no recruitment records, provider settings or credentials. Independent, consented, representative evaluation remains future work; the limited v2 repeated subsets are described above.

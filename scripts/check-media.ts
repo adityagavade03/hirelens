@@ -35,8 +35,10 @@ await mkdir(".data/runtime", { recursive: true });
 const directory = await mkdtemp(resolve(".data/runtime/media-check-"));
 const sourcePath = join(directory, "synthetic-source.webm");
 const playbackPath = join(directory, "api-playback.webm");
+const hrSourcePath = join(directory, "synthetic-hr-source.webm");
+const hrPlaybackPath = join(directory, "api-hr-playback.webm");
 const media = async (...args: string[]) => {
-  const result = await run(python, [generator, ...args], {
+  const result = await run(python, ["-I", generator, ...args], {
     timeout: 30000,
     windowsHide: true,
   });
@@ -47,20 +49,31 @@ const media = async (...args: string[]) => {
     audioSamples: number;
     audioSeconds: number;
     audioPeak: number;
+    decodedAudioSha256: string;
     codecs: Record<string, string>;
   };
 };
 const generated = await media("generate", sample, sourcePath);
+const generatedHr = await media("generate", sample, hrSourcePath, "hr");
 assert(
   generated.videoFrames > 0 &&
     generated.audioFrames > 0 &&
     generated.audioPeak > 0,
 );
 const bytes = await readFile(sourcePath);
+const hrBytes = await readFile(hrSourcePath);
 assert(
   bytes.length < 6 * 1024 * 1024,
   "Synthetic segment exceeds API upload limit",
 );
+assert(generatedHr.audioFrames > 0 && generatedHr.videoFrames > 0);
+assert(hrBytes.length < 6 * 1024 * 1024);
+assert.notEqual(
+  generated.decodedAudioSha256,
+  generatedHr.decodedAudioSha256,
+  "Two-role check requires distinct generated audio waveforms",
+);
+assert(!bytes.equals(hrBytes), "Two-role generated clips must differ");
 console.log(
   `Generated synthetic VP8/Opus WebM: ${generated.videoFrames} video frames, ${generated.audioSeconds}s audio. No device capture.`,
 );
@@ -111,7 +124,7 @@ function binary(
 try {
   await connectDatabase(database.getUri("hirelens_isolated_media_check"));
   const companyId = id();
-  async function actor(role: "candidate" | "hr", company?: string) {
+  async function actor(role: "candidate" | "hr" | "company", company?: string) {
     const user = await UserModel.create({
       name: `Synthetic media ${role}`,
       role,
@@ -131,6 +144,7 @@ try {
   }
   const candidate = await actor("candidate");
   const hr = await actor("hr", companyId);
+  const company = await actor("company", companyId);
   const stranger = await actor("candidate");
   const job = await JobModel.create({
     companyId,
@@ -265,6 +279,164 @@ try {
     "Passed: consent, upload, idempotent retry, authorization, full decode, byte-range playback and stopping capture.",
   );
 
+  const hrCapture = status(
+    "hrCaptureCreated",
+    await hr.client
+      .post(`/api/interviews/${interview.id}/captures`)
+      .send({ accepted: true }),
+    201,
+  );
+  const uploadHr = (client = hr.client, sequence = 0) =>
+    client
+      .post(`/api/captures/${hrCapture.body._id}/clips`)
+      .field("sequence", String(sequence))
+      .field("offsetMs", "0")
+      .field("durationMs", String(generatedHr.durationMs))
+      .attach("clip", hrBytes, {
+        filename: "synthetic-hr.webm",
+        contentType: "video/webm",
+      });
+  status("candidateCannotUploadHrTrack", await uploadHr(candidate.client), 404);
+  const hrSaved = status("hrUploaded", await uploadHr(), 201);
+  const hrClipId = hrSaved.body._id;
+  assert.equal(hrSaved.body.role, "hr");
+  assert.equal(hrSaved.body.ownerId, hr.user.id);
+  assert.equal(saved.body.role, "candidate");
+  assert.equal(saved.body.ownerId, candidate.user.id);
+  assert.notEqual(hrClipId, clipId);
+  assert.equal((await uploadHr()).body._id, hrClipId);
+  assert.equal(
+    await ClipModel.countDocuments({ interviewId: interview.id }),
+    2,
+  );
+  const candidateList = status(
+    "candidateListsOwnTrackOnly",
+    await candidate.client.get(`/api/interviews/${interview.id}/media`),
+    200,
+  );
+  assert.deepEqual(
+    candidateList.body.map((clip: any) => clip._id),
+    [clipId],
+  );
+  for (const [label, client] of [
+    ["hr", hr.client],
+    ["company", company.client],
+  ] as const) {
+    const listing = status(
+      `${label}ListsBothTracks`,
+      await client.get(`/api/interviews/${interview.id}/media`),
+      200,
+    );
+    assert.equal(listing.body.length, 2);
+    assert.deepEqual(listing.body.map((clip: any) => clip.role).sort(), [
+      "candidate",
+      "hr",
+    ]);
+    for (const clip of listing.body) {
+      assert.equal(clip.data, undefined);
+      assert.equal(clip.digest, undefined);
+    }
+  }
+  status(
+    "candidateCannotPlayHrTrack",
+    await candidate.client.get(`/api/media/${hrClipId}/play`),
+    404,
+  );
+  status(
+    "strangerCannotPlayHrTrack",
+    await stranger.client.get(`/api/media/${hrClipId}/play`),
+    404,
+  );
+  const hrPlayback = status(
+    "hrOwnTrackPlayback",
+    await hr.client
+      .get(`/api/media/${hrClipId}/play`)
+      .buffer(true)
+      .parse(binary),
+    200,
+  );
+  assert(
+    hrPlayback.body.equals(hrBytes),
+    "HR playback must preserve its distinct uploaded audio/video",
+  );
+  await writeFile(hrPlaybackPath, hrPlayback.body);
+  const decodedHr = await media("inspect", hrPlaybackPath);
+  assert.deepEqual(
+    decodedHr,
+    generatedHr,
+    "HR media did not fully decode identically",
+  );
+  const companyHrPlayback = status(
+    "companyHrTrackPlayback",
+    await company.client
+      .get(`/api/media/${hrClipId}/play`)
+      .buffer(true)
+      .parse(binary),
+    200,
+  );
+  assert(companyHrPlayback.body.equals(hrBytes));
+  const companyCandidatePlayback = status(
+    "companyCandidateTrackPlayback",
+    await company.client
+      .get(`/api/media/${clipId}/play`)
+      .buffer(true)
+      .parse(binary),
+    200,
+  );
+  assert(companyCandidatePlayback.body.equals(bytes));
+  const hrRange = status(
+    "hrOwnTrackRangePlayback",
+    await hr.client
+      .get(`/api/media/${hrClipId}/play`)
+      .set("Range", "bytes=0-1023")
+      .buffer(true)
+      .parse(binary),
+    206,
+  );
+  assert(hrRange.body.equals(hrBytes.subarray(0, 1024)));
+  status(
+    "hrCaptureStopped",
+    await hr.client.post(`/api/captures/${hrCapture.body._id}/stop`).send({}),
+    200,
+  );
+  status("hrUploadAfterStop", await uploadHr(hr.client, 1), 409);
+  console.log(
+    "Passed: distinct generated Candidate/HR audio/video tracks, full decode, role labels, private listing and playback permissions.",
+  );
+
+  status(
+    "candidateCannotTranscribeHrTrack",
+    await candidate.client.post(`/api/media/${hrClipId}/transcribe`).send({}),
+    404,
+  );
+  const hrTranscription = status(
+    "hrRealLocalTranscription",
+    await hr.client.post(`/api/media/${hrClipId}/transcribe`).send({}),
+    200,
+  );
+  const hrTranscript = String(hrTranscription.body.transcript || "").trim();
+  assert(
+    hrTranscript.length > 15 &&
+      /interview/i.test(hrTranscript) &&
+      /hash/i.test(hrTranscript),
+    "Local speech did not recognize the distinct synthetic HR waveform",
+  );
+  const hrReviewed = status(
+    "hrReviewedTranscript",
+    await hr.client.patch(`/api/media/${hrClipId}/transcript`).send({
+      transcript: hrTranscript,
+      reviewed: true,
+      expectedUpdatedAt: hrTranscription.body.updatedAt,
+    }),
+    200,
+  );
+  assert(hrReviewed.body.reviewedAt);
+  assert.equal(
+    (await reviewedTranscript(interview.id)).length,
+    0,
+    "Reviewed HR speech must not be counted as candidate assessment evidence",
+  );
+
   const transcription = status(
     "realLocalTranscription",
     await candidate.client.post(`/api/media/${clipId}/transcribe`).send({}),
@@ -293,9 +465,11 @@ try {
     200,
   );
   assert(reviewed.body.reviewedAt);
-  assert.equal((await reviewedTranscript(interview.id)).length, 1);
+  const candidateEvidence = await reviewedTranscript(interview.id);
+  assert.equal(candidateEvidence.length, 1);
+  assert(candidateEvidence.every((clip) => clip.role === "candidate"));
   console.log(
-    `Passed: actual local ${config.sttModel} transcription and explicit review: ${transcript}`,
+    `Passed: actual local ${config.sttModel} transcription for both generated tracks, explicit review, and candidate-only assessment evidence.`,
   );
   const evidence = {
     checkedAt: new Date().toISOString(),
@@ -309,15 +483,38 @@ try {
     bytes: bytes.length,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     decoded,
+    tracks: [
+      {
+        role: "candidate",
+        source: sourcePath,
+        playback: playbackPath,
+        bytes: bytes.length,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+        decoded,
+      },
+      {
+        role: "hr",
+        source: hrSourcePath,
+        playback: hrPlaybackPath,
+        bytes: hrBytes.length,
+        sha256: createHash("sha256").update(hrBytes).digest("hex"),
+        decoded: decodedHr,
+      },
+    ],
     statuses,
     transcription: {
       provider: "local Whisper",
       model: config.sttModel,
       transcript,
       reviewed: true,
+      hrTranscript,
+      hrReviewed: true,
+      hrExcludedFromCandidateAssessment: true,
     },
     limitations: [
       "This verifies saved media and speech processing, not physical camera/microphone capture, browser MediaRecorder, remote audio transport or cross-network WebRTC.",
+      "Both clips use generated speech; the HR variant has a different waveform gain and video color, not a real second participant or verified speaker identity.",
+      "Each participant records their own device with separate consent. This check does not mix or silently record a remote participant's audio.",
     ],
   };
   await writeFile(

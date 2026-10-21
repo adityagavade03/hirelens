@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { config } from "../server/config.js";
+import { localSpeechSettings } from "../shared/local-speech.js";
 import {
   generateQuestions,
   assessAnswer,
@@ -7,10 +8,13 @@ import {
 } from "../server/providers.js";
 
 const configure = process.argv.includes("--configure");
+if (!localSpeechSettings(config.sttUrl, config.sttModel).local)
+  throw new Error("This check only contacts the local speech adapter. External configuration was preserved.");
 if (
   configure &&
   ((config.llmUrl && !config.llmUrl.startsWith("http://127.0.0.1:11434/")) ||
-    (config.sttUrl && !config.sttUrl.startsWith("http://127.0.0.1:8765/")))
+    (config.sttUrl &&
+      !localSpeechSettings(config.sttUrl, config.sttModel).local))
 )
   throw new Error(
     "Existing provider configuration was preserved. Run without --configure to check the local services.",
@@ -22,9 +26,9 @@ Object.assign(config, {
   llmModel: "qwen2.5:3b",
   llmTimeout: 120000,
   llmSchema: true,
-  sttUrl: "http://127.0.0.1:8765/v1",
+  sttUrl: config.sttUrl || "http://127.0.0.1:8765/v1",
   sttKey: speechKey,
-  sttModel: "base.en",
+  sttModel: config.sttModel || "base.en",
 });
 const speech = await transcribeAudio(
   await readFile(".data/speech/check.wav"),

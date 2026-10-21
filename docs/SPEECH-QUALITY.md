@@ -1,5 +1,78 @@
 # Speech recording and transcription checks
 
+## Multilingual upgrade prepared on 21 October 2026
+
+The adapter now uses one zero-temperature beam search (`beam_size=5`) instead of
+the upstream nonzero-temperature fallback ladder. This addresses the changing
+words observed on repeated attempts of the same clip. It is a repeatable decoding
+configuration, not an accuracy guarantee. VAD and the existing `-1.0` log-probability
+guard remain enabled. Missing/nonfinite confidence and repetitive final decoding
+are also rejected. No expected script, job keywords, hotwords or initial prompt is
+provided to the model. Transcription keeps the spoken language; translation is not
+requested.
+
+The optional **multilingual `small`** model is installed separately from `base.en`.
+It uses a pinned [official Systran conversion](https://huggingface.co/Systran/faster-whisper-small)
+at revision `536b0662742c02347bc0e980a01041f333bce120`; four files total
+486,212,372 bytes. The model weight SHA256 is
+`3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671`.
+The model is multilingual, while `base.en` is English-only. A larger model and
+explicit language selection may help some recordings, but accent and language
+accuracy require held-out human evaluation. The upstream
+[transcription implementation](https://github.com/SYSTRAN/faster-whisper/blob/v1.2.1/faster_whisper/transcribe.py)
+documents language selection, per-segment language detection and temperature
+fallback behavior.
+
+Install/verify without changing a running service or `.env`:
+
+```powershell
+.data/speech/venv/Scripts/python.exe -I scripts/setup-speech-model.py --download
+.data/speech/venv/Scripts/python.exe -I scripts/setup-speech-model.py
+```
+
+The second command is offline. Every file must match its pinned size and checksum;
+a partial or changed model is never loaded under the `small` alias. Installation
+does not upload audio. A checksum receipt is stored beside the ignored local model.
+
+For an isolated test, start the upgraded service on an unused loopback port. The
+same local authentication token is required; keep it private. The existing 8765
+process remains untouched:
+
+```powershell
+$env:HIRELENS_SPEECH_MODEL = 'small'
+$env:HIRELENS_SPEECH_PORT = '8767'
+$env:HIRELENS_SPEECH_LANGUAGE = 'auto'
+.data/speech/venv/Scripts/python.exe -I scripts/speech-server.py
+```
+
+`HIRELENS_SPEECH_LANGUAGE=en` selects known English without supplying expected
+words; `auto` detects the spoken language. With auto, multilingual models detect
+language per segment by default. Set `HIRELENS_SPEECH_DETECT_EACH_SEGMENT=false`
+to use one detected language for a whole clip. A configured unsupported language
+is rejected rather than silently forced to English. `HIRELENS_SPEECH_PORT` is
+bounded to 1024–65535 and the service always binds to `127.0.0.1`.
+
+After the isolated checks, the HireLens API must use the matching `STT_MODEL=small`
+and speech URL. Restarting/configuring the existing service is a separate step;
+downloading the model alone does not activate it. Run the cached synthetic check:
+
+```powershell
+$env:HIRELENS_SPEECH_MODEL = 'small'
+.data/speech/venv/Scripts/python.exe -I scripts/check-speech-quality.py
+```
+
+On 21 October, this check recovered both fixture keywords from 5.8336 seconds of
+generated speech (4.812 seconds inference) and rejected silence and a non-speech
+tone. No human audio was reused for this check. This verifies loading/inference
+and guards; it does not resolve the earlier failed physical accuracy test.
+The 28 focused decoder/evaluator contract tests also passed, including Unicode
+references, consent checks, rejected-clip accounting and undersized-benchmark
+failure. They use generated/dummy inputs and establish no human accuracy result.
+
+For a broader local benchmark, use the consent and WER/CER workflow in
+[SPEECH-EVALUATION.md](SPEECH-EVALUATION.md). Do not reuse recordings collected only
+for an earlier device test as benchmark or training data without new consent.
+
 The local adapter uses the installed faster-whisper model. It does not substitute
 fixed text when recognition fails, disable voice activity detection to force words,
 or provide the test script to the model as a prompt. The model can still produce

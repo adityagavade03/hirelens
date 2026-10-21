@@ -518,6 +518,9 @@ export default function HumanRoom({ id }: { id: string }) {
       {faceControls}
       {candidate && (
         <ObjectDetectionControls
+          profile={objects.profile}
+          onProfileChange={objects.setProfile}
+          accuracyAvailable={objects.accuracyAvailable}
           consent={objectConsent}
           configured={!!services.data?.objects}
           savedConsent={room?.objectConsent}

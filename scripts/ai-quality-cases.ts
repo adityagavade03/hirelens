@@ -6,7 +6,11 @@ export type ResumeQualityCase = {
   job: Record<string, any>;
   profile: Profile;
   resume: string;
-  expected: "shortlisted" | "needs_review";
+  expected:
+    | "shortlisted"
+    | "needs_review"
+    | "not_shortlisted"
+    | ("shortlisted" | "needs_review" | "not_shortlisted")[];
   criteria: Record<string, string[]>;
 };
 const profile = (overrides: Partial<Profile> = {}): Profile => ({
@@ -289,6 +293,202 @@ export const resumeQualityCases: ResumeQualityCase[] = [
     }),
     "shortlisted",
     { "skill-0": met, other: met },
+  ),
+  caseOf(
+    "minimum-experience-boundary",
+    "Exactly two years meets the explicit minimum",
+    javaJob,
+    {
+      ...java,
+      experienceYears: 2,
+      experience:
+        "2 years of professional Java, Spring Boot, SQL and REST API development.",
+    },
+    "shortlisted",
+    { experience: met },
+  ),
+  caseOf(
+    "fractional-experience-below",
+    "A fractional year below the minimum must not round upward",
+    { ...javaJob, shortlistThreshold: 100 },
+    {
+      ...java,
+      experienceYears: 1.9,
+      experience:
+        "1.9 years of professional Java, Spring Boot, SQL and REST API development.",
+    },
+    ["not_shortlisted", "needs_review"],
+    { experience: insufficient },
+  ),
+  caseOf(
+    "postgresql-equivalence",
+    "A named SQL database is relevant SQL evidence",
+    javaJob,
+    {
+      ...java,
+      skills: ["Java", "Spring Boot", "PostgreSQL", "REST APIs"],
+      experience:
+        "3 years of Java and Spring Boot development using PostgreSQL queries and REST APIs.",
+    },
+    "shortlisted",
+    { "skill-2": met, "skill-3": met },
+  ),
+  caseOf(
+    "learning-not-experience",
+    "Studying a framework does not prove professional experience",
+    { ...javaJob, shortlistThreshold: 100 },
+    {
+      ...java,
+      skills: ["Java", "SQL", "REST API"],
+      experience:
+        "3 years using Java, SQL and REST API. Learning Spring Boot through introductory tutorials; no Spring Boot experience.",
+    },
+    ["not_shortlisted", "needs_review"],
+    { "skill-1": insufficient },
+  ),
+  caseOf(
+    "unrelated-total-experience",
+    "Total work duration cannot substitute for relevant backend duration",
+    javaJob,
+    {
+      ...java,
+      experienceYears: 3,
+      experience:
+        "3 years total professional experience: 2.5 years developing Swift iOS apps, then 0.5 years using Java, Spring Boot, SQL and REST API.",
+    },
+    "needs_review",
+    { experience: insufficient },
+  ),
+  caseOf(
+    "c-not-cpp",
+    "C is not automatic evidence of required C++ skills",
+    {
+      ...javaJob,
+      title: "C++ developer",
+      description:
+        "C++ programming is mandatory. No degree, certification or professional experience minimum.",
+      skills: ["C++"],
+      experience: "",
+    },
+    profile({
+      skills: ["C"],
+      projects: "Completed a C command-line tool. No C++ experience.",
+    }),
+    ["not_shortlisted", "needs_review"],
+    { "skill-0": insufficient },
+  ),
+  caseOf(
+    "csharp-dotnet",
+    "C# and .NET evidence can match the named platform",
+    {
+      ...javaJob,
+      title: ".NET developer",
+      description:
+        "C# and .NET required. No degree, certification or professional experience minimum.",
+      skills: ["C#", ".NET"],
+      experience: "",
+    },
+    profile({
+      skills: ["C#", ".NET"],
+      projects:
+        "Completed a C# .NET web API with input validation and SQL persistence.",
+    }),
+    "shortlisted",
+    { "skill-0": met, "skill-1": met },
+  ),
+  caseOf(
+    "docker-not-kubernetes",
+    "Container packaging does not establish orchestration experience",
+    {
+      ...javaJob,
+      title: "Container platform developer",
+      description:
+        "Kubernetes skills are mandatory. No degree, certification or professional experience minimum.",
+      skills: ["Kubernetes"],
+      experience: "",
+    },
+    profile({
+      skills: ["Docker"],
+      projects:
+        "Packaged a web server using Docker Compose. No Kubernetes experience.",
+    }),
+    ["not_shortlisted", "needs_review"],
+    { "skill-0": insufficient },
+  ),
+  caseOf(
+    "javascript-not-typescript",
+    "JavaScript experience does not automatically prove TypeScript",
+    {
+      ...javaJob,
+      title: "TypeScript developer",
+      description:
+        "TypeScript is mandatory. No degree, certification or professional experience minimum.",
+      skills: ["TypeScript"],
+      experience: "",
+    },
+    profile({
+      skills: ["JavaScript"],
+      projects:
+        "Completed JavaScript browser projects. No TypeScript experience.",
+    }),
+    ["not_shortlisted", "needs_review"],
+    { "skill-0": insufficient },
+  ),
+  caseOf(
+    "required-certificate-present",
+    "Explicit current required certification is usable evidence",
+    {
+      ...javaJob,
+      title: "Cloud engineer",
+      description:
+        "AWS and Linux required. AWS Certified Solutions Architect Associate certification mandatory. No degree or experience minimum.",
+      skills: ["AWS", "Linux"],
+      experience: "",
+      additionalRequirements:
+        "AWS Certified Solutions Architect Associate certification is mandatory",
+    },
+    profile({
+      skills: ["AWS", "Linux"],
+      certifications:
+        "AWS Certified Solutions Architect Associate, issued 2026, valid through 2029.",
+    }),
+    "shortlisted",
+    { other: met },
+  ),
+  caseOf(
+    "required-certificate-expired",
+    "An explicitly expired certificate does not prove a current requirement",
+    {
+      ...javaJob,
+      title: "Cloud engineer",
+      description:
+        "AWS and Linux required. A current AWS Certified Solutions Architect Associate certification is mandatory as of 21 October 2026. No degree or experience minimum.",
+      skills: ["AWS", "Linux"],
+      experience: "",
+      additionalRequirements:
+        "Current AWS Certified Solutions Architect Associate certification is mandatory as of 21 October 2026",
+      shortlistThreshold: 100,
+    },
+    profile({
+      skills: ["AWS", "Linux"],
+      certifications:
+        "AWS Certified Solutions Architect Associate expired in 2024. It has not been renewed.",
+    }),
+    ["not_shortlisted", "needs_review"],
+    { other: insufficient },
+  ),
+  caseOf(
+    "copied-job-not-evidence",
+    "Copied job keywords are not a candidate's qualification claim",
+    javaJob,
+    profile({
+      skills: ["HTML", "CSS"],
+      experienceYears: 0,
+      projects: "Static HTML and CSS portfolio.",
+    }),
+    ["not_shortlisted", "needs_review"],
+    { "skill-0": insufficient, experience: insufficient },
+    "I copied this job description for reference: Java, Spring Boot, SQL, REST API and minimum 2 years. These are the employer requirements, not my skills. My only skills are HTML and CSS. No Java experience.",
   ),
 ];
 

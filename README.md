@@ -1,13 +1,16 @@
 # HireLens
 
-## Current status — 20 October 2026
+## Current status — 21 October 2026
 
-The latest checked build passes **479 automated tests in 45 files**, plus client/server builds and TypeScript checks. The project includes recruitment, automatic resume screening, HR assignment, interview rooms, coding editors, recordings and optional proctoring. Automated tests do not establish real-world AI or device accuracy.
+The latest `npm run check` passes **501 automated tests in 48 files**, client/server builds and TypeScript checks. Another **28 Python decoder/evaluator tests** passed. The project includes recruitment, automatic resume screening, HR assignment, interview rooms, coding editors, recordings and optional proctoring. These checks do not establish hiring accuracy or physical-device reliability.
 
-- Optional camera object detection now provides local labels and boxes, with separate consent and sustained phone/book metadata for human review. The physical phone/book checks failed in the tested lighting; gaze calibration also failed its accuracy check. These features remain experimental and do not change candidate scores. See [object detection](docs/OBJECT-DETECTION.md).
-- Candidate recording and playback worked, but reliable speech transcription and both participants' audio still need verification. See [speech quality](docs/SPEECH-QUALITY.md).
-- Real hiring code execution, cross-network video, SMS and business verification require private Judge0, public TURN and the corresponding provider accounts. Public Judge0 is limited to local practice. Use the [provider setup guide](docs/PROVIDER-ACTIVATION.md).
-- Permanent hosting, broader AI/device evaluation and a trained integrity model remain unfinished. See [current project status](docs/PROJECT-STATUS.md) for the full list.
+- Optional object detection adds a local **More detail** model and image-quality guidance. The fresh physical check is inconclusive: the active test page/model could not be confirmed, and the user later reported Chrome's New Tab page. Earlier failed checks are preserved. See [object detection](docs/OBJECT-DETECTION.md).
+- Pinned multilingual `small` speech recognition is installed and connected locally. Generated Candidate and HR recordings passed authenticated storage, decoding, playback and transcription checks. Fresh physical speech, both microphones and cross-network audio remain unverified. See [recording evidence](docs/MEDIA-TRACKS-VERIFICATION.md) and [speech quality](docs/SPEECH-QUALITY.md).
+- The AI quality corpus now contains **26 resume/JD and four report cases**, with repeated-run diagnostics. Latest valid runs cover 12 new resume and two report cases in **28 passing attempts**, with varying scores; the full corpus was not rerun. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
+- Real hiring execution, cross-network video, SMS, company verification and permanent hosting still require owner-controlled services/accounts. Public Judge0 is limited to local practice. Production configuration and health checks are prepared in the [Linux deployment guide](docs/PRODUCTION-DEPLOYMENT.md).
+- Gaze/face/speaker accuracy, a consented trained integrity model, exact theme matching and remaining physical mobile/browser checks are unfinished. See [current project status](docs/PROJECT-STATUS.md).
+
+The implementation was validated locally. Production activation still requires the owner-controlled services and live checks documented below.
 
 This repository contains application source, setup scripts and synthetic tests. Credentials, database records, private resumes, recordings and local runtime files are excluded. After downloading, follow the setup steps below and create your own accounts; integrations need your own configuration. Making the source available does not host the application or include a working production service.
 

@@ -27,6 +27,24 @@ const assets = [
     sha256: "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993",
   },
   {
+    url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float16/1/efficientdet_lite2.tflite",
+    file: "public/vendor/mediapipe/efficientdet_lite2.tflite",
+    minimum: 12000000,
+    sha256: "5d4ebec1029bc9907aeadb9e7b4ac9cb1da6a19d01ad375210a9ae18ba173302",
+  },
+  {
+    url: "https://storage.googleapis.com/mediapipe-assets/tasks/testdata/vision/multi_objects.jpg?generation=1782185019846965",
+    file: "public/vendor/mediapipe/test-fixtures/multi_objects.jpg",
+    minimum: 60000,
+    sha256: "ada6e36b40519cf0a4fbdf1b535de7fa7d0c472f2c0a08ada8ee5728e16c0c68",
+  },
+  {
+    url: "https://storage.googleapis.com/mediapipe-assets/tasks/testdata/vision/cats_and_dogs.jpg?generation=1782184491144775",
+    file: "public/vendor/mediapipe/test-fixtures/cats_and_dogs.jpg",
+    minimum: 50000,
+    sha256: "a2eaa7ad3a1aae4e623dd362a5f737e8a88d122597ecd1a02b3e1444db56df9c",
+  },
+  {
     url: "https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz",
     file: ".data/ocr/eng.traineddata.gz",
     minimum: 1000000,
@@ -34,6 +52,7 @@ const assets = [
   },
 ];
 await mkdir("public/vendor/mediapipe", { recursive: true });
+await mkdir("public/vendor/mediapipe/test-fixtures", { recursive: true });
 await mkdir(".data/ocr", { recursive: true });
 await cp(
   "node_modules/@mediapipe/tasks-vision/wasm",
@@ -78,7 +97,9 @@ for (const asset of assets) {
       ? data[0] !== 0x1f || data[1] !== 0x8b
       : asset.file.endsWith(".task")
         ? !data.subarray(0, 8).includes(Buffer.from("PK"))
-        : data.subarray(4, 8).toString() !== "TFL3"
+        : asset.file.endsWith(".jpg")
+          ? data[0] !== 0xff || data[1] !== 0xd8 || data[2] !== 0xff
+          : data.subarray(4, 8).toString() !== "TFL3"
   )
     throw new Error("Unexpected asset format");
   if (createHash("sha256").update(data).digest("hex") !== asset.sha256)
@@ -91,5 +112,5 @@ for (const asset of assets) {
   );
 }
 console.log(
-  "Assets ready. Set RESUME_OCR_ENABLED=true, FACE_MODEL_URL=/vendor/mediapipe/blaze_face_short_range.tflite, OBJECT_MODEL_URL=/vendor/mediapipe/efficientdet_lite0.tflite and MEDIAPIPE_WASM_URL=/vendor/mediapipe/wasm in .env.",
+  "Assets ready. Set RESUME_OCR_ENABLED=true, FACE_MODEL_URL=/vendor/mediapipe/blaze_face_short_range.tflite, OBJECT_MODEL_URL=/vendor/mediapipe/efficientdet_lite0.tflite, OBJECT_ACCURACY_MODEL_URL=/vendor/mediapipe/efficientdet_lite2.tflite and MEDIAPIPE_WASM_URL=/vendor/mediapipe/wasm in .env.",
 );

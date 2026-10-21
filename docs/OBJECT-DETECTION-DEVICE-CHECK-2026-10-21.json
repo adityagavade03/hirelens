@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-21",
+  "timezone": "Asia/Calcutta",
+  "scope": "Inconclusive attempted local laptop object check; intended test-page navigation was not established",
+  "status": "INCONCLUSIVE",
+  "environment": {
+    "origin": "http://127.0.0.1:5174",
+    "intendedRoomStage": "preflight",
+    "intendedTestPageConfirmedOpen": false,
+    "subsequentlyReportedPage": "Chrome New Tab / Google page",
+    "admitted": false,
+    "secondDeviceUsed": false,
+    "differentNetworkTested": false,
+    "normalRecruitmentDatabaseUsed": false
+  },
+  "model": {
+    "requestedProfile": "More detail",
+    "name": "MediaPipe EfficientDet-Lite2",
+    "precision": "float16",
+    "version": 1,
+    "localPath": "public/vendor/mediapipe/efficientdet_lite2.tflite",
+    "configurationKey": "OBJECT_ACCURACY_MODEL_URL",
+    "configuredAssetPath": "/vendor/mediapipe/efficientdet_lite2.tflite",
+    "bytes": 12138859,
+    "format": "TFL3",
+    "sha256": "5d4ebec1029bc9907aeadb9e7b4ac9cb1da6a19d01ad375210a9ae18ba173302",
+    "assetSizeFormatChecksumVerified": true,
+    "profileSelectionIndependentlyInspectedDuringPhysicalTest": false,
+    "runningDuringPhysicalTestConfirmed": false,
+    "apiProviderRequired": false
+  },
+  "instructions": {
+    "separateOptionalObjectConsentRequested": true,
+    "moreDetailProfileRequested": true,
+    "phoneHoldSeconds": 5,
+    "bookHoldSeconds": 5,
+    "sequence": ["phone", "book"]
+  },
+  "participantReport": {
+    "source": "user report in chat",
+    "initiallyReportedCameraPreviewWorking": true,
+    "initiallyReportedMicrophoneWorking": true,
+    "exactResponse": "Both phone and book identified correctly",
+    "phoneIdentifiedCorrectlyAccordingToParticipant": true,
+    "bookIdentifiedCorrectlyAccordingToParticipant": true,
+    "reportIndependentlyVerified": false,
+    "reportQualifiedBySubsequentNavigationContradiction": true,
+    "physicalSuccessEstablished": false
+  },
+  "subsequentEvidence": {
+    "serverObjectConsent": false,
+    "candidateWaitingRoomEntryPresent": false,
+    "hrAdmissionAttemptHttpStatus": 409,
+    "initialNavigationReply": "I open my laptop Chrome directly",
+    "addressBarCheckReply": "Chrome New Tab / Google page",
+    "conclusion": "The intended Candidate test page and running object model were not confirmed; the earlier detection report cannot establish success"
+  },
+  "independentInspection": {
+    "previewInspected": false,
+    "reason": "Windows UI automation helper repeatedly reported a minimized window; subsequent user navigation information indicated Chrome New Tab / Google rather than the intended test page",
+    "labelsIndependentlyVerified": false,
+    "boundingBoxesIndependentlyVerified": false,
+    "modelScoresCaptured": false,
+    "inferenceTimingsCaptured": false,
+    "successfulScreenshotClaimed": false,
+    "interviewerTimelineVerified": false
+  },
+  "eventSharing": {
+    "phoneBookEventsExpectedDuringPreflight": false,
+    "reason": "Object observations are shared only after the active interview begins and, in human-led rooms, after admission",
+    "eventCountVerified": false
+  },
+  "privacy": {
+    "recordingStartedDuringObjectTest": false,
+    "trainingImagesCollected": false,
+    "featureDesign": "Object analysis processes frames locally; the object feature does not upload or save raw analysis frames",
+    "databaseAuditPerformedForThisRecord": false
+  },
+  "automatedValidation": {
+    "command": "npx vitest run tests/object-detection.test.ts tests/object-detection-lifecycle.test.ts tests/object-consent-ui.test.ts",
+    "status": "passed",
+    "testsPassed": 32,
+    "testFilesPassed": 3,
+    "assetSetupCompleted": true,
+    "physicalAccuracyEstablishedByAutomatedChecks": false
+  },
+  "historicalResult": {
+    "record": "OBJECT-DETECTION-DEVICE-CHECK-2026-10-19.json",
+    "model": "EfficientDet-Lite0",
+    "phone": "Expected phone detection was not observed under dark lighting",
+    "book": "Misclassified as laptop; no sustained book event was observed",
+    "historyPreserved": true
+  },
+  "overall": {
+    "limitedResult": "INCONCLUSIVE: initial positive user report was subsequently qualified by evidence that the intended test page and model were not confirmed running",
+    "physicalDetectionSuccessEstablished": false,
+    "independentlyCorroboratedPhysicalAccuracy": false,
+    "broaderAccuracyValidated": false,
+    "experimental": true,
+    "automaticCheatingConclusion": false,
+    "hiringScoreChangedByObjectObservations": false,
+    "nextValidation": "Consented reviewed tests across cameras, lighting, object sizes and angles, plus independent label/box and active-room timeline verification"
+  }
+}

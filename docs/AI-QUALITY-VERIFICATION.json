@@ -866,5 +866,957 @@
     "Final incorrect-answer report identifies the false complexity claims without following embedded commands.",
     "Final reviewed-transcript report remains advisory and requests further evaluation."
   ],
-  "focusedRegressionTests": 48
+  "focusedRegressionTests": 48,
+  "followUps": [
+    {
+      "date": "2026-10-21",
+      "timezone": "Asia/Calcutta",
+      "benchmark": "hirelens-synthetic-ai-quality-v2",
+      "syntheticOnly": true,
+      "noRecruitmentRecordsChanged": true,
+      "historicalV1FieldsPreserved": true,
+      "model": {
+        "name": "qwen2.5:3b",
+        "digest": "357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b"
+      },
+      "corpus": {
+        "resumeCases": 26,
+        "reportCases": 4,
+        "totalCases": 30,
+        "fullCorpusRerunUnderCurrentCode": false
+      },
+      "runner": {
+        "repeatsAllowed": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "rejectsUnknownAndDuplicateCaseIds": true,
+        "refusesExistingOutputArtifact": true,
+        "recordsOutcomeCriterionAndScoreVariation": true
+      },
+      "policyAndCalibration": [
+        "The saved match-score threshold policy was preserved; no new all-criteria veto was introduced.",
+        "Some initial expectations incorrectly required needs_review where the current evidence-complete threshold contract legitimately returned not_shortlisted; the labels were corrected, not hidden by changing production outcomes.",
+        "Fractional experience and explicitly current-certification deficit fixtures use threshold 100 to make their full-coverage expectation explicit.",
+        "At threshold 80, learning-not-experience returned missing/partial framework evidence but overall scores 82 and 91, so shortlisted was legitimate under the unchanged policy. Its final named fixture retry uses threshold 100 and returns not_shortlisted.",
+        "A separate real evidence bug was fixed: an explicitly expired/unrenewed credential alone cannot prove an explicitly current certification requirement. Renewal evidence for the same credential remains considered.",
+        "Changed fixture labels/thresholds make pass-count differences unsuitable as a like-for-like model improvement measurement. Original failures remain in their artifacts."
+      ],
+      "runs": [
+        {
+          "name": "expanded-2026-10-21",
+          "artifact": ".data/runtime/ai-quality/expanded-2026-10-21.json",
+          "startedAt": "2026-10-21T10:55:00.573Z",
+          "completedAt": "2026-10-21T10:57:49.216Z",
+          "selectedCases": [
+            "minimum-experience-boundary",
+            "fractional-experience-below",
+            "unrelated-total-experience",
+            "required-certificate-expired",
+            "copied-job-not-evidence",
+            "grounded-strong-answers",
+            "sparse-answer"
+          ],
+          "repeats": 2,
+          "summary": {
+            "cases": 7,
+            "attempts": 14,
+            "passed": 8,
+            "failed": 6
+          },
+          "corpusSha256": "b2d022eb3a58eef258766c18bd385e4f6bb6580af4d4eca2d163c490b01a98dd",
+          "sourceSha256": {
+            "server/screening.ts": "d226a46b2238bc24520864686c6bd87903a31465e6634d147da306462c26b823",
+            "server/assessment.ts": "9f858e746e79e44dc58b1e2ca0d1ead220a8735fa548271e1fe86004667c09ac",
+            "server/providers.ts": "5378038b4c5527950a5e3467a79bbcb3c5a11f193aa8bfb6d2222f5586a12415",
+            "scripts/check-ai-quality.ts": "fb66c8c6b74cdeec3a04dedc312918f795a53eaabe23927509ae6a1296974df5",
+            "scripts/ai-quality-cases.ts": "808922a6766ab3c9c9013fcff90279d8db0ca07a74ff8288f33c6cfbfc6719ba"
+          },
+          "stability": [
+            {
+              "id": "minimum-experience-boundary",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "fractional-experience-below",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 86,
+                "max": 86
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "unrelated-total-experience",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "needs_review"
+              ],
+              "scoreRange": {
+                "min": 71,
+                "max": 71
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "required-certificate-expired",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 91,
+                "max": 100
+              },
+              "differingCriteria": [
+                {
+                  "id": "other",
+                  "statuses": [
+                    "met",
+                    "missing"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "copied-job-not-evidence",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "grounded-strong-answers",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "Strong Candidate"
+              ],
+              "scoreRange": null,
+              "differingCriteria": []
+            },
+            {
+              "id": "sparse-answer",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "Needs Further Evaluation"
+              ],
+              "scoreRange": null,
+              "differingCriteria": []
+            }
+          ],
+          "failedAttempts": [
+            {
+              "id": "fractional-experience-below",
+              "repetition": 1,
+              "outcome": "shortlisted",
+              "score": 86,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "required-certificate-expired",
+              "repetition": 1,
+              "outcome": "shortlisted",
+              "score": 100,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome",
+                "other semantic status"
+              ]
+            },
+            {
+              "id": "copied-job-not-evidence",
+              "repetition": 1,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "fractional-experience-below",
+              "repetition": 2,
+              "outcome": "shortlisted",
+              "score": 86,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "required-certificate-expired",
+              "repetition": 2,
+              "outcome": "shortlisted",
+              "score": 91,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "copied-job-not-evidence",
+              "repetition": 2,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "expanded-corrected-2026-10-21",
+          "artifact": ".data/runtime/ai-quality/expanded-corrected-2026-10-21.json",
+          "startedAt": "2026-10-21T11:03:33.543Z",
+          "completedAt": "2026-10-21T11:06:21.903Z",
+          "selectedCases": [
+            "minimum-experience-boundary",
+            "fractional-experience-below",
+            "unrelated-total-experience",
+            "required-certificate-expired",
+            "copied-job-not-evidence",
+            "grounded-strong-answers",
+            "sparse-answer"
+          ],
+          "repeats": 2,
+          "summary": {
+            "cases": 7,
+            "attempts": 14,
+            "passed": 14,
+            "failed": 0
+          },
+          "corpusSha256": "c23070467fcbad1f7ee2b3bdeb93db170d465fa44d5798a19db5b58e01dfcc61",
+          "sourceSha256": {
+            "server/screening.ts": "aefb350d8f9f3675398deef83d68aa17c9348d8d80e5c07ff9ec45dc7a4be02f",
+            "server/assessment.ts": "9f858e746e79e44dc58b1e2ca0d1ead220a8735fa548271e1fe86004667c09ac",
+            "server/providers.ts": "5378038b4c5527950a5e3467a79bbcb3c5a11f193aa8bfb6d2222f5586a12415",
+            "scripts/check-ai-quality.ts": "164ce1910601ddb7f1129a5bbb336e1e47c515e0f6088ac82e0feacbea7fc9a1",
+            "scripts/ai-quality-cases.ts": "b06ed6fdaf74349bf52e1f9eba6e86f2c756617a5c07ceac975bdfeebe665f20"
+          },
+          "stability": [
+            {
+              "id": "minimum-experience-boundary",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "fractional-experience-below",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 71,
+                "max": 86
+              },
+              "differingCriteria": [
+                {
+                  "id": "experience",
+                  "statuses": [
+                    "missing",
+                    "partial"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "unrelated-total-experience",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "needs_review"
+              ],
+              "scoreRange": {
+                "min": 36,
+                "max": 71
+              },
+              "differingCriteria": [
+                {
+                  "id": "skill-0",
+                  "statuses": [
+                    "met",
+                    "partial"
+                  ]
+                },
+                {
+                  "id": "skill-1",
+                  "statuses": [
+                    "met",
+                    "partial"
+                  ]
+                },
+                {
+                  "id": "skill-2",
+                  "statuses": [
+                    "met",
+                    "partial"
+                  ]
+                },
+                {
+                  "id": "skill-3",
+                  "statuses": [
+                    "met",
+                    "partial"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "required-certificate-expired",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 91,
+                "max": 91
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "copied-job-not-evidence",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "grounded-strong-answers",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "Strong Candidate"
+              ],
+              "scoreRange": null,
+              "differingCriteria": []
+            },
+            {
+              "id": "sparse-answer",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "Needs Further Evaluation"
+              ],
+              "scoreRange": null,
+              "differingCriteria": []
+            }
+          ],
+          "failedAttempts": []
+        },
+        {
+          "name": "expanded-technologies-2026-10-21",
+          "artifact": ".data/runtime/ai-quality/expanded-technologies-2026-10-21.json",
+          "startedAt": "2026-10-21T11:09:44.908Z",
+          "completedAt": "2026-10-21T11:12:20.290Z",
+          "selectedCases": [
+            "postgresql-equivalence",
+            "learning-not-experience",
+            "c-not-cpp",
+            "csharp-dotnet",
+            "docker-not-kubernetes",
+            "javascript-not-typescript",
+            "required-certificate-present"
+          ],
+          "repeats": 2,
+          "summary": {
+            "cases": 7,
+            "attempts": 14,
+            "passed": 6,
+            "failed": 8
+          },
+          "corpusSha256": "c23070467fcbad1f7ee2b3bdeb93db170d465fa44d5798a19db5b58e01dfcc61",
+          "sourceSha256": {
+            "server/screening.ts": "aefb350d8f9f3675398deef83d68aa17c9348d8d80e5c07ff9ec45dc7a4be02f",
+            "server/assessment.ts": "9f858e746e79e44dc58b1e2ca0d1ead220a8735fa548271e1fe86004667c09ac",
+            "server/providers.ts": "5378038b4c5527950a5e3467a79bbcb3c5a11f193aa8bfb6d2222f5586a12415",
+            "scripts/check-ai-quality.ts": "164ce1910601ddb7f1129a5bbb336e1e47c515e0f6088ac82e0feacbea7fc9a1",
+            "scripts/ai-quality-cases.ts": "b06ed6fdaf74349bf52e1f9eba6e86f2c756617a5c07ceac975bdfeebe665f20"
+          },
+          "stability": [
+            {
+              "id": "postgresql-equivalence",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "learning-not-experience",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 64,
+                "max": 64
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "c-not-cpp",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "csharp-dotnet",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "docker-not-kubernetes",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "javascript-not-typescript",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "required-certificate-present",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            }
+          ],
+          "failedAttempts": [
+            {
+              "id": "learning-not-experience",
+              "repetition": 1,
+              "outcome": "not_shortlisted",
+              "score": 64,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "c-not-cpp",
+              "repetition": 1,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "docker-not-kubernetes",
+              "repetition": 1,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "javascript-not-typescript",
+              "repetition": 1,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "learning-not-experience",
+              "repetition": 2,
+              "outcome": "not_shortlisted",
+              "score": 64,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "c-not-cpp",
+              "repetition": 2,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "docker-not-kubernetes",
+              "repetition": 2,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "javascript-not-typescript",
+              "repetition": 2,
+              "outcome": "not_shortlisted",
+              "score": 0,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "expanded-technologies-corrected-2026-10-21",
+          "artifact": ".data/runtime/ai-quality/expanded-technologies-corrected-2026-10-21.json",
+          "startedAt": "2026-10-21T11:13:41.002Z",
+          "completedAt": "2026-10-21T11:16:15.491Z",
+          "selectedCases": [
+            "postgresql-equivalence",
+            "learning-not-experience",
+            "c-not-cpp",
+            "csharp-dotnet",
+            "docker-not-kubernetes",
+            "javascript-not-typescript",
+            "required-certificate-present"
+          ],
+          "repeats": 2,
+          "summary": {
+            "cases": 7,
+            "attempts": 14,
+            "passed": 12,
+            "failed": 2
+          },
+          "corpusSha256": "9cf59f0bff6c4a88e1143381a0466bd21d757a722a8ceca75db677cd96dfb01b",
+          "sourceSha256": {
+            "server/screening.ts": "aefb350d8f9f3675398deef83d68aa17c9348d8d80e5c07ff9ec45dc7a4be02f",
+            "server/assessment.ts": "9f858e746e79e44dc58b1e2ca0d1ead220a8735fa548271e1fe86004667c09ac",
+            "server/providers.ts": "5378038b4c5527950a5e3467a79bbcb3c5a11f193aa8bfb6d2222f5586a12415",
+            "scripts/check-ai-quality.ts": "164ce1910601ddb7f1129a5bbb336e1e47c515e0f6088ac82e0feacbea7fc9a1",
+            "scripts/ai-quality-cases.ts": "7f73ae7ad83b873ff40976c4a924b0f26624a9154759d8418ac10413900ec349"
+          },
+          "stability": [
+            {
+              "id": "postgresql-equivalence",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "learning-not-experience",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 0,
+              "failed": 2,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 82,
+                "max": 91
+              },
+              "differingCriteria": [
+                {
+                  "id": "skill-1",
+                  "statuses": [
+                    "missing",
+                    "partial"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "c-not-cpp",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "csharp-dotnet",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "docker-not-kubernetes",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "javascript-not-typescript",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 0,
+                "max": 0
+              },
+              "differingCriteria": []
+            },
+            {
+              "id": "required-certificate-present",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "shortlisted"
+              ],
+              "scoreRange": {
+                "min": 100,
+                "max": 100
+              },
+              "differingCriteria": []
+            }
+          ],
+          "failedAttempts": [
+            {
+              "id": "learning-not-experience",
+              "repetition": 1,
+              "outcome": "shortlisted",
+              "score": 82,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            },
+            {
+              "id": "learning-not-experience",
+              "repetition": 2,
+              "outcome": "shortlisted",
+              "score": 91,
+              "error": null,
+              "failedChecks": [
+                "Expected preliminary outcome"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "learning-threshold-corrected-2026-10-21",
+          "artifact": ".data/runtime/ai-quality/learning-threshold-corrected-2026-10-21.json",
+          "startedAt": "2026-10-21T11:16:13.762Z",
+          "completedAt": "2026-10-21T11:16:46.196Z",
+          "selectedCases": [
+            "learning-not-experience"
+          ],
+          "repeats": 2,
+          "summary": {
+            "cases": 1,
+            "attempts": 2,
+            "passed": 2,
+            "failed": 0
+          },
+          "corpusSha256": "6c09918eb86625c46cbe0ae1a16abb81a5cdb91123a8c94364cfce582cc72cbf",
+          "sourceSha256": {
+            "server/screening.ts": "aefb350d8f9f3675398deef83d68aa17c9348d8d80e5c07ff9ec45dc7a4be02f",
+            "server/assessment.ts": "9f858e746e79e44dc58b1e2ca0d1ead220a8735fa548271e1fe86004667c09ac",
+            "server/providers.ts": "5378038b4c5527950a5e3467a79bbcb3c5a11f193aa8bfb6d2222f5586a12415",
+            "scripts/check-ai-quality.ts": "164ce1910601ddb7f1129a5bbb336e1e47c515e0f6088ac82e0feacbea7fc9a1",
+            "scripts/ai-quality-cases.ts": "629d1e7249efa87e04d6e721f3a1de35ba0556a9a8db0cdc3be54208e4afeb05"
+          },
+          "stability": [
+            {
+              "id": "learning-not-experience",
+              "attempts": 2,
+              "requestedRepeats": 2,
+              "passed": 2,
+              "failed": 0,
+              "complete": true,
+              "repeatabilityMeasured": true,
+              "distinctOutcomes": [
+                "not_shortlisted"
+              ],
+              "scoreRange": {
+                "min": 82,
+                "max": 91
+              },
+              "differingCriteria": [
+                {
+                  "id": "skill-0",
+                  "statuses": [
+                    "partial",
+                    "met"
+                  ]
+                }
+              ]
+            }
+          ],
+          "failedAttempts": []
+        }
+      ],
+      "latestApplicableSubset": {
+        "distinctCases": 14,
+        "resumeCases": 12,
+        "reportCases": 2,
+        "attempts": 28,
+        "passed": 28,
+        "failed": 0,
+        "caseIds": [
+          "minimum-experience-boundary",
+          "fractional-experience-below",
+          "unrelated-total-experience",
+          "required-certificate-expired",
+          "copied-job-not-evidence",
+          "grounded-strong-answers",
+          "sparse-answer",
+          "postgresql-equivalence",
+          "c-not-cpp",
+          "csharp-dotnet",
+          "docker-not-kubernetes",
+          "javascript-not-typescript",
+          "required-certificate-present",
+          "learning-not-experience"
+        ],
+        "composition": [
+          {
+            "artifact": ".data/runtime/ai-quality/expanded-corrected-2026-10-21.json",
+            "includedAttempts": 14
+          },
+          {
+            "artifact": ".data/runtime/ai-quality/expanded-technologies-corrected-2026-10-21.json",
+            "excludedCase": "learning-not-experience",
+            "includedAttempts": 12
+          },
+          {
+            "artifact": ".data/runtime/ai-quality/learning-threshold-corrected-2026-10-21.json",
+            "includedAttempts": 2
+          }
+        ]
+      },
+      "limitations": [
+        "Assistant-authored synthetic cases and expectations are not independent expert labels, consented candidate training data, hiring accuracy or demographic fairness evidence.",
+        "Only twelve newly added resume cases and two existing report cases were measured with two repeats under their latest applicable fixtures; the full thirty-case corpus was not rerun.",
+        "Stable outcomes do not establish stable scores or calibrated semantic judgments. Fractional experience ranged 71–86 and unrelated experience 36–71 in the corrected main run; learning ranged 82–91 in the final retry.",
+        "Reviewed representative examples and held-out independent evaluation remain required before making production-quality claims."
+      ]
+    }
+  ]
 }

@@ -110,9 +110,23 @@ function setup() {
       .postMessage.mock.calls.filter(([m]) => m.kind === "frame")
       .at(-1)?.[0] as Message;
   };
-  const respond = (request: Message, objects: CameraObject[] = [phone]) =>
+  const respond = (
+    request: Message,
+    objects: CameraObject[] = [phone],
+    quality = {
+      state: "usable",
+      mean: 120,
+      darkFraction: 0.1,
+      brightFraction: 0.02,
+    },
+  ) =>
     act(async () =>
-      worker().respond({ ...request, kind: "detections", detections: objects }),
+      worker().respond({
+        ...request,
+        kind: "detections",
+        detections: objects,
+        quality,
+      }),
     );
   const frame = async (objects = [phone]) => respond(await capture(), objects);
   return {
@@ -376,5 +390,84 @@ it("keeps practice local-only even if an active flag is supplied", async () => {
   );
   expect(f.result().status).not.toContain("admission");
   expect(f.result().ready).toBe(true);
+  expect(f.record).not.toHaveBeenCalled();
+});
+
+it("pauses observations on dark/glare frames and requires a new sustained usable interval", async () => {
+  const f = setup();
+  await f.render(true, true);
+  await f.load();
+  for (let n = 0; n < 6; n++) await f.frame();
+  await f.respond(await f.capture(), [phone], {
+    state: "dark",
+    mean: 15,
+    darkFraction: 0.9,
+    brightFraction: 0,
+  });
+  expect(f.result().status).toContain("too dark");
+  expect(f.result().ready).toBe(false);
+  expect(f.result().detections).toEqual([]);
+  expect(f.record).not.toHaveBeenCalled();
+  for (let n = 0; n < 6; n++) await f.frame();
+  expect(f.record).not.toHaveBeenCalled();
+  await f.frame();
+  expect(f.record).toHaveBeenCalledTimes(1);
+  await f.respond(await f.capture(), [phone], {
+    state: "glare",
+    mean: 250,
+    darkFraction: 0,
+    brightFraction: 0.95,
+  });
+  expect(f.result().status).toContain("glare");
+  expect(f.result().ready).toBe(false);
+});
+
+it("switches local model profile and discards the previous model's pending result", async () => {
+  const f = setup();
+  f.services.objectAccuracyModelUrl = "/detail.tflite";
+  await f.render(true, true);
+  await f.load();
+  for (let n = 0; n < 6; n++) await f.frame();
+  const old = f.worker(),
+    request = await f.capture();
+  await act(async () => f.result().setProfile("detail"));
+  expect(old.terminate).toHaveBeenCalledOnce();
+  expect(f.result().detections).toEqual([]);
+  expect(f.worker().postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: new URL("/detail.tflite", location.href).href,
+    }),
+  );
+  await act(async () =>
+    old.respond({
+      ...request,
+      kind: "detections",
+      detections: [phone],
+      quality: {
+        state: "usable",
+        mean: 120,
+        darkFraction: 0,
+        brightFraction: 0,
+      },
+    }),
+  );
+  expect(f.record).not.toHaveBeenCalled();
+  await f.load();
+  for (let n = 0; n < 6; n++) await f.frame();
+  expect(f.record).not.toHaveBeenCalled();
+  await f.frame();
+  expect(f.record).toHaveBeenCalledTimes(1);
+});
+
+it("does not silently fall back to balanced when a selected detail model is unavailable", async () => {
+  const f = setup();
+  await f.render(true);
+  await f.load();
+  const old = f.worker();
+  await act(async () => f.result().setProfile("detail"));
+  expect(old.terminate).toHaveBeenCalledOnce();
+  expect(TestWorker.instances).toHaveLength(1);
+  expect(f.result().ready).toBe(false);
+  expect(f.result().status).toContain("not configured");
   expect(f.record).not.toHaveBeenCalled();
 });

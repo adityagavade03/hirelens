@@ -1,5 +1,21 @@
 # HireLens — current implementation and review guide
 
+## Current status — 21 October 2026
+
+The complete build, TypeScript and **501 JavaScript/TypeScript tests in 48 files** passed, plus **28 Python decoder/evaluator tests**. These are software checks; the device and provider limitations below remain explicit. Production services have not been activated.
+
+| Area | Current evidence and remaining work |
+| --- | --- |
+| Speech and recording | Pinned multilingual `small` is installed and locally connected at port 8767. Separate generated Candidate/HR VP8/Opus clips passed storage, authorization, full decoding, range playback and reviewed transcription. Both actual microphones, fresh physical speech accuracy and remote audibility still need testing. [Track verification](MEDIA-TRACKS-VERIFICATION.md). |
+| Phone/book detection | Optional **More detail** model and exposure guidance added. The physical check is inconclusive: an early positive user report was not tied to the actual test page/model, and later clarification placed Chrome on New Tab/Google. Labels, boxes, active-room events and accuracy remain unverified. [Device record](OBJECT-DETECTION-DEVICE-CHECK-2026-10-21.json). |
+| AI screening/reports | Corpus expanded to 26 resume/JD and four report cases; repeated-run reporting and artifact preservation added. Latest valid runs cover 12 new resume and two report cases in 28 passing attempts, with score variation; the full corpus was not rerun. Fixture calibration and a real expired-current-certification evidence fix are distinguished in [AI findings](AI-QUALITY-VALIDATION.md). No independent hiring-accuracy study is claimed. |
+| Production deployment | Persistent private MongoDB/Redis, HTTPS proxy configuration, model assets, health checks and a no-send preflight are prepared. Compose configuration passed; Docker image runtime, public DNS/TLS and permanent hosting are not verified. [Deployment guide](PRODUCTION-DEPLOYMENT.md). |
+| External services | The owner confirmed no accounts/server and only this laptop today. Private hiring Judge0, public TURN, SMS, live company verification and hosting therefore remain unactivated. Public Judge0 supports local practice only; earlier Gmail OTP receipt remains valid historical evidence. |
+| Advanced proctoring/model | The earlier gaze accuracy gate failed; face and speaker accuracy need reviewed physical tests. Integrity remains rule-based. No trained model or consented, reviewed dataset exists. The research preflight requires at least 100 interviews and 20 participants, with participant-disjoint training and evaluation; these minimums do not establish sufficient accuracy. |
+| UI/browser checks | Exact Hostinger 7Heven/Amber previews remain inaccessible. Safari, Firefox and physical mobile/accessibility verification are unfinished. |
+
+The manual test room serves HTTP and health successfully on `127.0.0.1:5174`, but a participant-reported waiting screen did not agree with the server's 409/not-waiting state. Later clarification showed Chrome on New Tab/Google rather than a confirmed active test page. Physical device testing remains pending; no fresh recording or transcription result is inferred from that unresolved check. The newer results above supersede older dated counts and device summaries below while preserving their history.
+
 ## Object-detection update — 19 October 2026
 
 Optional object detection is implemented and remains experimental. Separate Candidate consent enables local browser-worker inference and preview boxes; only sustained phone/book metadata after admission is shared for human review, with no automatic cheating verdict or hiring-score change. Physical inference ran, but the phone was missed and the book misclassified in low light. Phone/book accuracy is not validated.

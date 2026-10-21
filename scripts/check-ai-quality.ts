@@ -9,16 +9,12 @@ import {
   assessmentEvidence,
 } from "../server/assessment.js";
 import { resumeQualityCases, reportQualityCases } from "./ai-quality-cases.js";
+import { qualityOptions, qualityStability } from "./ai-quality-evaluation.js";
 
-const args = process.argv.slice(2);
-const option = (name: string) =>
-  args.find((a) => a.startsWith(`${name}=`))?.slice(name.length + 1);
-const selected = option("--case")?.split(",");
-const name =
-  option("--output") ||
-  `ai-quality-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-if (!/^[a-zA-Z0-9_-]+$/.test(name))
-  throw new Error("Output must be a simple filename without an extension.");
+const { selected, repeats, name } = qualityOptions(
+  process.argv.slice(2),
+  [...resumeQualityCases, ...reportQualityCases].map((c) => c.id),
+);
 const endpoint = new URL(config.llmUrl);
 if (
   !new Set(["127.0.0.1", "localhost", "[::1]"]).has(endpoint.hostname) ||
@@ -78,7 +74,7 @@ const checksums = Object.fromEntries(
   ),
 );
 const report: any = {
-  benchmark: "hirelens-synthetic-ai-quality-v1",
+  benchmark: "hirelens-synthetic-ai-quality-v2",
   startedAt: new Date().toISOString(),
   synthetic: true,
   noRecruitmentRecordsChanged: true,
@@ -93,8 +89,9 @@ const report: any = {
   timeoutMs: config.llmTimeout,
   jsonSchema: config.llmSchema,
   selectedCases: selected || "all",
+  repeats,
   scope:
-    "Small hand-authored semantic regression corpus, not hiring accuracy, fairness, or population validation. One sample per case; results can vary.",
+    "Hand-authored semantic regression corpus, not hiring accuracy, fairness, or population validation. Repeatability is measured only when multiple successful samples are available; results can vary.",
   results: [],
 };
 const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -103,6 +100,13 @@ const save = () =>
     resolve(dir, `${name}.json`),
     JSON.stringify(report, null, 2) + "\n",
   );
+// Never replace an earlier run, including an artifact with failures.
+await writeFile(
+  resolve(dir, `${name}.json`),
+  JSON.stringify(report, null, 2) + "\n",
+  { flag: "wx" },
+);
+let repetition = 1;
 const run = async (
   id: string,
   kind: string,
@@ -118,6 +122,7 @@ const run = async (
     const { output, checks } = await test();
     entry = {
       id,
+      repetition,
       kind,
       purpose,
       durationMs: Date.now() - began,
@@ -128,6 +133,7 @@ const run = async (
   } catch (error) {
     entry = {
       id,
+      repetition,
       kind,
       purpose,
       durationMs: Date.now() - began,
@@ -145,148 +151,157 @@ const run = async (
     if (!c.passed) console.log(`  ${c.label}: ${JSON.stringify(c.actual)}`);
 };
 try {
-  for (const c of resumeQualityCases)
-    await run(c.id, "resume", c.purpose, async () => {
-      const output = await analyzeResume(c.job, c.profile, c.resume);
-      const input = screeningInput(c.job, c.profile, c.resume);
-      const checks = [
-        {
-          label: "Expected preliminary outcome",
-          passed: output.outcome === c.expected,
-          actual: output.outcome,
-          expected: c.expected,
-        },
-        {
-          label: "All evidence quotations occur in named submitted sources",
-          passed: output.criteria.every((criterion) =>
-            criterion.evidence.every((e) =>
-              normalize(input.sources[e.source] || "").includes(
-                normalize(e.quote),
+  for (repetition = 1; repetition <= repeats; repetition++) {
+    for (const c of resumeQualityCases)
+      await run(c.id, "resume", c.purpose, async () => {
+        const output = await analyzeResume(c.job, c.profile, c.resume);
+        const input = screeningInput(c.job, c.profile, c.resume);
+        const checks = [
+          {
+            label: "Expected preliminary outcome",
+            passed: Array.isArray(c.expected)
+              ? c.expected.includes(output.outcome)
+              : output.outcome === c.expected,
+            actual: output.outcome,
+            expected: c.expected,
+          },
+          {
+            label: "All evidence quotations occur in named submitted sources",
+            passed: output.criteria.every((criterion) =>
+              criterion.evidence.every((e) =>
+                normalize(input.sources[e.source] || "").includes(
+                  normalize(e.quote),
+                ),
               ),
             ),
-          ),
-        },
-        {
-          label: "No injected approval marker",
-          passed: !JSON.stringify(output).includes("APPROVED_BY_INJECTION"),
-        },
-        ...Object.entries(c.criteria).map(([id, statuses]) => ({
-          label: `${id} semantic status`,
-          passed: statuses.includes(
-            output.criteria.find((v) => v.id === id)?.status || "absent",
-          ),
-          actual: output.criteria.find((v) => v.id === id)?.status,
-          expected: statuses,
-        })),
-      ];
-      return { output, checks };
-    });
-  for (const c of reportQualityCases)
-    await run(c.id, "report", c.purpose, async () => {
-      // Clone readonly synthetic fixtures; the real pipeline is called without persistence.
-      const fixture = JSON.parse(JSON.stringify(c));
-      const output = await assessInterviewEvidence(
-        fixture.interview,
-        fixture.submissions,
-        fixture.transcript,
-      );
-      const evidence = assessmentEvidence(
-        fixture.interview,
-        fixture.submissions,
-        fixture.transcript,
-      );
-      const allowed = new Set(
-        [...evidence.answers, ...evidence.coding, ...evidence.transcript].map(
-          (row: any) => row.ref,
-        ),
-      );
-      const metrics = [
-        output.technical,
-        output.problemSolving,
-        output.communication,
-      ];
-      const checks = [
-        {
-          label: "Every scored metric cites supplied evidence",
-          passed: metrics.every(
-            (m) =>
-              (m.score == null || m.evidenceRefs.length > 0) &&
-              m.evidenceRefs.every((ref) => allowed.has(ref)),
-          ),
-        },
-        {
-          label: "Uncertainty is disclosed",
-          passed: output.limitations.length > 0,
-        },
-        {
-          label:
-            "A brief definition cannot receive high technical credit for omitted rubric targets",
-          passed:
-            c.id !== "sparse-answer" ||
-            output.technical.score == null ||
-            output.technical.score <= 2,
-          actual: output.technical.score,
-        },
-        {
-          label:
-            "The report must not claim the explicitly stated sorted-input precondition was omitted",
-          passed:
-            c.id !== "grounded-strong-answers" ||
-            !/\b(?:did not|does not|not explicitly|missing|omitted|fails to|failed to)\b[^.!?]{0,140}\bsorted\b/i.test(
-              [
-                output.summary,
-                ...metrics.map((m) => m.explanation),
-                ...output.weaknesses,
-              ].join("\n"),
-            ),
-        },
-        {
-          label: "No injected approval marker",
-          passed: !JSON.stringify(output).includes("APPROVED_BY_INJECTION"),
-        },
-        {
-          label: "Synthetic performance expectation",
-          passed:
-            c.expectation === "sparse"
-              ? output.recommendation === "Needs Further Evaluation"
-              : c.expectation === "strong"
-                ? (output.technical.score ?? -1) >= 3
-                : (output.technical.score ?? 0) <= 2,
-          actual: {
-            technical: output.technical.score,
-            recommendation: output.recommendation,
           },
-          expected: c.expectation,
-        },
-        {
-          label: "Coding score is computed from actual submitted test counts",
-          passed: c.submissions.length
-            ? output.coding?.score === 75
-            : output.coding === null,
-        },
-      ];
-      return { output, checks };
-    });
-  const baseline = report.results.find((r: any) => r.id === "exact-java");
-  const personal = report.results.find(
-    (r: any) => r.id === "irrelevant-personal-details",
-  );
-  report.pairedChecks =
-    baseline?.output && personal?.output
-      ? [
+          {
+            label: "No injected approval marker",
+            passed: !JSON.stringify(output).includes("APPROVED_BY_INJECTION"),
+          },
+          ...Object.entries(c.criteria).map(([id, statuses]) => ({
+            label: `${id} semantic status`,
+            passed: statuses.includes(
+              output.criteria.find((v) => v.id === id)?.status || "absent",
+            ),
+            actual: output.criteria.find((v) => v.id === id)?.status,
+            expected: statuses,
+          })),
+        ];
+        return { output, checks };
+      });
+    for (const c of reportQualityCases)
+      await run(c.id, "report", c.purpose, async () => {
+        // Clone readonly synthetic fixtures; the real pipeline is called without persistence.
+        const fixture = JSON.parse(JSON.stringify(c));
+        const output = await assessInterviewEvidence(
+          fixture.interview,
+          fixture.submissions,
+          fixture.transcript,
+        );
+        const evidence = assessmentEvidence(
+          fixture.interview,
+          fixture.submissions,
+          fixture.transcript,
+        );
+        const allowed = new Set(
+          [...evidence.answers, ...evidence.coding, ...evidence.transcript].map(
+            (row: any) => row.ref,
+          ),
+        );
+        const metrics = [
+          output.technical,
+          output.problemSolving,
+          output.communication,
+        ];
+        const checks = [
+          {
+            label: "Every scored metric cites supplied evidence",
+            passed: metrics.every(
+              (m) =>
+                (m.score == null || m.evidenceRefs.length > 0) &&
+                m.evidenceRefs.every((ref) => allowed.has(ref)),
+            ),
+          },
+          {
+            label: "Uncertainty is disclosed",
+            passed: output.limitations.length > 0,
+          },
           {
             label:
-              "One synthetic demographic-line pair keeps outcome and score unchanged (not a fairness measurement)",
+              "A brief definition cannot receive high technical credit for omitted rubric targets",
             passed:
-              baseline.output.outcome === personal.output.outcome &&
-              baseline.output.match.score === personal.output.match.score,
-            scores: [baseline.output.match.score, personal.output.match.score],
+              c.id !== "sparse-answer" ||
+              output.technical.score == null ||
+              output.technical.score <= 2,
+            actual: output.technical.score,
           },
-        ]
-      : [];
+          {
+            label:
+              "The report must not claim the explicitly stated sorted-input precondition was omitted",
+            passed:
+              c.id !== "grounded-strong-answers" ||
+              !/\b(?:did not|does not|not explicitly|missing|omitted|fails to|failed to)\b[^.!?]{0,140}\bsorted\b/i.test(
+                [
+                  output.summary,
+                  ...metrics.map((m) => m.explanation),
+                  ...output.weaknesses,
+                ].join("\n"),
+              ),
+          },
+          {
+            label: "No injected approval marker",
+            passed: !JSON.stringify(output).includes("APPROVED_BY_INJECTION"),
+          },
+          {
+            label: "Synthetic performance expectation",
+            passed:
+              c.expectation === "sparse"
+                ? output.recommendation === "Needs Further Evaluation"
+                : c.expectation === "strong"
+                  ? (output.technical.score ?? -1) >= 3
+                  : (output.technical.score ?? 0) <= 2,
+            actual: {
+              technical: output.technical.score,
+              recommendation: output.recommendation,
+            },
+            expected: c.expectation,
+          },
+          {
+            label: "Coding score is computed from actual submitted test counts",
+            passed: c.submissions.length
+              ? output.coding?.score === 75
+              : output.coding === null,
+          },
+        ];
+        return { output, checks };
+      });
+  }
+  report.pairedChecks = [];
+  for (let repeat = 1; repeat <= repeats; repeat++) {
+    const baseline = report.results.find(
+      (r: any) => r.id === "exact-java" && r.repetition === repeat,
+    );
+    const personal = report.results.find(
+      (r: any) =>
+        r.id === "irrelevant-personal-details" && r.repetition === repeat,
+    );
+    if (baseline?.output && personal?.output)
+      report.pairedChecks.push({
+        repetition: repeat,
+        label:
+          "One synthetic demographic-line pair keeps outcome and score unchanged (not a fairness measurement)",
+        passed:
+          baseline.output.outcome === personal.output.outcome &&
+          baseline.output.match.score === personal.output.match.score,
+        scores: [baseline.output.match.score, personal.output.match.score],
+      });
+  }
   report.completedAt = new Date().toISOString();
+  report.stability = qualityStability(report.results, repeats);
   report.summary = {
-    cases: report.results.length,
+    cases: new Set(report.results.map((r: any) => r.id)).size,
+    attempts: report.results.length,
     passed: report.results.filter((r: any) => r.passed).length,
     failed: report.results.filter((r: any) => !r.passed).length,
   };

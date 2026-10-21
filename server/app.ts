@@ -75,7 +75,7 @@ import {
 } from "./providers.js";
 
 import { auditRequests, registerGovernanceRoutes } from "./governance.js";
-import { rateStore } from "./scaling.js";
+import { rateStore, redis } from "./scaling.js";
 import { registerAccountRoutes } from "./accounts.js";
 import { registerProctoringReview } from "./proctoring-review.js";
 import {
@@ -354,6 +354,19 @@ export function createApp() {
     }
     next();
   });
+  // A health probe must remain usable when the shared rate-limit store is
+  // reconnecting. It reports dependency readiness without touching that store.
+  app.get("/api/health", (_req, res) => {
+    const databaseReady = mongoose.connection.readyState === 1;
+    const scalingReady = !config.redisUrl || !!redis?.isReady;
+    res.status(databaseReady && scalingReady ? 200 : 503).json({
+      status: !databaseReady
+        ? "database unavailable"
+        : scalingReady
+          ? "ready"
+          : "shared services unavailable",
+    });
+  });
   app.use(
     "/api",
     rateLimit({
@@ -387,12 +400,6 @@ export function createApp() {
       },
     },
   });
-  app.get("/api/health", (_req, res) =>
-    res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({
-      status:
-        mongoose.connection.readyState === 1 ? "ready" : "database unavailable",
-    }),
-  );
   registerAuthRoutes(app, authLimit);
   registerAccountRoutes(app, authLimit);
   app.post("/api/auth/logout", async (req, res) => {

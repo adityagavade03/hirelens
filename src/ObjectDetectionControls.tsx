@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, send } from "./api";
 import { ErrorBox } from "./ui";
-import type { CameraObject } from "../shared/object-detection";
+import type {
+  CameraObject,
+  ObjectDetectionProfile,
+} from "../shared/object-detection";
 import "./object-detection.css";
 
 /** Every mounted room starts off. A previous server grant never starts a camera check. */
@@ -140,6 +143,9 @@ export function ObjectDetectionControls({
   ready,
   detections,
   retry,
+  profile = "balanced",
+  onProfileChange,
+  accuracyAvailable = false,
   localOnly = false,
 }: {
   consent: ReturnType<typeof useObjectConsent>;
@@ -149,6 +155,9 @@ export function ObjectDetectionControls({
   ready: boolean;
   detections: CameraObject[];
   retry: () => void;
+  profile?: ObjectDetectionProfile;
+  onProfileChange?: (profile: ObjectDetectionProfile) => void;
+  accuracyAvailable?: boolean;
   localOnly?: boolean;
 }) {
   return (
@@ -178,6 +187,27 @@ export function ObjectDetectionControls({
           ? "Enable optional object preview on this device"
           : "I consent to optional object detection and the described event sharing"}
       </label>
+      {onProfileChange && (
+        <label className="object-profile">
+          Local model
+          <select
+            value={profile}
+            onChange={(event) =>
+              onProfileChange(event.target.value as ObjectDetectionProfile)
+            }
+          >
+            <option value="balanced">Balanced · lower device load</option>
+            <option value="detail" disabled={!accuracyAvailable}>
+              More detail · higher device load
+            </option>
+          </select>
+          <small>
+            More detail uses a larger model and can be slower. It cannot
+            guarantee phone or book detection. Changing models clears the
+            current observations.
+          </small>
+        </label>
+      )}
       <p role="status">{status}</p>
       {!configured && (
         <p>

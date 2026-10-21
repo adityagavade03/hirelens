@@ -13,7 +13,7 @@ import av
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from speech_audio import SpeechInputError, decode_audio, recognize_audio
+from speech_audio import SpeechInputError, decode_audio, recognition_options, recognize_audio
 
 
 def wav(samples, rate=48000):
@@ -81,6 +81,51 @@ class SpeechAudioTests(unittest.TestCase):
         self.assertEqual(result["text"], "Genuine result only.")
         self.assertNotIn("initial_prompt", engine.calls[0])
         self.assertNotIn("hotwords", engine.calls[0])
+        self.assertEqual(engine.calls[0]["temperature"], 0.0)
+        self.assertEqual(engine.calls[0]["beam_size"], 5)
+        self.assertEqual(engine.calls[0]["best_of"], 1)
+        self.assertEqual(engine.calls[0]["task"], "transcribe")
+
+    def test_auto_multilingual_decodes_original_language_without_english_assumption(self):
+        engine = FakeEngine(text="ನಮಸ್ಕಾರ")
+        engine.supported_languages = ["en", "hi", "kn"]
+        result = recognize_audio(wav(tone()), engine)
+        self.assertEqual(result["text"], "ನಮಸ್ಕಾರ")
+        self.assertIsNone(engine.calls[0]["language"])
+        self.assertTrue(engine.calls[0]["multilingual"])
+
+    def test_known_english_can_be_selected_without_injecting_expected_words(self):
+        engine = FakeEngine()
+        engine.supported_languages = ["en", "hi", "kn"]
+        recognize_audio(wav(tone()), engine, recognition_options("en"))
+        self.assertEqual(engine.calls[0]["language"], "en")
+        self.assertFalse(engine.calls[0]["multilingual"])
+        self.assertNotIn("initial_prompt", engine.calls[0])
+
+    def test_english_only_model_does_not_silently_accept_other_languages(self):
+        engine = FakeEngine()
+        engine.supported_languages = ["en"]
+        with self.assertRaises(SpeechInputError) as error:
+            recognize_audio(wav(tone()), engine, recognition_options("kn"))
+        self.assertEqual(error.exception.code, "UNSUPPORTED_SPEECH_LANGUAGE")
+        self.assertEqual(engine.calls, [])
+
+    def test_language_selection_is_bounded(self):
+        for invalid in ("", "expected answer", "../../secret", "en-US"):
+            with self.subTest(language=invalid), self.assertRaises(ValueError):
+                recognition_options(invalid)
+
+    def test_missing_and_nonfinite_model_confidence_fail_closed(self):
+        for confidence in (None, float("nan"), float("inf")):
+            with self.subTest(confidence=confidence), self.assertRaises(SpeechInputError) as error:
+                recognize_audio(wav(tone()), FakeEngine(segments=[SimpleNamespace(text="Uncertain words.", avg_logprob=confidence)]))
+            self.assertEqual(error.exception.code, "LOW_CONFIDENCE_TRANSCRIPT")
+
+    def test_repetitive_final_decode_is_not_a_success_after_fallback_disabled(self):
+        with self.assertRaises(SpeechInputError) as error:
+            recognize_audio(wav(tone()), FakeEngine(segments=[SimpleNamespace(text="Repeated repeated repeated.", avg_logprob=-0.1, compression_ratio=2.5)]))
+        self.assertEqual(error.exception.code, "LOW_CONFIDENCE_TRANSCRIPT")
+        self.assertEqual(error.exception.diagnostics["repetitiveSegments"], 1)
 
     def test_uniformly_weak_recognition_is_not_reported_as_ready(self):
         engine = FakeEngine(segments=[SimpleNamespace(text="Uncertain words.", avg_logprob=-1.28),

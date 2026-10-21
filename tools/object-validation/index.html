@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireLens local object comparison</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      body {
+        max-width: 960px;
+        margin: 32px auto;
+        padding: 0 20px;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+        border: 1px solid #8888;
+        border-radius: 12px;
+        padding: 20px;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+      }
+      input,
+      select,
+      button {
+        font: inherit;
+        padding: 10px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: wait;
+      }
+      :focus-visible {
+        outline: 3px solid #cf8d00;
+        outline-offset: 3px;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .preview {
+        position: relative;
+        width: fit-content;
+        max-width: 100%;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+        max-height: 480px;
+      }
+      svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      pre {
+        overflow: auto;
+        white-space: pre-wrap;
+        border: 1px solid #8888;
+        padding: 16px;
+        border-radius: 8px;
+      }
+      small {
+        opacity: 0.8;
+      }
+      .warning {
+        border-inline-start: 4px solid #cf8d00;
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Local object-model comparison</h1>
+    <p>
+      Compare the same photo using Balanced (EfficientDet-Lite0) and More detail
+      (EfficientDet-Lite2). This developer tool uses local model files and
+      browser memory. It does not request camera access, upload images, record
+      an interview, or send interview events.
+    </p>
+    <p class="warning">
+      An example match is not an accuracy validation. For reviewed tests, enter
+      the labels you can actually see before running both models. Include
+      negative examples and varied lighting, cameras, object sizes and angles.
+      Do not use private candidate photos without their consent.
+    </p>
+    <form id="comparison-form">
+      <label
+        >Public sample photo
+        <select id="sample">
+          <option value="multi_objects">Desk objects</option>
+          <option value="cats_and_dogs">Cats and dogs</option>
+        </select>
+      </label>
+      <button id="load-sample" type="button">Load public sample</button>
+      <label
+        >Or open a photo from this device
+        <input
+          id="local-file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+      /></label>
+      <label
+        >Case ID (no personal information)
+        <input
+          id="case-id"
+          value="public-desk-01"
+          maxlength="64"
+          required
+          pattern="[a-zA-Z0-9_-]+"
+      /></label>
+      <label
+        >Reviewed labels visible in this photo, separated by commas
+        <input
+          id="expected"
+          placeholder="laptop, chair, cat"
+          maxlength="300"
+        /><small
+          >Leave blank for an engine check. Labels must match COCO names, such
+          as cell phone or book. This tool does not invent ground truth.</small
+        ></label
+      >
+      <div class="actions">
+        <button id="compare" type="submit" disabled>
+          Compare both local models</button
+        ><button id="download" type="button" disabled>
+          Download metadata report</button
+        ><button id="clear" type="button">Clear photo and results</button>
+      </div>
+    </form>
+    <p id="status" role="status">
+      Load a public sample or select a consented local photo. Run npm run
+      setup:assets first.
+    </p>
+    <div class="preview">
+      <img id="photo" alt="Selected local comparison photo" hidden /><svg
+        id="boxes"
+        aria-hidden="true"
+      ></svg>
+    </div>
+    <h2>Comparison metadata</h2>
+    <pre id="results">No inference has run.</pre>
+    <script type="module" src="/src/object-validation.ts"></script>
+  </body>
+</html>

@@ -99,6 +99,7 @@ export const config = {
   faceWasm: process.env.MEDIAPIPE_WASM_URL || "",
   faceLandmarkModel: process.env.FACE_LANDMARK_MODEL_URL || "",
   objectModel: process.env.OBJECT_MODEL_URL || "",
+  objectAccuracyModel: process.env.OBJECT_ACCURACY_MODEL_URL || "",
 };
 export function publicJudge0Configured() {
   try {
@@ -189,5 +190,6 @@ export const serviceStatus = () => {
     mediapipeWasmUrl: config.faceWasm,
     faceLandmarkModelUrl: config.faceLandmarkModel,
     objectModelUrl: config.objectModel,
+    objectAccuracyModelUrl: config.objectAccuracyModel,
   };
 };

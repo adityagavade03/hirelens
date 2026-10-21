@@ -386,4 +386,5 @@ export interface ServiceStatus {
   mediapipeWasmUrl: string;
   faceLandmarkModelUrl?: string;
   objectModelUrl?: string;
+  objectAccuracyModelUrl?: string;
 }

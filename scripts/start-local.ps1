@@ -24,7 +24,16 @@ if (Test-Path '.data/ollama/runtime/ollama.exe') {
 if (Test-Path '.data/speech/venv/Scripts/python.exe') {
     $env:HF_HOME = Join-Path $projectRoot '.data/speech/cache'
     $env:HF_HUB_DISABLE_SYMLINKS_WARNING = '1'
-    Start-HireLensService 'speech' 8765 (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') '-I scripts/speech-server.py'
+    $speechLaunchJson = & $nodePath 'node_modules/tsx/dist/cli.mjs' 'scripts/local-speech-settings.ts'
+    if ($LASTEXITCODE -ne 0) { throw 'Local speech configuration is invalid. Review STT_BASE_URL and STT_MODEL.' }
+    $speechLaunch = $speechLaunchJson | ConvertFrom-Json
+    if ($speechLaunch.local) {
+        $env:HIRELENS_SPEECH_MODEL = $speechLaunch.model
+        $env:HIRELENS_SPEECH_PORT = [string]$speechLaunch.port
+        $env:HIRELENS_SPEECH_LANGUAGE = $speechLaunch.language
+        $env:HIRELENS_SPEECH_DETECT_EACH_SEGMENT = 'true'
+        Start-HireLensService 'speech' $speechLaunch.port (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') '-I scripts/speech-server.py'
+    } else { Write-Output 'An external speech adapter is configured; local speech startup skipped.' }
     if (Test-Path '.data/diarization/models/nemo_en_titanet_small.onnx') {
         Start-HireLensService 'diarization' 8766 (Join-Path $projectRoot '.data/speech/venv/Scripts/python.exe') 'scripts/diarization-server.py'
     }

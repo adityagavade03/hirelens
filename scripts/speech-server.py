@@ -14,7 +14,8 @@ from faster_whisper import WhisperModel
 
 # Explicit sibling import also works with Python -I (no current-directory imports).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from speech_audio import SpeechInputError, recognize_audio
+from speech_audio import SpeechInputError, recognition_options, recognize_audio
+from speech_model import local_model_source
 from starlette.concurrency import run_in_threadpool
 import uvicorn
 
@@ -25,15 +26,22 @@ if not KEY_PATH.exists():
     KEY_PATH.write_text(secrets.token_hex(32), encoding="utf-8")
 KEY = KEY_PATH.read_text(encoding="utf-8").strip()
 MODEL = os.environ.get("HIRELENS_SPEECH_MODEL", "base.en")
-engine = WhisperModel(MODEL, device="cpu", compute_type="int8", cpu_threads=4,
+OPTIONS = recognition_options(os.environ.get("HIRELENS_SPEECH_LANGUAGE", "auto"),
+                              os.environ.get("HIRELENS_SPEECH_DETECT_EACH_SEGMENT", "true").lower() == "true")
+PORT = int(os.environ.get("HIRELENS_SPEECH_PORT", "8765"))
+if not 1024 <= PORT <= 65535:
+    raise ValueError("HIRELENS_SPEECH_PORT must be between 1024 and 65535.")
+engine = WhisperModel(local_model_source(ROOT, MODEL), device="cpu", compute_type="int8", cpu_threads=4,
                       download_root=str(ROOT / ".data/speech/models"))
+if OPTIONS.language is not None and OPTIONS.language not in engine.supported_languages:
+    raise ValueError("The configured speech language is not supported by the loaded model.")
 gate = threading.Lock()
 app = FastAPI(docs_url=None, redoc_url=None)
 
 
 def recognize(data):
     try:
-        return recognize_audio(data, engine)
+        return recognize_audio(data, engine, OPTIONS)
     except SpeechInputError as exc:
         raise HTTPException(exc.status, detail={"code": exc.code, "message": str(exc),
                                                "diagnostics": exc.diagnostics}) from exc
@@ -41,7 +49,9 @@ def recognize(data):
 
 @app.get("/health")
 def health():
-    return {"status": "ready", "model": MODEL, "device": "cpu", "speakerIdentification": False}
+    return {"status": "ready", "model": MODEL, "device": "cpu", "speakerIdentification": False,
+            "language": OPTIONS.language or "auto", "multilingualModel": len(engine.supported_languages) > 1,
+            "decoder": "beam_search_temperature_zero", "accuracyValidated": False}
 
 
 @app.post("/v1/audio/transcriptions")
@@ -64,4 +74,4 @@ async def transcribe(file: UploadFile = File(...), model: str = Form(...),
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8765, access_log=False)
+    uvicorn.run(app, host="127.0.0.1", port=PORT, access_log=False)

@@ -304,6 +304,110 @@ it("does not interpret unrelated negative wording or NoSQL as an explicit lack o
   );
   expect(result.outcome).toBe("shortlisted");
 });
+const currentCertificateRequirement =
+  "Current AWS Solutions Architect Associate certification is mandatory as of 21 October 2026.";
+function certificateProvider(quote: string) {
+  return provider((r) => {
+    for (const id of ["certifications", "other"]) {
+      const criterion = r.criteria.find((c: any) => c.id === id);
+      Object.assign(criterion, {
+        status: "met",
+        required: true,
+        requirement: currentCertificateRequirement,
+        evidence: [{ source: "Certifications", quote }],
+        explanation: "The cited AWS credential meets the requirement.",
+      });
+    }
+    return r;
+  });
+}
+it("routes an explicitly expired current-certificate claim to review even above the aggregate threshold", async () => {
+  const quote =
+    "AWS Solutions Architect Associate certification expired in 2024 and was not renewed.";
+  certificateProvider(quote);
+  const result = await analyzeResume(
+    {
+      ...jd,
+      additionalRequirements: currentCertificateRequirement,
+      shortlistThreshold: 10,
+    },
+    { ...profile, certifications: quote },
+    resumeText,
+  );
+  for (const id of ["certifications", "other"]) {
+    expect(result.criteria.find((c) => c.id === id)?.status).toBe("unknown");
+    expect(result.criteria.find((c) => c.id === id)?.explanation).toContain(
+      "expired or unrenewed",
+    );
+  }
+  expect(result.match.score).toBeGreaterThan(10);
+  expect(result.outcome).toBe("needs_review");
+});
+it("retains current certification evidence and does not treat not-expired wording as expiry", async () => {
+  const quote =
+    "AWS Solutions Architect Associate certification is current and valid; it is not expired.";
+  certificateProvider(quote);
+  const result = await analyzeResume(
+    { ...jd, additionalRequirements: currentCertificateRequirement },
+    { ...profile, certifications: quote },
+    resumeText,
+  );
+  expect(result.criteria.find((c) => c.id === "certifications")?.status).toBe(
+    "met",
+  );
+  expect(result.outcome).toBe("shortlisted");
+});
+it("accepts a grounded renewal of the same named credential despite an earlier expiry", async () => {
+  const quote =
+    "AWS Solutions Architect Associate certification expired in 2024. AWS Solutions Architect Associate certification was renewed in 2025 and is currently valid.";
+  certificateProvider(quote);
+  const result = await analyzeResume(
+    { ...jd, additionalRequirements: currentCertificateRequirement },
+    { ...profile, certifications: quote },
+    resumeText,
+  );
+  expect(result.criteria.find((c) => c.id === "certifications")?.status).toBe(
+    "met",
+  );
+  expect(result.outcome).toBe("shortlisted");
+});
+it("does not let a different credential's renewal or a planned renewal prove current AWS validity", async () => {
+  for (const quote of [
+    "AWS Solutions Architect Associate certification expired in 2024. Microsoft Azure certification was renewed in 2026.",
+    "AWS Solutions Architect Associate certification expired in 2024. AWS Developer certification was renewed in 2026.",
+    "AWS Solutions Architect Associate certification expired in 2024. AWS Solutions Architect Associate certification will be renewed next year.",
+  ]) {
+    const stub = certificateProvider(quote);
+    const result = await analyzeResume(
+      { ...jd, additionalRequirements: currentCertificateRequirement },
+      { ...profile, certifications: quote },
+      resumeText,
+    );
+    expect(result.criteria.find((c) => c.id === "certifications")?.status).toBe(
+      "unknown",
+    );
+    expect(result.outcome).toBe("needs_review");
+    stub.mockRestore();
+  }
+});
+it("does not apply certificate-expiry rules to an ordinary skill's expired-token work", async () => {
+  provider((r) => {
+    r.criteria[0].evidence = [
+      {
+        source: "Resume PDF",
+        quote: "Built Java handlers for expired authentication tokens.",
+      },
+    ];
+    return r;
+  });
+  const result = await analyzeResume(
+    jd,
+    profile,
+    `${resumeText}\nBuilt Java handlers for expired authentication tokens.`,
+  );
+  expect(result.criteria[0].status).toBe("met");
+  expect(result.outcome).toBe("shortlisted");
+});
 it("does not accept an arithmetically impossible explicit experience minimum", async () => {
   provider((r) => {
     const c = r.criteria.find((item: any) => item.id === "experience");

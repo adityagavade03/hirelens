@@ -6,3 +6,10 @@ node_modules
 dist
 dist-server
 test-results
+.venv
+**/__pycache__
+*.pyc
+coverage
+# Download checksum-pinned assets inside the build instead of copying a stale
+# or locally modified cache from the developer's ignored vendor directory.
+public/vendor/mediapipe

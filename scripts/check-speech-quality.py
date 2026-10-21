@@ -16,7 +16,8 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from speech_audio import SpeechInputError, recognize_audio
+from speech_audio import SpeechInputError, recognition_options, recognize_audio
+from speech_model import local_model_source
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -36,8 +37,9 @@ def main():
     if not fixture.is_file():
         raise SystemExit("Create the documented synthetic check.wav fixture before running this check.")
     model = os.environ.get("HIRELENS_SPEECH_MODEL", "base.en")
-    engine = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=4,
+    engine = WhisperModel(local_model_source(ROOT, model), device="cpu", compute_type="int8", cpu_threads=4,
                           download_root=str(ROOT / ".data/speech/models"), local_files_only=True)
+    options = recognition_options(os.environ.get("HIRELENS_SPEECH_LANGUAGE", "auto"))
     results = []
     for name, data in (
         ("synthetic_speech", fixture.read_bytes()),
@@ -46,7 +48,7 @@ def main():
     ):
         started = time.monotonic()
         try:
-            result = recognize_audio(data, engine)
+            result = recognize_audio(data, engine, options)
             words = set(re.findall(r"[a-z]+", result["text"].lower()))
             passed = name == "synthetic_speech" and {"interview", "hash"}.issubset(words)
             item = {"fixture": name, "passed": passed, "characters": len(result["text"]),
@@ -58,6 +60,7 @@ def main():
         item["elapsedSeconds"] = round(time.monotonic() - started, 3)
         results.append(item)
     report = {"syntheticOnly": True, "model": model, "externalUpload": False,
+              "language": options.language or "auto", "decoder": "beam_search_temperature_zero",
               "accuracyValidated": False, "results": results}
     destination = ROOT / ".data/runtime/speech-quality-check.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
