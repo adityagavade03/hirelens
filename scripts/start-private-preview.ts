@@ -7,11 +7,12 @@ import { createServer } from "node:net";
 import path from "node:path";
 import mongoose from "mongoose";
 import { z } from "zod";
+import { previewCompanyEmails, resolvePreviewCompanyScope, type PreviewCompanyScope } from "./private-preview-scope.js";
 
 // Explicitly launched, time-limited preview. Normal account authentication always applies.
 const args = process.argv.slice(2);
 const usage =
-  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--expires-at ISO_TIMESTAMP] [--access password|account] [--public-origin HTTPS_ORIGIN] [--days 1..31]\nDefaults to eight hours and an extra preview password. An explicitly approved longer test can use --days 1..31. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp within the approved window; keep the existing absolute expiry when restarting. --public-origin sets the canonical origin of an owner-controlled HTTPS gateway; the underlying tunnel remains company-scoped.";
+  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--additional-company-email OTHER_APPROVED_COMPANY_EMAIL] [--expires-at ISO_TIMESTAMP] [--access password|account] [--public-origin HTTPS_ORIGIN] [--days 1..31]\nDefaults to eight hours and an extra preview password. An explicitly approved longer test can use --days 1..31. --additional-company-email adds one distinct approved owner without replacing the primary company. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp within the approved window; keep the existing absolute expiry when restarting. --public-origin sets the canonical origin of an owner-controlled HTTPS gateway; the underlying tunnel remains company-scoped.";
 if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
   console.log(usage);
   process.exit(0);
@@ -21,7 +22,7 @@ for (let index = 0; index < args.length; index += 2) {
   const key = args[index],
     value = args[index + 1];
   if (
-    !["--company-email", "--expires-at", "--access", "--public-origin", "--days"].includes(key) ||
+    !["--company-email", "--additional-company-email", "--expires-at", "--access", "--public-origin", "--days"].includes(key) ||
     !value ||
     options.has(key)
   ) {
@@ -30,7 +31,13 @@ for (let index = 0; index < args.length; index += 2) {
   }
   options.set(key, value);
 }
-const companyEmail = options.get("--company-email")?.trim().toLowerCase();
+let companyEmails: string[];
+try {
+  companyEmails = previewCompanyEmails(options.get("--company-email"), options.get("--additional-company-email"));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : usage);
+  process.exit(1);
+}
 const accessMode = options.get("--access") || "password";
 const requestedPublicOrigin = options.get("--public-origin");
 if (requestedPublicOrigin) {
@@ -50,10 +57,6 @@ if (requestedPublicOrigin) {
 }
 if (!["password", "account"].includes(accessMode)) {
   console.error("--access must be password or account.");
-  process.exit(1);
-}
-if (!companyEmail) {
-  console.error(usage);
   process.exit(1);
 }
 const requestedDays = options.get("--days");
@@ -151,25 +154,9 @@ try {
       { serverSelectionTimeoutMS: 5000 },
     )
     .asPromise();
-  let companyId: string;
+  let companyScope: PreviewCompanyScope;
   try {
-    const owner = await db
-      .collection("users")
-      .findOne(
-        { email: companyEmail, role: "company" },
-        { projection: { _id: 1, companyId: 1 } },
-      );
-    if (!owner?.companyId || !mongoose.isValidObjectId(owner.companyId))
-      throw new Error("The selected company account does not exist.");
-    companyId = String(owner.companyId);
-    const company = await db.collection("companies").findOne(
-      {
-        _id: new mongoose.Types.ObjectId(companyId),
-        ownerId: String(owner._id),
-      },
-      { projection: { _id: 1 } },
-    );
-    if (!company) throw new Error("The account does not own that company.");
+    companyScope = await resolvePreviewCompanyScope(db, companyEmails);
   } finally {
     await db.close();
   }
@@ -263,7 +250,7 @@ try {
     PRIVATE_PREVIEW_PASSWORD: password,
     PRIVATE_PREVIEW_EXPIRES_AT: expiresAt,
     PRIVATE_PREVIEW_MAX_DAYS: requestedDays,
-    PRIVATE_PREVIEW_COMPANY_IDS: companyId,
+    PRIVATE_PREVIEW_COMPANY_IDS: companyScope.companyIds.join(","),
     ALLOW_DEMO_LOGIN: "false",
     ALLOW_LOCAL_COMPANY_REGISTRATION: "false",
     MESSAGE_PREVIEW: "false",
@@ -366,6 +353,8 @@ try {
         expiresAt,
         accessMode,
         maximumDays: requestedDays === undefined ? undefined : Number(requestedDays),
+        companyEmails: companyScope.companyEmails,
+        companyIds: companyScope.companyIds,
       },
       null,
       2,
