@@ -5,12 +5,13 @@
 The selected setup on 21 October 2026 is a free Render **gateway**, with the
 existing application, database, Gmail and AI services continuing on this laptop.
 It is temporary testing access, not independent cloud hosting. The gateway does
-not extend the current preview's absolute expiry or expose the disposable device
-test server. Normal account sign-in and company OTP still apply.
+not automatically extend the preview's absolute expiry or expose the disposable
+device test server. Normal account sign-in and company OTP still apply.
 
 Deployed and checked on 21 October 2026:
-`https://hirelens-adityagavade03.onrender.com`. The current test session retains
-its original expiry, **22 October 2026 at 01:01:38 IST**. See the
+`https://hirelens-adityagavade03.onrender.com`. The user subsequently authorized
+a one-month extension at `2026-10-21T12:22:46Z`, with an approved absolute expiry
+of `2026-11-21T12:22:46.000Z` (**21 November 2026 at 5:52:46 PM IST**). See the
 [verification record](TEMPORARY-RENDER-HOSTING-2026-10-21.md). The fixed address
 does not make the laptop backend independently hosted.
 
@@ -28,15 +29,27 @@ preview with `--public-origin https://THE_ASSIGNED_RENDER_HOST` and its original
 the public address. Keep these deployment settings in Render, not in committed
 source. Never point the gateway at the fixture or Vite development server.
 
+The launcher still defaults to **eight hours**. For an explicitly authorized
+longer test, add `--days N` (a whole number from 1 to 31). For the month extension,
+use `--days 31 --expires-at 2026-11-21T12:22:46.000Z`; set that same absolute
+expiry in the gateway. On every restart, retain the authorized expiry and day
+limit. Neither a restart nor a Render redeployment renews access. The laptop
+guard and gateway check the absolute deadline using bounded timers, avoiding
+Node's long-timeout overflow.
+
 The gateway's health check only indicates gateway readiness. Verify the public
 `/api/health` separately to check the actual application/database. Preserve
 normal authentication; verify cross-origin rejection and Socket.IO after any
 origin change. The normal local background-worker owner also needs the public
 origin for its recruitment email links.
 
-The free service may sleep when unused. If the laptop, tunnel or local services
-stop, the address cannot serve HireLens. The current session ends at its original
-expiry; starting another test requires a new authorized session and an explicit
+Keep the laptop plugged in, online and its lid open. When enabled, the bounded
+AC-only keep-awake helper asks Windows to stay awake during this authorized
+window; it does not change the power plan or guarantee uptime. The free Render
+gateway can still sleep after 15 minutes without traffic and need time to wake
+on the next visit. If the laptop, tunnel or local services stop, the address
+cannot serve HireLens. The session ends at its authorized absolute expiry;
+starting another test requires a new authorized session and an explicit
 upstream/expiry update. Public TURN is still a separate requirement for reliable
 media across different networks.
 

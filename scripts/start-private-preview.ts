@@ -11,7 +11,7 @@ import { z } from "zod";
 // Explicitly launched, time-limited preview. Normal account authentication always applies.
 const args = process.argv.slice(2);
 const usage =
-  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--expires-at ISO_TIMESTAMP] [--access password|account] [--public-origin HTTPS_ORIGIN]\nDefaults to eight hours and an extra preview password. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp no more than eight hours away; use the original expiry when restarting an existing authorization. --public-origin sets the canonical origin of an owner-controlled HTTPS gateway; the underlying tunnel remains private-preview scoped and keeps the same expiry.";
+  "Usage: npm run preview:private -- --company-email YOUR_COMPANY_EMAIL [--expires-at ISO_TIMESTAMP] [--access password|account] [--public-origin HTTPS_ORIGIN] [--days 1..31]\nDefaults to eight hours and an extra preview password. An explicitly approved longer test can use --days 1..31. --access account opens company login directly with normal account authentication. --expires-at must be a future ISO timestamp within the approved window; keep the existing absolute expiry when restarting. --public-origin sets the canonical origin of an owner-controlled HTTPS gateway; the underlying tunnel remains company-scoped.";
 if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
   console.log(usage);
   process.exit(0);
@@ -21,7 +21,7 @@ for (let index = 0; index < args.length; index += 2) {
   const key = args[index],
     value = args[index + 1];
   if (
-    !["--company-email", "--expires-at", "--access", "--public-origin"].includes(key) ||
+    !["--company-email", "--expires-at", "--access", "--public-origin", "--days"].includes(key) ||
     !value ||
     options.has(key)
   ) {
@@ -56,8 +56,13 @@ if (!companyEmail) {
   console.error(usage);
   process.exit(1);
 }
+const requestedDays = options.get("--days");
+if (requestedDays !== undefined && !/^(?:[1-9]|[12]\d|3[01])$/.test(requestedDays)) {
+  console.error("--days must be an explicitly approved whole number from 1 to 31.");
+  process.exit(1);
+}
 const now = Date.now(),
-  maxDuration = 8 * 60 * 60 * 1000;
+  maxDuration = requestedDays === undefined ? 8 * 60 * 60 * 1000 : Number(requestedDays) * 24 * 60 * 60 * 1000;
 const requestedExpiry = options.get("--expires-at");
 if (
   requestedExpiry &&
@@ -66,7 +71,7 @@ if (
     Date.parse(requestedExpiry) > now + maxDuration)
 ) {
   console.error(
-    "--expires-at must be a valid future ISO timestamp no more than eight hours from now.",
+    "--expires-at must be a valid future ISO timestamp within the approved window (eight hours by default; --days supports 1–31 days).",
   );
   process.exit(1);
 }
@@ -84,13 +89,11 @@ let app: ChildProcess | undefined;
 let stopping = false;
 let ownsRuntime = false;
 let interval: ReturnType<typeof setInterval> | undefined;
-let deadline: ReturnType<typeof setTimeout> | undefined;
 
 function stop() {
   if (stopping) return;
   stopping = true;
   clearInterval(interval);
-  clearTimeout(deadline);
   tunnel?.kill();
   app?.kill();
   if (ownsRuntime) {
@@ -259,6 +262,7 @@ try {
     PRIVATE_PREVIEW_ACCESS: accessMode,
     PRIVATE_PREVIEW_PASSWORD: password,
     PRIVATE_PREVIEW_EXPIRES_AT: expiresAt,
+    PRIVATE_PREVIEW_MAX_DAYS: requestedDays,
     PRIVATE_PREVIEW_COMPANY_IDS: companyId,
     ALLOW_DEMO_LOGIN: "false",
     ALLOW_LOCAL_COMPANY_REGISTRATION: "false",
@@ -361,6 +365,7 @@ try {
         tunnelUrl: url,
         expiresAt,
         accessMode,
+        maximumDays: requestedDays === undefined ? undefined : Number(requestedDays),
       },
       null,
       2,
@@ -377,14 +382,13 @@ try {
     }),
   );
   interval = setInterval(() => {
+    // Compare the absolute deadline instead of a month-long Node timeout,
+    // which would overflow and stop the preview immediately.
+    if (Date.now() >= Date.parse(expiresAt)) { void stop(); return; }
     void access(stopFile)
       .then(stop)
       .catch(() => {});
   }, 1000);
-  deadline = setTimeout(
-    () => void stop(),
-    Math.max(1, Date.parse(expiresAt) - Date.now()),
-  );
 } catch (error) {
   console.error(
     error instanceof Error &&

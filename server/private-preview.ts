@@ -8,10 +8,11 @@ const previewKeys = [
   "PRIVATE_PREVIEW_PASSWORD",
   "PRIVATE_PREVIEW_EXPIRES_AT",
   "PRIVATE_PREVIEW_COMPANY_IDS",
+  "PRIVATE_PREVIEW_MAX_DAYS",
 ] as const;
 const cookieName = "__Host-hirelens_preview";
 const gatePath = "/__private-preview";
-const maximumDuration = 8 * 60 * 60 * 1000;
+const defaultMaximumDuration = 8 * 60 * 60 * 1000;
 type PreviewConfiguration = {
   access: "password" | "account";
   password?: string;
@@ -27,7 +28,7 @@ export function parsePrivatePreviewEnvironment(
   if (!previewKeys.some((key) => env[key] !== undefined)) return null;
   const invalid = () => {
     throw new Error(
-      "Private preview requires production mode, a loopback host, an exact HTTPS APP_ORIGIN, access mode password or account, a future expiry within eight hours, and an explicit company ID allowlist. Password mode requires a 32–256 character password.",
+      "Private preview requires production mode, a loopback host, an exact HTTPS APP_ORIGIN, access mode password or account, a future expiry within the approved window (eight hours by default; explicit PRIVATE_PREVIEW_MAX_DAYS can be 1–31), and an explicit company ID allowlist. Password mode requires a 32–256 character password.",
     );
   };
   if (
@@ -54,6 +55,12 @@ export function parsePrivatePreviewEnvironment(
   }
   if (origin.protocol !== "https:" || origin.origin !== env.APP_ORIGIN)
     invalid();
+  const maximumDays = env.PRIVATE_PREVIEW_MAX_DAYS;
+  if (maximumDays !== undefined && !/^(?:[1-9]|[12]\d|3[01])$/.test(maximumDays))
+    invalid();
+  const maximumDuration = maximumDays === undefined
+    ? defaultMaximumDuration
+    : Number(maximumDays) * 24 * 60 * 60 * 1000;
   const expiry = env.PRIVATE_PREVIEW_EXPIRES_AT!;
   const expiresAt = Date.parse(expiry);
   if (
@@ -115,10 +122,17 @@ export function createPrivatePreview(
     for (const socket of sockets) socket.disconnect(true);
     sockets.clear();
   };
-  const timer = configuration
-    ? setTimeout(expire, Math.max(0, configuration.expiresAt - now()))
-    : undefined;
-  timer?.unref();
+  // Node timers overflow above ~24.8 days. Recheck the fixed absolute deadline
+  // in short chunks, including after sleep or a system-clock adjustment.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleExpiry = () => {
+    if (!configuration) return;
+    const remaining = configuration.expiresAt - now();
+    if (remaining <= 0) { expire(); return; }
+    timer = setTimeout(scheduleExpiry, Math.min(remaining, 60000));
+    timer.unref();
+  };
+  scheduleExpiry();
   const authorized = (request: IncomingMessage) => {
     if (!configuration) return true;
     if (!enabled()) return false;

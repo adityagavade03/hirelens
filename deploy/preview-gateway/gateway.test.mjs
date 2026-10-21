@@ -82,7 +82,11 @@ test("production environment requires fixed HTTPS provider origins and bounded o
   }
   for (const value of [undefined, "http://review.onrender.com", "https://evil.example", "https://review.onrender.com/path", "https://user@review.onrender.com"]) assert.throws(() => parseEnvironment(environment({ PUBLIC_ORIGIN: value })), /PUBLIC_ORIGIN/);
   assert.throws(() => parseEnvironment(environment({ HIRELENS_BACKEND_ORIGIN: "https://other.onrender.com" })), /HIRELENS_BACKEND_ORIGIN/);
-  assert.throws(() => parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: new Date(Date.now() + 9 * 3600000).toISOString() })), /original ISO expiry/);
+  const base = Date.now();
+  assert.equal(parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: new Date(base + 9 * 3600000).toISOString() }), base).expiresAt, base + 9 * 3600000);
+  assert.equal(parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: new Date(base + 31 * 86400000).toISOString() }), base).expiresAt, base + 31 * 86400000);
+  assert.throws(() => parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: new Date(base + 31 * 86400000 + 1).toISOString() }), base), /original ISO expiry/);
+  assert.throws(() => parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: undefined })), /original ISO expiry/);
   assert.throws(() => parseEnvironment(environment({ HIRELENS_PREVIEW_EXPIRES_AT: "tomorrow" })), /original ISO expiry/);
   assert.throws(() => parseEnvironment(environment({ PORT: "0" })), /PORT/);
 });
@@ -250,4 +254,66 @@ test("original expiry closes existing WebSockets, stops pending HTTP and stays e
   assert.equal(JSON.parse(health.body).preview, "expired");
   const restarted = await fixture(t, (_req, res) => res.end("must not reach"), { env: { HIRELENS_PREVIEW_EXPIRES_AT: expiresAt } });
   assert.equal((await request(restarted.port)).status, 410);
+});
+
+test("a 31-day window uses bounded timer chunks and closes live traffic only at its absolute deadline", async (t) => {
+  let clock = Date.now();
+  const absoluteDeadline = clock + 31 * 86400000;
+  const timers = [];
+  const gatewayOptions = {
+    now: () => clock,
+    setTimer(callback, delay) {
+      const timer = { delay, unreferenced: false, cleared: false, fire: callback, unref() { this.unreferenced = true; } };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimer(timer) { if (timer) timer.cleared = true; },
+  };
+  let pendingSeen = false;
+  let pendingResolved = false;
+  const env = { HIRELENS_PREVIEW_EXPIRES_AT: new Date(absoluteDeadline).toISOString() };
+  const { port } = await fixture(t, (req, res) => {
+    if (req.url === "/pending") pendingSeen = true;
+    else res.end("ok");
+  }, { env, gatewayOptions, upgrade: (req, socket) => accept(socket, req) });
+  assert.equal(timers[0].delay, 2_147_483_647);
+  assert.equal(timers[0].unreferenced, true);
+  assert.equal((await request(port, "/api/health")).status, 200);
+
+  const attempt = raw(port, "/socket.io/?EIO=4&transport=websocket", { headers: wsHeaders });
+  t.after(() => attempt.socket.destroy());
+  await until(() => attempt.data.bytes.includes(Buffer.from("101 Switching Protocols")));
+  const pending = request(port, "/pending").then((result) => { pendingResolved = true; return result; });
+  await until(() => pendingSeen);
+
+  // An early timer wake must re-arm rather than expire the interview.
+  timers.at(-1).fire();
+  assert.equal(timers.at(-1).delay, 2_147_483_647);
+  assert.equal(JSON.parse((await request(port, "/__gateway/health")).body).preview, "active");
+  assert.equal(attempt.socket.destroyed, false);
+  assert.equal(pendingResolved, false);
+
+  clock += 2_147_483_647;
+  timers.at(-1).fire();
+  assert.equal(timers.at(-1).delay, absoluteDeadline - clock);
+  assert(timers.at(-1).delay > 0 && timers.at(-1).delay <= 2_147_483_647);
+  assert.equal((await request(port, "/api/health")).status, 200);
+  assert.equal(attempt.socket.destroyed, false);
+  assert.equal(pendingResolved, false);
+
+  clock = absoluteDeadline - 1;
+  timers.at(-1).fire();
+  assert.equal(timers.at(-1).delay, 1);
+  assert.equal((await request(port, "/api/health")).status, 200);
+  clock = absoluteDeadline;
+  timers.at(-1).fire();
+  assert.equal((await pending).status, 410);
+  await until(() => attempt.socket.destroyed);
+  assert(attempt.data.bytes.includes(Buffer.from([0x88, 0x02, 0x03, 0xe9])));
+  assert.equal((await request(port, "/api/health")).status, 410);
+
+  const timerCount = timers.length;
+  const restarted = await fixture(t, (_req, res) => res.end("must not reach"), { env, gatewayOptions });
+  assert.equal((await request(restarted.port)).status, 410);
+  assert.equal(timers.length, timerCount);
 });

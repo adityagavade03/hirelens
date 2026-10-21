@@ -31,14 +31,27 @@ to the local application. The disposable device fixture is excluded.
 
 ## Lifetime and limits
 
-The original preview expiry remains `2026-10-21T19:31:38.572Z`, which is
-**22 October 2026 at 01:01:38 IST**. Keep the laptop awake, online and its local
-services running. The gateway fails closed after expiry, including existing
-WebSocket connections. A gateway restart does not extend this authorization.
+The initial eight-hour deployment used expiry `2026-10-21T19:31:38.572Z`.
+At `2026-10-21T12:22:46Z`, the user explicitly authorized a one-month extension
+ending `2026-11-21T12:22:46.000Z` (**21 November 2026 at 5:52:46 PM IST**).
+The fixed Render address remains the same. This authorizes a longer
+laptop-backed test, not independent hosting; activation must apply the same
+deadline to the gateway and scoped laptop preview. The extension checks passed
+all 13 gateway tests and all 16 private-preview tests.
+
+Eight hours remains the launcher default. Longer windows require explicit
+`--days N`, where `N` is a whole number from 1 to 31; the approved month uses
+`--days 31` with the absolute expiry
+above. Keep that deadline on restarts; there is no automatic renewal. The
+gateway fails closed after expiry, including existing WebSocket connections.
 Starting another session requires an explicit new preview and upstream/expiry
 update; the Render address can remain the same.
 
-Free Render can sleep when unused, causing a wake-up delay. Gateway-only health
+Keep the laptop plugged in, online, with its lid open and local services running.
+When enabled, the bounded AC-only keep-awake helper requests wakefulness only
+during the authorized window without changing the power plan. It cannot
+guarantee uptime. Free Render can still sleep after 15 minutes without traffic,
+causing a wake-up delay on the next visit. Gateway-only health
 does not prove backend health; use `/api/health` for that. Internet access or
 service restarts can interrupt a test. Public TURN and two-device verification
 are still needed for reliable interviews on different networks. This deployment

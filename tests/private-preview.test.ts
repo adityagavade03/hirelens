@@ -134,6 +134,60 @@ it("requires explicit valid account mode and keeps its production, origin, compa
     ).toThrow("Private preview requires");
 });
 
+it("keeps the eight-hour default and only permits a longer window with an explicit valid day limit", () => {
+  const now = Date.now();
+  const day = 24 * 3600000;
+  const expiry = (offset: number) => new Date(now + offset).toISOString();
+  expect(() =>
+    parsePrivatePreviewEnvironment(
+      environment({ PRIVATE_PREVIEW_EXPIRES_AT: expiry(9 * 3600000) }),
+      now,
+    ),
+  ).toThrow("Private preview requires");
+  const extended = parsePrivatePreviewEnvironment(
+    environment({
+      PRIVATE_PREVIEW_ACCESS: "account",
+      PRIVATE_PREVIEW_PASSWORD: undefined,
+      PRIVATE_PREVIEW_MAX_DAYS: "31",
+      PRIVATE_PREVIEW_EXPIRES_AT: expiry(31 * day),
+    }),
+    now,
+  );
+  expect(extended?.expiresAt).toBe(now + 31 * day);
+  expect(extended?.companyIds).toEqual(new Set([companyId]));
+  expect(extended?.origin).toBe(origin);
+  expect(extended?.access).toBe("account");
+  expect(
+    parsePrivatePreviewEnvironment(
+      environment({
+        PRIVATE_PREVIEW_MAX_DAYS: "1",
+        PRIVATE_PREVIEW_EXPIRES_AT: expiry(day),
+      }),
+      now,
+    )?.expiresAt,
+  ).toBe(now + day);
+  for (const overrides of [
+    { PRIVATE_PREVIEW_MAX_DAYS: "1", PRIVATE_PREVIEW_EXPIRES_AT: expiry(day + 1) },
+    { PRIVATE_PREVIEW_MAX_DAYS: "31", PRIVATE_PREVIEW_EXPIRES_AT: expiry(31 * day + 1) },
+    { PRIVATE_PREVIEW_MAX_DAYS: "31", PRIVATE_PREVIEW_EXPIRES_AT: undefined },
+    { PRIVATE_PREVIEW_MAX_DAYS: "31", HOST: "0.0.0.0" },
+    { PRIVATE_PREVIEW_MAX_DAYS: "31", PRIVATE_PREVIEW_COMPANY_IDS: "*" },
+  ]) {
+    expect(() => parsePrivatePreviewEnvironment(environment(overrides), now)).toThrow("Private preview requires");
+  }
+});
+
+it("fails closed for invalid or partial explicit preview day-limit configuration", () => {
+  for (const days of ["0", "32", "-1", "1.5", "garbage", "", "Infinity", "NaN"]) {
+    expect(() =>
+      parsePrivatePreviewEnvironment(environment({ PRIVATE_PREVIEW_MAX_DAYS: days })),
+    ).toThrow("Private preview requires");
+  }
+  expect(() =>
+    parsePrivatePreviewEnvironment({ NODE_ENV: "production", PRIVATE_PREVIEW_MAX_DAYS: "31" }),
+  ).toThrow("Private preview requires");
+});
+
 it("opens normal role sign-in routes directly in account mode without minting a preview cookie", async () => {
   const { app, guard } = fixture({
     PRIVATE_PREVIEW_ACCESS: "account",
@@ -313,6 +367,57 @@ it("expires account-mode HTTP access and disconnects tracked sockets without a g
     expect(response.headers["set-cookie"]).toBeUndefined();
     expect(response.text).not.toContain("preview-password");
   }
+});
+
+it("does not overflow a 31-day timer and disconnects tracked sockets at the original absolute deadline", async () => {
+  vi.useFakeTimers();
+  const start = Date.now();
+  let clock = start;
+  const expiresAt = start + 31 * 24 * 3600000;
+  const parsed = parsePrivatePreviewEnvironment(
+    environment({
+      PRIVATE_PREVIEW_ACCESS: "account",
+      PRIVATE_PREVIEW_PASSWORD: undefined,
+      PRIVATE_PREVIEW_MAX_DAYS: "31",
+      PRIVATE_PREVIEW_EXPIRES_AT: new Date(expiresAt).toISOString(),
+    }),
+    start,
+  );
+  const guard = createPrivatePreview(parsed, () => clock);
+  previews.push(guard);
+  const app = express();
+  guard.install(app);
+  app.all("/{*path}", (_req, res) => res.json({ reachedApplication: true }));
+  const socket = { disconnect: vi.fn(), once: vi.fn() };
+  guard.trackSocket(socket);
+  expect(guard.enabled()).toBe(true);
+  expect(guard.socketAllowed(socketRequest())).toBe(true);
+
+  // A raw 31-day Node timer overflows and fires at 1 ms. This must stay live.
+  await vi.advanceTimersByTimeAsync(1);
+  expect(socket.disconnect).not.toHaveBeenCalled();
+  expect(guard.enabled()).toBe(true);
+
+  // Advance the injected wall clock without waiting through every minute tick.
+  clock = start + 25 * 24 * 3600000;
+  await vi.advanceTimersByTimeAsync(60000);
+  expect(socket.disconnect).not.toHaveBeenCalled();
+  expect(guard.allowsCompany(companyId)).toBe(true);
+  clock = expiresAt - 1;
+  await vi.advanceTimersByTimeAsync(60000);
+  expect(socket.disconnect).not.toHaveBeenCalled();
+  expect(guard.enabled()).toBe(true);
+  clock = expiresAt;
+  await vi.advanceTimersByTimeAsync(1);
+  expect(socket.disconnect).toHaveBeenCalledExactlyOnceWith(true);
+  expect(guard.enabled()).toBe(false);
+  expect(guard.socketAllowed(socketRequest())).toBe(false);
+  expect(guard.allowsCompany(companyId)).toBe(false);
+  vi.useRealTimers();
+  const denied = await request(app).get("/api/auth/me");
+  expect(denied.status).toBe(410);
+  expect(denied.body.reachedApplication).toBeUndefined();
+  expect(denied.headers["set-cookie"]).toBeUndefined();
 });
 
 it("protects the frontend, static files, API, source-like paths and socket handshake without a gate cookie", async () => {

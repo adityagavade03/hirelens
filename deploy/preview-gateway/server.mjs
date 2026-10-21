@@ -3,7 +3,8 @@ import { request as httpsRequest } from "node:https";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
-const eightHours = 8 * 60 * 60 * 1000;
+const maximumDuration = 31 * 24 * 60 * 60 * 1000;
+const maximumTimerDelay = 2_147_483_647;
 const healthPath = "/__gateway/health";
 const securityHeaders = {
   "cache-control": "no-store",
@@ -38,11 +39,11 @@ export function parseEnvironment(env, now = Date.now()) {
   const expiry = env.HIRELENS_PREVIEW_EXPIRES_AT || "";
   const expiresAt = Date.parse(expiry);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(expiry) ||
-      !Number.isFinite(expiresAt) || expiresAt > now + eightHours) {
-    throw new Error("HIRELENS_PREVIEW_EXPIRES_AT must be the original ISO expiry, no more than eight hours ahead.");
+      !Number.isFinite(expiresAt) || expiresAt > now + maximumDuration) {
+    throw new Error("HIRELENS_PREVIEW_EXPIRES_AT must be the original ISO expiry, no more than 31 days ahead.");
   }
   // Expired configuration remains fail-closed after a Render restart. It never
-  // silently starts a fresh eight-hour session or creates another tunnel.
+  // silently starts a fresh access window or creates another tunnel.
   const port = Number(env.PORT || 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be a valid TCP port.");
   return Object.freeze({ upstreamOrigin, publicOrigin, backendOrigin, expiresAt, port, host: "0.0.0.0" });
@@ -95,11 +96,13 @@ function rejectUpgrade(socket, status, code, message) {
   socket.end(`HTTP/1.1 ${status} ${STATUS_CODES[status]}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\nCache-Control: no-store\r\nX-Robots-Tag: noindex, nofollow, noarchive\r\n\r\n${body}`);
 }
 
-// Only the transport and clock are injectable for local tests. The executable
+// Transport, clock and timer scheduling are injectable for local tests. The executable
 // entry point always uses validated environment settings and ordinary HTTPS.
 export function createGateway(configuration, {
   request: requestUpstream = httpsRequest,
   now = Date.now,
+  setTimer = setTimeout,
+  clearTimer = clearTimeout,
   maximumBodyBytes = 16 * 1024 * 1024,
   upstreamTimeoutMs = 180000,
 } = {}) {
@@ -111,6 +114,7 @@ export function createGateway(configuration, {
   const connections = new Set();
   let closed = false;
   let expired = now() >= expiresAt;
+  let deadline;
 
   const expiredMessage = "Temporary HireLens access has ended. Ask the owner to start a new authorised preview.";
   const unavailableMessage = "The HireLens test preview is unavailable. The owner's laptop and temporary preview must stay running.";
@@ -126,7 +130,10 @@ export function createGateway(configuration, {
   }
   function expire() {
     if (expired) return;
+    if (now() < expiresAt) { scheduleDeadline(); return; }
     expired = true;
+    clearTimer(deadline);
+    deadline = undefined;
     for (const record of activeHttp) {
       record.client.unpipe();
       record.upstream?.destroy();
@@ -138,8 +145,21 @@ export function createGateway(configuration, {
       finishUpgrade(record);
     }
   }
-  const deadline = setTimeout(expire, Math.max(1, expiresAt - now()));
-  deadline.unref();
+  function scheduleDeadline() {
+    if (closed || expired) return;
+    clearTimer(deadline);
+    const remaining = expiresAt - now();
+    if (remaining <= 0) { expire(); return; }
+    // Node turns delays above 2^31-1 ms into 1 ms. Split longer windows and
+    // recheck the absolute deadline on every wake, including early wakes.
+    deadline = setTimer(() => {
+      deadline = undefined;
+      if (now() >= expiresAt) expire();
+      else scheduleDeadline();
+    }, Math.min(remaining, maximumTimerDelay));
+    deadline.unref();
+  }
+  scheduleDeadline();
 
   function validate(request, websocket = false) {
     const target = targetFor(request);
@@ -307,7 +327,7 @@ export function createGateway(configuration, {
     async close() {
       if (closed) return;
       closed = true;
-      clearTimeout(deadline);
+      clearTimer(deadline);
       for (const record of activeHttp) record.upstream?.destroy();
       for (const record of [...upgrades]) { record.client.destroy(); finishUpgrade(record); }
       for (const socket of connections) socket.destroy();
