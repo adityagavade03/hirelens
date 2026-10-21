@@ -8,6 +8,12 @@ It is temporary testing access, not independent cloud hosting. The gateway does
 not extend the current preview's absolute expiry or expose the disposable device
 test server. Normal account sign-in and company OTP still apply.
 
+Deployed and checked on 21 October 2026:
+`https://hirelens-adityagavade03.onrender.com`. The current test session retains
+its original expiry, **22 October 2026 at 01:01:38 IST**. See the
+[verification record](TEMPORARY-RENDER-HOSTING-2026-10-21.md). The fixed address
+does not make the laptop backend independently hosted.
+
 Use the separate Blueprint at `deploy/preview-gateway/render.yaml`, or create a
 Free Node web service from the same deployment branch with root directory
 `deploy/preview-gateway`, build command `npm ci --omit=dev`, start command
@@ -36,10 +42,10 @@ media across different networks.
 
 ## Independent cloud deployment
 
-Status: prepared configuration only. No Render account, cloud database or new
-hosted URL has been provisioned. The laptop's temporary Cloudflare preview is a
-separate running deployment. The hostname assigned by Render is not reserved by
-this repository.
+Status: prepared configuration only for an independent application server.
+The free gateway above is deployed; no independent cloud database, email adapter
+or model services have been provisioned. The hostname for any additional Render
+service is not reserved by this repository.
 
 `render.yaml` defines one **Free** Docker web service. It reuses the existing
 Node 24 image, serves the UI/API/Socket.IO together, checks `/api/health`, and
