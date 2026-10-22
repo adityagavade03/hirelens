@@ -10,6 +10,10 @@ import type {
 import { z } from "zod";
 import { config, allowedOrigins } from "./config.js";
 import {
+  cloudTestSocketAllowed,
+  trackCloudTestSocket,
+} from "./cloud-test-companies.js";
+import {
   privatePreviewSocketAllowed,
   trackPrivatePreviewSocket,
   privatePreviewConfigured,
@@ -29,7 +33,8 @@ export function attachRealtime(server: HttpServer) {
     allowRequest: (req, callback) =>
       callback(
         null,
-        privatePreviewSocketAllowed(req) &&
+        cloudTestSocketAllowed() &&
+          privatePreviewSocketAllowed(req) &&
           (!req.headers.origin || allowedOrigins.has(req.headers.origin)),
       ),
   });
@@ -41,6 +46,14 @@ export function attachRealtime(server: HttpServer) {
       res: ServerResponse,
       next: (error?: Error) => void,
     ) => {
+      if (!cloudTestSocketAllowed()) {
+        res.writeHead(410, {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        });
+        res.end(JSON.stringify({ error: "This HireLens test workspace has expired." }));
+        return;
+      }
       if (privatePreviewSocketAllowed(req)) return next();
       res.writeHead(
         privatePreviewConfigured() && !privatePreviewEnabled() ? 410 : 403,
@@ -58,6 +71,8 @@ export function attachRealtime(server: HttpServer) {
   const localAuth = new Map<string, { user: User; token?: string }>();
   io.use(async (socket, next) => {
     try {
+      if (!cloudTestSocketAllowed())
+        return next(new Error("This HireLens test workspace has expired."));
       if (!privatePreviewSocketAllowed(socket.request))
         return next(new Error("Private preview access is required."));
       const token = socket.request.headers.cookie
@@ -78,10 +93,15 @@ export function attachRealtime(server: HttpServer) {
     const auth = localAuth.get(socket.id)!;
     socket.on("disconnect", () => localAuth.delete(socket.id));
     trackPrivatePreviewSocket(socket);
+    trackCloudTestSocket(socket);
     let count = 0;
     let windowStart = Date.now();
     socket.use(async (_packet, next) => {
       try {
+        if (!cloudTestSocketAllowed()) {
+          socket.disconnect(true);
+          return;
+        }
         if (Date.now() - windowStart > 60000) {
           windowStart = Date.now();
           count = 0;

@@ -18,6 +18,7 @@ import {
 import { transcribeAudio, transcriptionErrors } from "./providers.js";
 import { serviceStatus } from "./config.js";
 import { withResources } from "./locks.js";
+import { withUploadStorage } from "./storage-budget.js";
 import type { User } from "../shared/types.js";
 
 const upload = multer({
@@ -207,7 +208,7 @@ export function registerMedia(app: Express, providerLimit: RequestHandler) {
               413,
               "The interview recording limit has been reached (360 segments or 512 MB per participant).",
             );
-          return ClipModel.create({
+          const document = {
             ...input,
             capturedAt: new Date(+capture.consentAt + input.offsetMs),
             captureId: capture.id,
@@ -218,7 +219,8 @@ export function registerMedia(app: Express, providerLimit: RequestHandler) {
             bytes: file.size,
             digest,
             data: file.buffer,
-          });
+          };
+          return withUploadStorage(document, () => ClipModel.create(document));
         },
       );
       res.status(201).json(meta(clip));

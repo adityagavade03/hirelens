@@ -9,6 +9,8 @@ for (const key of [
   "JUDGE0_URL",
   "COMPANY_VERIFICATION_URL",
   "EMAIL_DELIVERY_URL",
+  "EMAIL_PROVIDER",
+  "BREVO_API_KEY",
   "SMS_DELIVERY_URL",
   "SMS_PROVIDER",
   "TWILIO_ACCOUNT_SID",
@@ -30,8 +32,13 @@ for (const key of [
   "TURN_LOCAL_DEV",
   "DIARIZATION_URL",
   "DIARIZATION_API_KEY",
+  "STORAGE_BUDGET_MB",
+  "STORAGE_BUDGET_SCOPE",
 ])
   process.env[key] = "";
 process.env.LLM_JSON_SCHEMA = "false";
 process.env.LLM_TIMEOUT_MS = "30000";
 process.env.ALLOW_LOCAL_COMPANY_REGISTRATION = "false";
+// Cloud test access is opt-in per isolated test, never inherited from hosting.
+delete process.env.CLOUD_TEST_COMPANY_IDS;
+delete process.env.CLOUD_TEST_EXPIRES_AT;

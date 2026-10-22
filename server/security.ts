@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { config, localCompanyRegistrationEnabled } from "./config.js";
 import { previewAllowsCompany } from "./private-preview.js";
+import { cloudTestAllowsCompany } from "./cloud-test-companies.js";
 import {
   SessionModel,
   CompanyModel,
@@ -56,6 +57,7 @@ export async function localCompanyAccessAllowed(user: {
     !user.companyId ||
     localCompanyRegistrationEnabled() ||
     previewAllowsCompany(user.companyId) ||
+    cloudTestAllowsCompany(user.companyId) ||
     !(await CompanyModel.exists({
       _id: user.companyId,
       localDevelopment: true,

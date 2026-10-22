@@ -4,7 +4,7 @@ This is an optional demonstration guide. The local fictional workspace was remov
 
 1. **Company workspace:** sign in with the sample company account. Point out that the counts come from MongoDB and that sample records are labeled. Open Jobs and show a published role, skills and assigned interviewer.
 2. **Candidate application:** in a separate browser/profile, register a candidate, complete Profile, and upload a text-readable PDF. Browse jobs and apply. Show the saved application stage. Apply again to demonstrate duplicate prevention.
-3. **Evidence review:** sign in as HR. Open Applications, review the resume excerpts and the skill-coverage formula, then shortlist the new candidate. Explain that this is not a probability of hiring success.
+3. **Evidence review:** sign in as HR after accepting the job and receiving an assigned candidate. Open Applications, review the AI evidence, weighted score and automatic shortlist result. A validated score meeting the job threshold qualifies even with confirmed skill gaps; review those gaps before interviewing. Explain that the score is not a probability of hiring success.
 4. **Interview:** schedule the candidate within the next 15 minutes. Open the room in two separate browser sessions for the candidate and assigned HR account. The candidate reviews monitoring consent, both check devices, and both join. Camera/microphone tests require available hardware and browser permission. Cross-network calls require TURN.
 5. **Answer and code:** submit a typed technical answer. Show its rubric. Generate AI feedback only if a provider is connected. Enter a complete solution in the coding exercise. Execute only when Judge0 is configured; otherwise demonstrate the honest configuration state. Show submission history.
 6. **Human report:** HR saves private notes and ends the session. Review answers, feedback, coding results, and the separate monitoring timeline. Record a human decision and explanation, finalize and release the report. Download the PDF. The candidate sees released feedback but not private notes or monitoring events.
@@ -19,7 +19,7 @@ This is an optional demonstration guide. The local fictional workspace was remov
 | MongoDB + Mongoose | MongoDB stores our records. Mongoose defines the shape of each record and important indexes. |
 | Authentication | A random session cookie proves the user signed in. The server stores a hash of it and checks its expiry. Passwords are hashed, never stored as plain text. |
 | Company isolation | Each private resource belongs to a company and authorized job. Knowing another record’s ID does not grant access. |
-| Resume processing | We extract PDF text and show which required skills are mentioned. We preserve the exact submitted revision. |
+| Resume processing | We preserve the submitted PDF and application details, compare their evidence with the JD using an LLM, and show the weighted score and skill gaps. |
 | Interview scheduling | We store one UTC time and an IANA timezone. The browser displays the time locally. |
 | Socket.IO | It exchanges authorized connection messages between the two participants. |
 | WebRTC | It carries the audio and video. TURN is a relay when a direct connection fails. |
@@ -33,7 +33,7 @@ This is an optional demonstration guide. The local fictional workspace was remov
 
 **Is the AI deciding whom to hire?** No. A staff member records the decision and explanation. AI feedback is advisory.
 
-**Is the resume score a prediction?** No. It is a documented percentage of required skill keywords found in the submitted evidence.
+**Is the resume score a prediction?** No. Current applications use a weighted LLM evidence comparison against the saved JD. Validated scores at or above the company threshold qualify for automatic shortlisting even with confirmed missing skills, which remain visible for HR review. Uncertain evidence needs review. Older keyword results are labeled separately.
 
 **What happens without API keys?** Core hiring and typed practice still work. The missing integration displays a configuration message. No output or assessment is invented.
 

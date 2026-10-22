@@ -342,8 +342,9 @@ export function ResumeProfile() {
             <strong>Automatic AI screening</strong>
             <p>
               After you apply, AI compares your saved resume with the job
-              description. Applications that meet the company’s requirements and
-              score threshold are automatically shortlisted.
+              description. Applications whose validated overall score meets the
+              company’s threshold are automatically shortlisted. Missing skills
+              lower the score and remain visible for HR review.
             </p>
             <Link to="/applications" className="text-link">
               Track your applications

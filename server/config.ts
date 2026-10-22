@@ -2,6 +2,11 @@ import "dotenv/config";
 // Validate an explicitly requested preview before connecting any normal services.
 import "./private-preview.js";
 import {
+  parseStorageBudget,
+  parseStorageScope,
+} from "./storage-budget-configuration.js";
+import "./cloud-test-companies.js";
+import {
   providerConfiguration,
   twilioCredentialConfigurationIssues,
 } from "./provider-configuration.js";
@@ -11,6 +16,8 @@ export const config = {
   host: process.env.HOST || "127.0.0.1",
   origin: process.env.APP_ORIGIN || "http://localhost:5173",
   mongo: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/hirelens",
+  storageBudgetBytes: parseStorageBudget(process.env.STORAGE_BUDGET_MB),
+  storageBudgetScope: parseStorageScope(process.env.STORAGE_BUDGET_SCOPE),
   production: process.env.NODE_ENV === "production",
   sessionHours: Number(process.env.SESSION_HOURS || 24),
   verificationUrl: process.env.COMPANY_VERIFICATION_URL || "",
@@ -27,6 +34,8 @@ export const config = {
     process.env.ALLOW_LOCAL_COMPANY_REGISTRATION === "true",
   emailUrl: process.env.EMAIL_DELIVERY_URL || "",
   emailKey: process.env.EMAIL_DELIVERY_API_KEY || "",
+  emailProvider: process.env.EMAIL_PROVIDER || "auto",
+  brevoApiKey: process.env.BREVO_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "",
   messagePreview:
     process.env.NODE_ENV !== "production" &&

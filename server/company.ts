@@ -20,12 +20,16 @@ import {
 } from "./onboarding.js";
 import { config, localCompanyRegistrationEnabled } from "./config.js";
 import { previewAllowsCompany } from "./private-preview.js";
+import { withUploadStorage } from "./storage-budget.js";
+import { cloudTestAllowsCompany } from "./cloud-test-companies.js";
 
 export async function assertPublishable(companyId: string) {
   const company = await CompanyModel.findById(companyId);
   if (!company) throw new ApiError(404, "Company not found.");
   const localTestingAllowed =
-    localCompanyRegistrationEnabled() || previewAllowsCompany(companyId);
+    localCompanyRegistrationEnabled() ||
+    previewAllowsCompany(companyId) ||
+    cloudTestAllowsCompany(companyId);
   if (company.localDevelopment && !localTestingAllowed)
     throw new ApiError(
       403,
@@ -152,15 +156,18 @@ export function registerCompanyRoutes(app: Express) {
         data[2] === 255;
       if (!png && !jpeg)
         throw new ApiError(400, "Upload a PNG or JPEG logo, up to 1 MB.");
-      await CompanyModel.updateOne(
-        { _id: req.user.companyId },
-        {
-          $set: {
-            logoData: data,
-            logoType: png ? "image/png" : "image/jpeg",
-            hasLogo: true,
+      const document = {
+        logoData: data,
+        logoType: png ? "image/png" : "image/jpeg",
+        hasLogo: true,
+      };
+      await withUploadStorage(document, () =>
+        CompanyModel.updateOne(
+          { _id: req.user.companyId },
+          {
+            $set: document,
           },
-        },
+        ).exec(),
       );
       res.json({ ok: true });
     },

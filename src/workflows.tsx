@@ -370,7 +370,8 @@ export function JobsPage({ create = false }: { create?: boolean }) {
               AI compares that submission with this JD. Candidates whose
               validated score meets the {selected.shortlistThreshold ?? 80}%
               match threshold are automatically shortlisted. Your submission is
-              preserved; incomplete or uncertain evidence needs review.
+              preserved. Confirmed skill gaps lower the score; uncertain evidence
+              needs review.
             </small>
           )}
         </Modal>
@@ -509,7 +510,7 @@ export function JobEditor({
         </Field>
         <Field
           label="Required skills"
-          hint="Separate mandatory skills with commas. AI checks each skill, including equivalent technology names."
+          hint="Separate the job's main skills with commas. AI weighs each skill, including equivalent technologies. Missing skills lower the overall score rather than automatically blocking a shortlist."
         >
           <input
             name="skills"
@@ -557,8 +558,9 @@ export function JobEditor({
           <p>
             Every new application is screened against this JD. Candidates are
             shortlisted automatically when their validated match score meets the
-            threshold below. Incomplete or uncertain evidence stays available
-            for review.
+            threshold below, even if some required skills are missing. Gaps stay
+            visible for HR review. Uncertain or conflicting evidence needs review
+            before automatic shortlisting.
           </p>
           <Field
             label="Minimum AI match score (%)"

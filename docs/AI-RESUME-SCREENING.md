@@ -11,7 +11,7 @@ Implemented for the 8 October 2026 HireLens requirements. New applications use t
 
 ## Company workflow
 
-Set **Minimum AI match score (%)** when creating or editing a job; the default is 80. Required skills are mandatory; put optional skills in Preferred skills. State experience, education, certifications and other job-relevant requirements clearly in the JD. The threshold and requirements apply to new applications.
+Set **Minimum AI match score (%)** when creating or editing a job; the default is 80. Put the job's main skills in Required skills and optional skills in Preferred skills. These labels affect the weighted comparison, not a separate all-skills gate: confirmed missing required skills lower the overall score but do not block shortlisting when the validated score still meets the threshold. HR can review each gap. State experience, education, certifications and other job-relevant requirements clearly in the JD. The saved threshold and requirements apply to new applications.
 
 The LLM compares skills semantically, evaluates relevant experience, reads education, projects and certifications, and checks the remaining JD requirements. It receives named evidence sources, with contact details reduced and instructions to ignore personal/protected characteristics and embedded commands.
 

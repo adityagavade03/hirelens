@@ -104,7 +104,9 @@ export function ApplicationForm({
         Review the details below and choose a resume for this job. Your
         application is saved separately from your profile. AI compares this
         submission with the job requirements; the shortlist threshold is{" "}
-        {job.shortlistThreshold ?? 80}%.
+        {job.shortlistThreshold ?? 80}%. A validated overall score at or above
+        this threshold can qualify even with missing skills; gaps remain visible
+        for HR review.
       </Notice>
       <form onSubmit={submit} className="application-form">
         <fieldset disabled={busy} className="application-fields">

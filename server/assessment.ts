@@ -161,16 +161,12 @@ export async function assessInterviewEvidence(
       "No usable evidence fits the assessment context. Review the original work manually.",
     );
   const reference = z.enum([...allowed] as [string, ...string[]]);
-  const referencedMetric = z.union([
-    metric.extend({
-      score: z.null(),
-      evidenceRefs: z.array(reference).max(15),
-    }),
-    metric.extend({
-      score: z.number().int().min(0).max(5),
-      evidenceRefs: z.array(reference).min(1).max(15),
-    }),
-  ]);
+  // Some strict hosted decoders reject unions of objects with identical keys.
+  // Keep score nullable within one object; the guard below still rejects every
+  // non-null score without a valid supplied reference before anything is saved.
+  const referencedMetric = metric.extend({
+    evidenceRefs: z.array(reference).max(15),
+  });
   const groundedSchema = assessmentSchema.extend({
     technical: referencedMetric,
     problemSolving: referencedMetric,

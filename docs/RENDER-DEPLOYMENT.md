@@ -1,137 +1,140 @@
-# Free provider address for HireLens
+# Independent HireLens hosting on Render
 
-## Fixed test address while the laptop stays on
+The owner selected independent cloud hosting on 22 October 2026 after laptop
+shutdowns interrupted the earlier preview. The root `render.yaml` now describes
+the intended **Free Node 24 application service**, with external durable MongoDB
+and HTTPS email. This configuration is prepared; it does not claim that the
+database, provider accounts, data migration or cloud cutover have completed.
 
-The selected setup on 21 October 2026 is a free Render **gateway**, with the
-existing application, database, Gmail and AI services continuing on this laptop.
-It is temporary testing access, not independent cloud hosting. The gateway does
-not automatically extend the preview's absolute expiry or expose the disposable
-device test server. Normal account sign-in and company OTP still apply.
+The existing public address is `https://hirelens-adityagavade03.onrender.com`.
+Keep the working gateway until the independent application's dependencies and
+data are ready. Updating this file alone does not change the running service.
 
-Deployed and checked on 21 October 2026:
-`https://hirelens-adityagavade03.onrender.com`. The user subsequently authorized
-a one-month extension at `2026-10-21T12:22:46Z`, with an approved absolute expiry
-of `2026-11-21T12:22:46.000Z` (**21 November 2026 at 5:52:46 PM IST**). See the
-[verification record](TEMPORARY-RENDER-HOSTING-2026-10-21.md). The fixed address
-does not make the laptop backend independently hosted.
+## Application service
 
-Use the separate Blueprint at `deploy/preview-gateway/render.yaml`, or create a
-Free Node web service from the same deployment branch with root directory
-`deploy/preview-gateway`, build command `npm ci --omit=dev`, start command
-`npm start`, and health path `/__gateway/health`.
+Use the repository root, Node runtime, Free plan, one instance and automatic
+deployments off. The UI, API, background screening/delivery and Socket.IO run
+together. Use `/api/health` as the health path and `npm start` as the start command.
+The Blueprint derives the exact HTTPS `APP_ORIGIN` from `RENDER_EXTERNAL_URL`.
 
-Set `HIRELENS_PREVIEW_UPSTREAM` to the exact current production preview tunnel's
-HTTPS origin and `HIRELENS_PREVIEW_EXPIRES_AT` to its existing absolute expiry.
-The gateway gets its public origin from Render's `RENDER_EXTERNAL_URL`. Set
-`HIRELENS_BACKEND_ORIGIN` to that same public origin after starting the laptop
-preview with `--public-origin https://THE_ASSIGNED_RENDER_HOST` and its original
-`--expires-at` value. Use `state.json`'s `tunnelUrl` as the upstream, and `url` as
-the public address. Keep these deployment settings in Render, not in committed
-source. Never point the gateway at the fixture or Vite development server.
+The build command is deliberately explicit about development dependencies:
 
-The launcher still defaults to **eight hours**. For an explicitly authorized
-longer test, add `--days N` (a whole number from 1 to 31). For the month extension,
-use `--days 31 --expires-at 2026-11-21T12:22:46.000Z`; set that same absolute
-expiry in the gateway. On every restart, retain the authorized expiry and day
-limit. Neither a restart nor a Render redeployment renews access. The laptop
-guard and gateway check the absolute deadline using bounded timers, avoiding
-Node's long-timeout overflow.
+```sh
+MONGOMS_DISABLE_POSTINSTALL=1 npm ci --include=dev && npm run setup:assets && npm run build && node scripts/check-cloud-connectivity.mjs --synthetic && npm prune --omit=dev
+```
 
-The gateway's health check only indicates gateway readiness. Verify the public
-`/api/health` separately to check the actual application/database. Preserve
-normal authentication; verify cross-origin rejection and Socket.IO after any
-origin change. The normal local background-worker owner also needs the public
-origin for its recruitment email links.
+`NODE_ENV=production` would otherwise omit tools needed by the build. Asset setup
+downloads checksum-pinned camera models, WASM and OCR language data; the build
+generates both `dist` and `dist-server`. Pruning happens only after compilation.
+The build does not seed accounts or copy the ignored `.data` directory. The
+explicit synthetic probe checks the configured Brevo sender and an AI JSON
+response from the build environment without sending email or real applicant data.
+A configured provider failure stops the build and leaves the previous deployment
+available. Free-provider rate limits can therefore require a later deploy retry.
 
-Keep the laptop plugged in, online and its lid open. When enabled, the bounded
-AC-only keep-awake helper asks Windows to stay awake during this authorized
-window; it does not change the power plan or guarantee uptime. The free Render
-gateway can still sleep after 15 minutes without traffic and need time to wake
-on the next visit. If the laptop, tunnel or local services stop, the address
-cannot serve HireLens. The session ends at its authorized absolute expiry;
-starting another test requires a new authorized session and an explicit
-upstream/expiry update. Public TURN is still a separate requirement for reliable
-media across different networks.
+## Required private configuration
 
-For a laptop-backed test, optional Windows recovery can run at the owner's next
-sign-in and periodically during the already authorized window. It must use an
-interactive, least-privilege task with a fixed end boundary, preserve the exact
-company scope and expiry, and leave healthy services running. A manual preview
-stop must prevent automatic restart. Keep a bounded controller alive until that
-expiry so a short task timeout cannot terminate the server processes a repair
-starts. Check local application/database readiness
-only; email or AI provider outages must not trigger a hosting restart. Recovery
-can restore a crashed local process and update a changed tunnel hostname, but
-cannot serve HireLens while the laptop is powered off, signed out or offline.
-It does not extend hosting, change the power plan or make this independent cloud
-hosting. Keep deployment credentials in ignored local configuration.
+| Settings | Required preparation |
+| --- | --- |
+| `MONGODB_URI` | A durable MongoDB Atlas Free cluster, restricted app database user and Render outbound IP allowlist. Set the URI in Render's secret environment. |
+| `OTP_HASH_SECRET` | Independently generated secret, at least 32 characters; the Blueprint generates a value for a new deployment. Preserve it across ordinary redeploys. |
+| `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM` | Active Brevo transactional account, private API key and a sender authorized by that account. HireLens uses its direct HTTPS adapter. |
+| `STORAGE_BUDGET_MB=400`, `STORAGE_BUDGET_SCOPE=atlas-cluster` | Shared binary-upload guard below Atlas Free's 0.5 GB total quota; verify Atlas cluster-size statistics work with the app user. |
+| `REDIS_URL` | Empty for this single-instance deployment. Multiple instances require separate scaling configuration. |
 
-## Independent cloud deployment
+Keep `MESSAGE_PREVIEW`, `ALLOW_DEMO_LOGIN`, `ALLOW_LOCAL_COMPANY_REGISTRATION`
+and `TURN_LOCAL_DEV` false. Production keeps email verification and company-login
+OTP mandatory. Do not copy SMTP settings: Free Render blocks outbound SMTP ports
+25, 465 and 587. Brevo acceptance confirms submission, not inbox delivery; verify
+an actual authorized OTP and verification link before opening the new service.
+See [Brevo transactional email](https://developers.brevo.com/docs/send-a-transactional-email).
 
-Status: prepared configuration only for an independent application server.
-The free gateway above is deployed; no independent cloud database, email adapter
-or model services have been provisioned. The hostname for any additional Render
-service is not reserved by this repository.
+For independent AI and speech, configure hosted authenticated endpoints privately:
 
-`render.yaml` defines one **Free** Docker web service. It reuses the existing
-Node 24 image, serves the UI/API/Socket.IO together, checks `/api/health`, and
-derives `APP_ORIGIN` from Render's assigned HTTPS URL. It creates no paid workers,
-database, persistent disk or custom domain. Automatic code deployments are off.
-If you rename the service, update both its name and the APP_ORIGIN self-reference.
+- `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` for screening, interview questions and reports.
+- `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL` for saved audio transcription.
 
-### Required before creating the service
+Groq is an optional OpenAI-compatible provider. Its base URL for both groups is
+`https://api.groq.com/openai/v1`; select currently available models in the account
+and validate the returned JSON and transcription. An account/key and its usage
+allowance are still required. Provider configuration is not an accuracy test.
+Omit local Ollama, Whisper and diarization addresses: cloud localhost does not
+refer to the owner's laptop. See [Groq compatibility](https://console.groq.com/docs/openai)
+and [speech models](https://console.groq.com/docs/speech-to-text).
 
-1. Sign into [Render](https://dashboard.render.com/register) with the account
-   that should own the deployment. The existing public source repository is
-   `https://github.com/adityagavade03/hirelens`.
-2. Create an external MongoDB database, for example an Atlas Free cluster.
-   Add Render's outbound IP ranges to Atlas Network Access, create a restricted
-   database user for this app, and enter its connection URI directly into Render's
-   secret environment fields. Do not commit it or paste it into chat.
-3. Connect a working HTTPS email adapter. Free Render blocks outbound SMTP ports
-   25, 465 and 587, so this laptop's Gmail SMTP configuration does not transfer.
-   `EMAIL_DELIVERY_URL` must implement the existing HireLens adapter contract in
-   [delivery setup](DELIVERY-AND-VERIFICATION.md), including `{ accepted: true,
-   messageId: "..." }`. A vendor's raw API URL is not a drop-in replacement.
-4. Plan company onboarding. The existing laptop company is explicitly a local,
-   unverified company. Normal production blocks that account; obtain actual
-   business verification before using it as a real company. Do not change its
-   status or disable production authentication to bypass this requirement.
+## Existing accounts and unverified test companies
 
-After the configuration is available in the deployment's selected Git branch,
-create a Blueprint from that branch and `render.yaml`. Review that the sole
-service uses the **Free** plan, enter the requested private fields in Render,
-and deploy. Render assigns the actual `onrender.com` URL. For a future custom
-domain, update APP_ORIGIN to its exact HTTPS origin and configure DNS/TLS there.
+A new cloud database starts empty. Make a private backup and explicitly migrate
+the intended accounts and recruitment records, preserving BSON binary data,
+IDs, password hashes and references. Do not seed dummy records, change passwords,
+mark email/company verification complete or copy pending delivery work without
+review. Require fresh sign-in after cutover. Keep the original database intact
+until migration counts and application behavior have been checked.
 
-### Data and feature limits
+Unverified development companies remain unverified. For an owner-approved cloud
+test only, set both `CLOUD_TEST_COMPANY_IDS` and `CLOUD_TEST_EXPIRES_AT` privately.
+The policy permits one or two exact company IDs and an original absolute UTC
+deadline within 31 days. Do not publish the IDs or automatically renew the date.
+The service requires an exact public HTTPS `APP_ORIGIN`; all `PRIVATE_PREVIEW_`
+keys must be absent, including blank keys. Partial, invalid or already-expired
+settings fail closed at startup. At the original deadline, the entire test
+workspace closes: public pages, candidate/company/HR access, APIs, static assets,
+health checks and Socket.IO are denied. Existing sockets disconnect. Removing
+the test settings must not be used to renew or bypass this authorized period;
+further public access requires a new explicit authorization. The UI displays
+the workspace deadline.
 
-- A new cloud database starts empty. Local accounts, jobs, resumes and recordings
-  do not transfer automatically. A deliberate private backup/migration is needed
-  to retain existing data; no migration has been performed.
-- Recordings are stored in MongoDB. Small free database quotas are unsuitable for
-  unrestricted interview recording. Check available capacity and retention before
-  any real recording; the app does not enforce an aggregate database quota.
-- Ollama and Whisper on laptop localhost are not reachable from Render. AI and
-  speech require separately hosted, authenticated endpoints. Set these and other
-  provider assignments through Render's private environment, using
-  `.env.production.example` and [provider activation](PROVIDER-ACTIVATION.md).
-- Public TURN is still necessary for reliable interviews on different networks.
-  Hiring code execution, SMS and legal verification also need their own services.
-- Free Render sleeps after 15 minutes without inbound traffic and can restart.
-  Background screening/delivery pauses while it sleeps. The plan has usage limits;
-  it is appropriate for testing, not dependable live hiring. This configuration
-  does not add keep-awake traffic or a paid upgrade.
+This exception permits selected existing test companies and their role-scoped
+members; it does not enable general unverified company signup, issue verification
+receipts or bypass email verification and OTP. Real onboarding still requires
+the actual business-verification provider.
 
-### Verify after a real deployment
+## Data limits and checks before cutover
 
-Confirm public `/api/health` is ready, the three role login pages load, account
-data rejects anonymous requests, company OTP arrives, and email links use the
-assigned HTTPS address. Then test actual verified accounts, job application and
-AI screening, HR assignment, and a two-device interview. Verify recordings and
-storage separately. A passing build or health check does not prove these services.
+Resumes, company logos and interview recording chunks are stored in MongoDB,
+not the web service's filesystem. Atlas Free's quota includes uncompressed BSON
+documents and indexes across the cluster. The shared upload guard checks cluster
+usage before saving a binary upload, serializes concurrent uploads and fails
+closed if capacity cannot be checked. Its 400 MiB ceiling leaves headroom; it
+does not replace provider quota monitoring, backups or retention. Ordinary
+records and indexes can still grow. Do not use the small free cluster for
+unrestricted interview recordings. [Atlas Free limits](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/)
 
-Official references: [Render web services](https://render.com/docs/web-services),
-[free-plan limits](https://render.com/docs/free),
-[Atlas connection](https://render.com/docs/connect-to-mongodb-atlas), and
-[Blueprint configuration](https://render.com/docs/blueprint-spec).
+Before replacing the gateway, verify the production build, migrated record
+counts/references, Mongo connectivity, private provider settings, storage
+statistics and the exact public origin. Render supports updating an existing
+service's runtime/source settings so the established address can be retained.
+Once readiness passes, pause the obsolete laptop recovery controller before
+changing Render's configuration, so it cannot overwrite the cloud configuration
+with a new tunnel address. The existing preview process can remain available
+briefly for a deliberate rollback.
+Remove gateway `HIRELENS_PREVIEW_*`/`HIRELENS_BACKEND_ORIGIN` settings and all
+`PRIVATE_PREVIEW_*` settings when switching to the direct application; do not
+deploy a second forwarding layer dependent on the laptop. [Render runtime changes](https://render.com/docs/native-runtimes)
+
+After deployment, check `/api/health`, all role login pages, anonymous-data
+rejection, same-origin protections, company OTP delivery and account verification
+links. Exercise a real test job/application, AI screening and HR assignment.
+Check Socket.IO and recording playback separately. Stop the obsolete laptop
+preview after the cloud service is verified. A successful health probe proves
+database readiness, not the rest of these workflows.
+
+## Remaining service limits
+
+Free Render can sleep after 15 idle minutes, take about a minute to wake and
+restart unexpectedly. Services share 750 free instance hours per workspace each
+calendar month, plus bandwidth/build limits. Background screening and delivery
+pause during sleep. Independent hosting removes the laptop dependency; it does
+not provide guaranteed uninterrupted hiring availability. [Render Free limits](https://render.com/docs/free)
+
+Public TURN and two-device, different-network media verification remain pending.
+Private Judge0 is required for hiring code execution; the public demo remains
+local-practice-only. SMS and real business verification require their own active
+providers. Hosted transcription and proctoring accuracy require separate live
+checks. None are marked complete by deploying the website.
+
+The older laptop-backed gateway is documented in
+[the temporary hosting record](TEMPORARY-RENDER-HOSTING-2026-10-21.md) and uses
+`deploy/preview-gateway/render.yaml`, not the root Blueprint. That historical
+setup needs the laptop on and retains its original expiry; it is not a fallback
+to claim independent uptime.

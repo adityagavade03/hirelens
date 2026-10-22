@@ -113,7 +113,7 @@ export function CompanyDashboard() {
                 : d.company.verification?.status === "verified"
                   ? "Verified company"
                   : d.company.localDevelopment
-                    ? "Local development · unverified"
+                    ? "Test company · unverified"
                     : "Verification required"}
             </Badge>
           </div>
@@ -125,7 +125,7 @@ export function CompanyDashboard() {
       {!d.company.sample && d.company.verification?.status !== "verified" && (
         <Notice>
           {d.company.localDevelopment
-            ? "This company is unverified. Job publishing and recruitment are available for local development while local setup is enabled. Complete official verification before public use. "
+            ? "This company is unverified. Recruitment is available only within an administrator-authorized test workspace. Complete official verification before production use. "
             : "Complete company verification before publishing jobs. Your existing records and draft jobs remain available. "}
           <Link to="/company/profile" className="text-link">
             Company verification details
@@ -350,9 +350,9 @@ export function CompanyProfilePage() {
       )}
       {company.localDevelopment && !verified && (
         <Notice>
-          This is an unverified company for local development. You can test job
-          publishing and recruitment while local setup is enabled. Complete
-          official verification before public use.
+          This company is unverified. Job publishing and recruitment require an
+          administrator-authorized test workspace. Complete official verification
+          before production use.
         </Notice>
       )}
       {options.data && !options.data.companyVerification && (
@@ -381,7 +381,7 @@ export function CompanyProfilePage() {
               : company.sample
                 ? "Sample · not verified"
                 : company.localDevelopment
-                  ? "Local development · unverified"
+                  ? "Test company · unverified"
                   : "Verification required"}
           </Badge>
           {company.verification?.verifiedAt && (

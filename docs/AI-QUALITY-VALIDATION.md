@@ -4,6 +4,22 @@ This benchmark exercises HireLens's actual resume comparison and interview repor
 
 The coding assistant authored the fixtures and inspected generated outputs. These are not independent expert labels, human hiring reviews, or consented candidate training data.
 
+## Aggregate screening policy confirmation — 22 October 2026
+
+The owner explicitly selected **meet the configured score threshold only; allow missing required skills**. Production already uses this aggregate rule, with unknown/conflicting or truncated evidence held for review. No new veto, scoring rule or recruitment record was changed. A confirmed missing skill therefore remains visible but does not independently block a score that meets the company's threshold.
+
+Two historical fixtures still assumed a different outcome: `missing-spring` now permits `shortlisted` at its deliberately low threshold of 10, or `needs_review` for uncertain evidence; `javascript-not-java` permits `not_shortlisted` below its threshold, or `needs_review` for uncertainty. Their criterion checks still forbid treating the missing framework or JavaScript as demonstrated Spring Boot/Java, and retained quotes must still match their submitted source. These expectation changes implement the owner's policy choice; they are not evidence that model quality improved. The earlier live Groq mismatches and the interrupted quota-wait harness attempt remain preserved in the ignored cloud-deployment artifacts. A new live retry must be reported separately from those original results.
+
+## Selected cloud-provider readiness — 22 October 2026
+
+Authorized synthetic checks confirmed Groq model availability and the actual application pipelines using `openai/gpt-oss-20b` with strict JSON and `whisper-large-v3`. The exact Java resume scored 100 and shortlisted; JavaScript without Java scored 0 and did not shortlist; missing Spring Boot remained visible while its aggregate score of 82 passed the fixture's deliberately low threshold of 10. Retained quotations matched their submitted synthetic sources. These are individual regression outcomes, not calibrated ability estimates.
+
+The first report requests exposed a real compatibility defect: Groq rejected the dynamically grounded schema's two object-union alternatives with overlapping required keys. Report metrics now use one object with a nullable score. Existing checks still reject non-null scores without supplied evidence references, reject foreign references, and prevent persistence after invalid output. Fresh sparse/strong report requests then succeeded: sparse evidence withheld all three scores and requested further evaluation; the supported example returned advisory `Candidate`, three rubric scores of 4/5, and a coding score of 75% computed from its actual synthetic 3/4 test counts.
+
+A separately generated System.Speech WAV, saved directly to disk without microphone capture or speaker playback, was accepted by hosted transcription and retained all eight targeted Java/SQL/transcription terms. This does not validate physical microphones, participant audio, accent coverage or recording quality.
+
+The final ignored artifact is `.data/cloud-deployment/groq-readiness-20261022-policy-and-schema-retry2.json`. It contains four fresh retries plus three explicitly carried successful checks (model listing, exact Java and generated speech), for seven passing selected checks across the artifacts. The initial quota-wait harness failure, stale-policy mismatches and HTTP 400 report failures remain in the earlier artifacts; they were not overwritten. Live response headers reported 1,000 requests/day and 8,000 tokens/minute. Requests were spaced to respect that free quota. No recruitment database records, real resumes or interview recordings were read or changed, and no provider secrets were written into this repository's tracked files. Representative hiring, fairness and real-speech evaluation remain pending.
+
 ## Current v2 evaluation — 21 October 2026
 
 The corpus now contains **26 resume/JD and four report cases**. Twelve added resume cases cover exact/fractional experience boundaries, relevant versus total experience, PostgreSQL equivalence, learning versus experience, C/C++, C#/.NET, Docker/Kubernetes, JavaScript/TypeScript, current and expired certificates, and copied JD text. The runner accepts **1–5 repeats**, rejects unknown/duplicate case IDs and refuses to overwrite an existing artifact. It records per-case outcome/criterion differences and score ranges, rather than presenting one run as deterministic accuracy.

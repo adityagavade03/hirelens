@@ -1,11 +1,12 @@
 import type { config } from "./config.js";
 import { createPublicKey } from "node:crypto";
+import { z } from "zod";
 
 type Settings = typeof config;
 export type DeliveryMode =
-  "preview" | "smtp" | "http" | "unconfigured" | "invalid";
-type ProviderMode = Exclude<DeliveryMode, "preview" | "smtp">;
-export type SmsMode = Exclude<DeliveryMode, "smtp"> | "twilio";
+  "preview" | "smtp" | "http" | "brevo" | "unconfigured" | "invalid";
+type ProviderMode = Exclude<DeliveryMode, "preview" | "smtp" | "brevo">;
+export type SmsMode = Exclude<DeliveryMode, "smtp" | "brevo"> | "twilio";
 export type CompanyVerificationMode = ProviderMode | "cashfree" | "sandbox";
 
 export function loopbackHost(host: string) {
@@ -71,6 +72,32 @@ export function smtpConfigurationIssues(settings: Settings) {
     );
   if (settings.smtpPort === 465 && !settings.smtpSecure)
     issues.push("SMTP_SECURE must be true for SMTP_PORT=465.");
+  return issues;
+}
+
+// Brevo needs a structured, single sender. Do not pass a nodemailer-style list
+// through to the HTTPS API, or silently reinterpret malformed sender text.
+export function brevoSender(value: string) {
+  if (/[\x00-\x1f\x7f]/.test(value)) return undefined;
+  const source = value.trim();
+  const named = /^([^<>]+)<([^<>]+)>$/.exec(source);
+  const email = (named ? named[2] : source).trim();
+  if (!z.email().max(254).safeParse(email).success) return undefined;
+  if (!named) return { email };
+  const name = named[1].trim().replace(/^"(.*)"$/, "$1");
+  if (!name || name.length > 150) return undefined;
+  return { email, name };
+}
+
+export function brevoConfigurationIssues(settings: Settings) {
+  const issues: string[] = [];
+  if (!settings.brevoApiKey.trim()) issues.push("BREVO_API_KEY is missing.");
+  else if (/\s|[\x00-\x1f\x7f]/.test(settings.brevoApiKey))
+    issues.push("BREVO_API_KEY must be a single token without whitespace.");
+  if (!brevoSender(settings.emailFrom))
+    issues.push(
+      "EMAIL_FROM must be one valid sender email or Name <email> for Brevo.",
+    );
   return issues;
 }
 
@@ -144,21 +171,37 @@ export function providerConfiguration(settings: Settings) {
     "EMAIL_DELIVERY",
     settings.production,
   );
-  const emailIssues = settings.smtpHost
-    ? smtpConfigurationIssues(settings)
-    : emailHttp.issues;
-  if (!settings.emailFrom.trim()) emailIssues.push("EMAIL_FROM is missing.");
-  else if (/[\r\n]/.test(settings.emailFrom))
-    emailIssues.push("EMAIL_FROM must be a single-line sender address.");
-  const emailProviderMode: DeliveryMode = emailIssues.length
-    ? !settings.smtpHost &&
-      emailHttp.mode === "unconfigured" &&
-      !settings.emailFrom
-      ? "unconfigured"
-      : "invalid"
-    : settings.smtpHost
-      ? "smtp"
-      : "http";
+  const selectedEmail =
+    settings.emailProvider === "auto"
+      ? settings.smtpHost
+        ? "smtp"
+        : "http"
+      : settings.emailProvider;
+  let emailIssues: string[];
+  let emailProviderMode: DeliveryMode;
+  if (selectedEmail === "brevo") {
+    emailIssues = brevoConfigurationIssues(settings);
+    emailProviderMode = emailIssues.length ? "invalid" : "brevo";
+  } else if (["smtp", "http"].includes(selectedEmail)) {
+    emailIssues =
+      selectedEmail === "smtp"
+        ? smtpConfigurationIssues(settings)
+        : emailHttp.issues;
+    if (!settings.emailFrom.trim()) emailIssues.push("EMAIL_FROM is missing.");
+    else if (/[\r\n]/.test(settings.emailFrom))
+      emailIssues.push("EMAIL_FROM must be a single-line sender address.");
+    emailProviderMode = emailIssues.length
+      ? settings.emailProvider === "auto" &&
+        !settings.smtpHost &&
+        emailHttp.mode === "unconfigured" &&
+        !settings.emailFrom
+        ? "unconfigured"
+        : "invalid"
+      : (selectedEmail as "smtp" | "http");
+  } else {
+    emailIssues = ["EMAIL_PROVIDER must be auto, smtp, http or brevo."];
+    emailProviderMode = "invalid";
+  }
   let sms: { mode: Exclude<SmsMode, "preview">; issues: string[] } =
     httpConfiguration(
       settings.smsUrl,
@@ -215,7 +258,7 @@ export function providerConfiguration(settings: Settings) {
     },
     companyVerification,
     otpReady:
-      ["preview", "smtp", "http"].includes(emailMode) &&
+      ["preview", "smtp", "http", "brevo"].includes(emailMode) &&
       settings.otpSecret.length >= 32,
     otpIssues:
       settings.otpSecret.length >= 32

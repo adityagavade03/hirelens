@@ -173,10 +173,26 @@ export async function transcribeAudio(buffer: Buffer, mime: string) {
       "CONFIGURATION_NEEDED",
     );
   const form = new FormData();
+  // Hosted decoders use the multipart filename as well as its MIME type. Keep
+  // real WAV/OGG/MP3 fixtures distinct from browser WebM/MP4 captures.
+  const audioType = mime.toLowerCase().split(";", 1)[0].trim();
+  const audioExtension: Record<string, string> = {
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/wave": "wav",
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/flac": "flac",
+    "audio/x-flac": "flac",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "video/mp4": "mp4",
+  };
   form.append(
     "file",
     new Blob([new Uint8Array(buffer)], { type: mime }),
-    mime.includes("mp4") ? "answer.m4a" : "answer.webm",
+    `answer.${audioExtension[audioType] || "webm"}`,
   );
   form.append("model", config.sttModel);
   let result: unknown;

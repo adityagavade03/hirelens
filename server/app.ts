@@ -14,6 +14,12 @@ import {
   decoratePrivatePreviewHtml,
   previewAllowsCompany,
 } from "./private-preview.js";
+import {
+  cloudTestAllowsCompany,
+  cloudTestConfigured,
+  decorateCloudTestHtml,
+  installCloudTestGate,
+} from "./cloud-test-companies.js";
 import PDFDocument from "pdfkit";
 import { monitoringKinds } from "../shared/monitoring.js";
 import { codingLanguageKeys } from "../shared/languages.js";
@@ -65,6 +71,7 @@ import {
   resumeMaxBytes,
 } from "../shared/application.js";
 import { extractResumeDetailed } from "./resume.js";
+import { withUploadStorage } from "./storage-budget.js";
 import { publicProblems, problems, curatedQuestions } from "./problems.js";
 import {
   generateQuestions,
@@ -337,6 +344,7 @@ export function createApp() {
       crossOriginEmbedderPolicy: false,
     }),
   );
+  installCloudTestGate(app);
   installPrivatePreviewGate(app);
   app.use(express.json({ limit: "256kb" }));
   app.use(cookieParser());
@@ -450,14 +458,17 @@ export function createApp() {
       if (!req.file) throw new ApiError(400, "Select a PDF resume.");
       const extraction = await extractResumeDetailed(req.file.buffer);
       const content = extraction.text;
-      const resume = await ResumeModel.create({
+      const document = {
         ownerId: req.user._id,
         name: req.file.originalname
           .replace(/[^a-zA-Z0-9 ._-]/g, "")
           .slice(0, 150),
         data: req.file.buffer,
         text: content,
-      });
+      };
+      const resume = await withUploadStorage(document, () =>
+        ResumeModel.create(document),
+      );
       await UserModel.updateOne(
         { _id: req.user._id },
         { $set: { "profile.resumeId": resume._id.toString() } },
@@ -579,7 +590,9 @@ export function createApp() {
                 await CompanyModel.distinct("_id", { localDevelopment: true })
               )
                 .map(String)
-                .filter((id) => !previewAllowsCompany(id)),
+                .filter(
+                  (id) => !previewAllowsCompany(id) && !cloudTestAllowsCompany(id),
+                ),
             },
           }
         : {};
@@ -662,7 +675,7 @@ export function createApp() {
       )
         throw new ApiError(400, "Upload a PDF file, up to 5 MB.");
       const extraction = await extractResumeDetailed(req.file.buffer);
-      const resume = await ResumeModel.create({
+      const document = {
         ownerId: req.user._id,
         applicationJobId: jobId,
         name: req.file.originalname
@@ -670,7 +683,10 @@ export function createApp() {
           .slice(0, 150),
         data: req.file.buffer,
         text: extraction.text,
-      });
+      };
+      const resume = await withUploadStorage(document, () =>
+        ResumeModel.create(document),
+      );
       res
         .status(201)
         .json({
@@ -2268,13 +2284,18 @@ export function createApp() {
       res: express.Response,
     ) => {
       const html = await readFile(path.resolve("dist/index.html"), "utf8");
-      res.type("html").send(decoratePrivatePreviewHtml(html));
+      if (cloudTestConfigured())
+        res.set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
+      res
+        .type("html")
+        .send(decorateCloudTestHtml(decoratePrivatePreviewHtml(html)));
     };
-    if (privatePreviewConfigured()) app.get(["/", "/index.html"], previewIndex);
+    if (privatePreviewConfigured() || cloudTestConfigured())
+      app.get(["/", "/index.html"], previewIndex);
     app.use(express.static(path.resolve("dist")));
     app.get(
       "/{*path}",
-      privatePreviewConfigured()
+      privatePreviewConfigured() || cloudTestConfigured()
         ? previewIndex
         : (_req, res) => res.sendFile(path.resolve("dist/index.html")),
     );

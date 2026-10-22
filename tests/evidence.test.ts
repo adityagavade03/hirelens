@@ -160,6 +160,26 @@ it("rejects arbitrary files and recording outside a live session", async () => {
   expect((await capture(i)).status).toBe(409);
   expect((await upload(candidate.client, c.body._id)).status).toBe(409);
 });
+it("preserves recording retries and playback when shared upload storage is full", async () => {
+  const i = await practice(),
+    c = await capture(i),
+    stored = await upload(candidate.client, c.body._id);
+  expect(stored.status).toBe(201);
+  config.storageBudgetBytes = 1;
+  config.storageBudgetScope = "database";
+
+  const retry = await upload(candidate.client, c.body._id);
+  expect(retry.status).toBe(201);
+  expect(retry.body._id).toBe(stored.body._id);
+
+  const next = await upload(candidate.client, c.body._id, 1);
+  expect(next.status).toBe(507);
+  expect(next.body.error.code).toBe("STORAGE_BUDGET_EXCEEDED");
+  expect(await ClipModel.countDocuments({ interviewId: i.id })).toBe(1);
+  expect(
+    (await candidate.client.get(`/api/media/${stored.body._id}/play`)).status,
+  ).toBe(200);
+});
 it("uses only reviewed transcript evidence, detects conflicts, and blocks changes to finalized reports", async () => {
   const i = await practice(),
     c = await capture(i),

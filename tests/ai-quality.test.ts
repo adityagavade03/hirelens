@@ -56,8 +56,6 @@ it("keeps benchmark fixtures synthetic and covers distinct required qualificatio
     resumeQualityCases.length,
   );
   for (const id of [
-    "javascript-not-java",
-    "missing-spring",
     "insufficient-years",
     "unknown-years",
     "conflicting-years",
@@ -68,6 +66,25 @@ it("keeps benchmark fixtures synthetic and covers distinct required qualificatio
     expect(resumeQualityCases.find((c) => c.id === id)?.expected).toBe(
       "needs_review",
     );
+  const missingSpring = resumeQualityCases.find(
+    (c) => c.id === "missing-spring",
+  )!;
+  expect(missingSpring.expected).toEqual(["shortlisted", "needs_review"]);
+  expect(missingSpring.job.shortlistThreshold).toBe(10);
+  expect(missingSpring.criteria["skill-1"]).toEqual([
+    "partial",
+    "missing",
+    "unknown",
+  ]);
+  const javascript = resumeQualityCases.find(
+    (c) => c.id === "javascript-not-java",
+  )!;
+  expect(javascript.expected).toEqual(["not_shortlisted", "needs_review"]);
+  expect(javascript.criteria["skill-0"]).toEqual([
+    "partial",
+    "missing",
+    "unknown",
+  ]);
   expect(reportQualityCases.length).toBeGreaterThanOrEqual(4);
 });
 it("assesses report evidence without any database query or mutation", async () => {
@@ -125,3 +142,28 @@ it("rejects fabricated report references and absent evidence before persistence"
   ).rejects.toThrow("No submitted answers");
   expect(request).not.toHaveBeenCalled();
 });
+
+it.each(["technical", "problemSolving", "communication"])(
+  "still rejects a non-null %s score without references after hosted schema normalization",
+  async (dimension) => {
+    modelResult({
+      [dimension]: {
+        score: 4,
+        explanation: "Unsupported score",
+        evidenceRefs: [],
+      },
+    });
+    const save = vi.spyOn(ReportModel, "updateOne");
+    const fixture = structuredClone(
+      reportQualityCases.find((row) => row.id === "grounded-strong-answers")!,
+    );
+    await expect(
+      assessInterviewEvidence(
+        fixture.interview,
+        [...fixture.submissions],
+        [...fixture.transcript],
+      ),
+    ).rejects.toThrow("referenced missing evidence");
+    expect(save).not.toHaveBeenCalled();
+  },
+);

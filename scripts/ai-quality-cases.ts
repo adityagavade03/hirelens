@@ -107,7 +107,7 @@ export const resumeQualityCases: ResumeQualityCase[] = [
   ),
   caseOf(
     "missing-spring",
-    "Mandatory skill absent despite a deliberately low threshold",
+    "A low aggregate threshold can shortlist a confirmed missing skill; uncertain evidence still needs review",
     { ...javaJob, shortlistThreshold: 10 },
     {
       ...java,
@@ -115,12 +115,12 @@ export const resumeQualityCases: ResumeQualityCase[] = [
       experience:
         "3 years of Java, SQL and REST API work using Jakarta EE; no Spring Boot experience.",
     },
-    "needs_review",
+    ["shortlisted", "needs_review"],
     { "skill-1": insufficient },
   ),
   caseOf(
     "javascript-not-java",
-    "Similar names do not prove a different programming language",
+    "JavaScript cannot prove Java; a reliable score below the aggregate threshold is not shortlisted",
     {
       ...javaJob,
       skills: ["Java"],
@@ -132,7 +132,7 @@ export const resumeQualityCases: ResumeQualityCase[] = [
       experienceYears: 3,
       experience: "3 years using JavaScript and Node.js. No Java experience.",
     }),
-    "needs_review",
+    ["not_shortlisted", "needs_review"],
     { "skill-0": insufficient },
   ),
   caseOf(

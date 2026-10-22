@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { ApiError } from "./security.js";
 import { NotificationModel, UserModel } from "./models.js";
 import { sendTwilioSms } from "./native-providers.js";
+import { sendBrevoEmail } from "./brevo-email.js";
 import {
   loopbackHost,
   providerConfiguration,
@@ -13,7 +14,7 @@ import {
 } from "./provider-configuration.js";
 
 export const emailReady = () =>
-  ["preview", "smtp", "http"].includes(
+  ["preview", "smtp", "http", "brevo"].includes(
     providerConfiguration(config).email.mode,
   );
 export const smsReady = () =>
@@ -130,7 +131,10 @@ export async function sendEmail(
   };
   if (config.messagePreview && !config.production)
     return preview("email", message);
-  if (config.smtpHost) {
+  const mode = providerConfiguration(config).email.mode;
+  if (mode === "brevo")
+    return sendBrevoEmail(to, subject, text, idempotencyKey);
+  if (mode === "smtp") {
     const transport = smtpTransport();
     try {
       const result = await transport.sendMail({
@@ -171,15 +175,23 @@ export async function sendSms(
 // Durable outbox in the existing notification collection. Claims are shared by all servers.
 export async function deliverNotifications(limit = 20) {
   for (const channel of ["email", "sms"] as const) {
-    // A crashed or timed-out Twilio send may have reached the carrier. Unlike
-    // the generic adapter, Twilio does not offer our Idempotency-Key contract.
+    // A crashed Twilio/Brevo send may already have reached the provider. Brevo's
+    // finite deduplication window cannot protect an arbitrarily late retry.
     if (
-      channel === "sms" &&
-      providerConfiguration(config).sms.mode === "twilio"
+      (channel === "sms" &&
+        providerConfiguration(config).sms.mode === "twilio") ||
+      (channel === "email" &&
+        providerConfiguration(config).email.mode === "brevo")
     )
       await NotificationModel.updateMany(
-        { smsState: "sending", smsLease: { $lte: new Date() } },
-        { $set: { smsState: "failed" }, $unset: { smsLeaseId: 1 } },
+        {
+          [`${channel}State`]: "sending",
+          [`${channel}Lease`]: { $lte: new Date() },
+        },
+        {
+          $set: { [`${channel}State`]: "failed" },
+          $unset: { [`${channel}LeaseId`]: 1 },
+        },
       );
     await NotificationModel.updateMany(
       {
@@ -257,7 +269,12 @@ export async function deliverNotifications(limit = 20) {
       } catch (error) {
         result =
           (error instanceof ApiError &&
-            ["SMS_ACCEPTANCE_UNKNOWN", "SMS_REJECTED"].includes(error.code)) ||
+            [
+              "SMS_ACCEPTANCE_UNKNOWN",
+              "SMS_REJECTED",
+              "EMAIL_ACCEPTANCE_UNKNOWN",
+              "EMAIL_REJECTED",
+            ].includes(error.code)) ||
           Number(item.get(attempts)) >= 5
             ? "failed"
             : "retry";

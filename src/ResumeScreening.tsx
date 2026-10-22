@@ -76,7 +76,9 @@ export function ResumeScreening({
           <p>
             Company threshold: <strong>{screening.threshold}%</strong>. A
             validated score at or above this threshold qualifies for the
-            shortlist. Incomplete or uncertain evidence needs review.
+            shortlist, even with confirmed gaps in required skills. Those gaps
+            lower the overall score and stay visible for HR review. Uncertain or
+            conflicting evidence needs review before automatic shortlisting.
           </p>
         )}
       </div>

@@ -18,6 +18,7 @@ import { extractResumeDetailed } from "./resume.js";
 import { resolveProblem } from "./coding.js";
 import { roomChanged, humanRoom } from "./room-events.js";
 import { withResources } from "./locks.js";
+import { withUploadStorage } from "./storage-budget.js";
 
 async function room(req: Request) {
   const i = await accessibleInterview(req.user, objectId.parse(req.params.id));
@@ -162,14 +163,17 @@ export function registerInterviewRoom(app: Express) {
       const { text } = await extractResumeDetailed(req.file.buffer);
       await withResources([`room:${i.id}`], async () => {
         beforeEntry(await room(req));
-        const resume = await ResumeModel.create({
+        const document = {
           ownerId: req.user._id,
           name: req
             .file!.originalname.replace(/[^a-zA-Z0-9 ._-]/g, "")
             .slice(0, 150),
           text,
           data: req.file!.buffer,
-        });
+        };
+        const resume = await withUploadStorage(document, () =>
+          ResumeModel.create(document),
+        );
         await InterviewModel.updateOne(
           { _id: i.id },
           { $set: { roomResumeId: resume.id }, $unset: { resumeSharedAt: 1 } },

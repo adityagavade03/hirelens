@@ -1,16 +1,22 @@
-# Optional free staging deployment; no cloud service has been created by this file.
-# Read docs/RENDER-DEPLOYMENT.md before applying. No laptop secrets/data are copied.
+# Independent free cloud configuration. This file does not prove a live deployment.
+# Read docs/RENDER-DEPLOYMENT.md before applying; data and secrets are not copied.
 services:
   - type: web
     name: hirelens-adityagavade03
-    runtime: docker
+    runtime: node
     plan: free
     region: singapore
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    rootDir: .
+    buildCommand: >-
+      MONGOMS_DISABLE_POSTINSTALL=1 npm ci --include=dev &&
+      npm run setup:assets && npm run build &&
+      node scripts/check-cloud-connectivity.mjs --synthetic && npm prune --omit=dev
+    startCommand: npm start
     autoDeployTrigger: "off"
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: "24"
       - key: NODE_ENV
         value: production
       - key: HOST
@@ -28,14 +34,16 @@ services:
         generateValue: true
       - key: EMAIL_FROM
         sync: false
-      # Free Render blocks SMTP. This must implement HireLens's HTTPS adapter,
-      # including its accepted/messageId response; a raw email vendor URL won't.
-      - key: EMAIL_DELIVERY_URL
+      # Direct HTTPS delivery; do not copy the laptop's Gmail SMTP settings.
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
         sync: false
-      - key: EMAIL_DELIVERY_API_KEY
-        sync: false
-      - key: REDIS_URL
-        value: ""
+      - key: STORAGE_BUDGET_MB
+        value: "400"
+      - key: STORAGE_BUDGET_SCOPE
+        value: atlas-cluster
+      # Leave REDIS_URL unset for this single-instance deployment.
       - key: MESSAGE_PREVIEW
         value: "false"
       - key: ALLOW_DEMO_LOGIN
@@ -60,3 +68,8 @@ services:
         value: /vendor/mediapipe/efficientdet_lite2.tflite
       - key: RESUME_OCR_ENABLED
         value: "true"
+      # Set hosted LLM_BASE_URL/LLM_API_KEY/LLM_MODEL and
+      # STT_BASE_URL/STT_API_KEY/STT_MODEL privately after provider setup.
+      # Optional CLOUD_TEST_COMPANY_IDS and CLOUD_TEST_EXPIRES_AT must contain
+      # only the owner-approved company scope and its original absolute expiry.
+      # Never add PRIVATE_PREVIEW_ settings or laptop service URLs here.

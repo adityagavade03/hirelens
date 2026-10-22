@@ -59,7 +59,7 @@ if (args.has("--smtp")) {
 }
 if (
   args.has("--require-external") &&
-  (!["smtp", "http"].includes(report.email.mode) ||
+  (!["smtp", "http", "brevo"].includes(report.email.mode) ||
     !["http", "twilio"].includes(report.sms.mode) ||
     !["http", "cashfree"].includes(report.companyVerification.mode) ||
     !report.otpReady ||
