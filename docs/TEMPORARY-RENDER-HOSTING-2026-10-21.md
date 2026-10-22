@@ -60,3 +60,23 @@ does not prove backend health; use `/api/health` for that. Internet access or
 service restarts can interrupt a test. Public TURN and two-device verification
 are still needed for reliable interviews on different networks. This deployment
 does not validate physical media, proctoring accuracy or missing providers.
+
+## Recovery verified on 22 October
+
+Windows shutdown at 23:14 IST on 21 October stopped the local preview. The
+authorization had not expired. Services and the existing fixed address were
+restored without changing accounts, company scope or the November deadline.
+Public login pages, application health and authentication checks passed again
+at `2026-10-22T01:06:10Z`.
+
+Gateway revision `e6ddf3aec6f702ef39855b9ad609a24b325febbf` replaces the raw
+transport error with an accessible browser reconnect page, HTTP 503, a retry
+button and a 15-second refresh. API/WebSocket protocols and access protections
+remain intact; all 16 gateway tests passed.
+
+The owner-only Windows recovery task was enabled with interactive, least-
+privilege access and the same absolute expiry. Its bounded controller checks
+local readiness every three minutes and is configured to respect manual stops.
+The first scheduled check reported healthy without restarting the launcher,
+application, tunnel or background-worker owner. It can recover after Windows
+sign-in; it cannot serve the website while this laptop is shut down or offline.
