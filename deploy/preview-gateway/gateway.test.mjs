@@ -192,7 +192,95 @@ test("upstream failures expose a clear error without exception details", async (
   const result = await request(port, "/api/health");
   assert.equal(result.status, 502);
   assert.equal(JSON.parse(result.body).error.code, "PREVIEW_UNAVAILABLE");
+  assert.equal(JSON.parse(result.body).error.message, "HireLens is temporarily unavailable. Please try again shortly.");
   assert(!result.body.includes(Buffer.from("private transport")));
+  assert(!result.body.includes(Buffer.from("laptop")));
+});
+
+test("browser outages show a self-contained reconnect page and HEAD returns only its headers", async (t) => {
+  const { port } = await fixture(t, (_req, res) => res.destroy());
+  const path = "/auth/company?next=%2Fjobs&source=test";
+  const headers = { accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" };
+  const result = await request(port, path, { headers });
+  assert.equal(result.status, 503);
+  assert.equal(result.headers["content-type"], "text/html; charset=utf-8");
+  assert.equal(result.headers["retry-after"], "15");
+  assert.equal(result.headers["cache-control"], "no-store");
+  assert.equal(result.headers["set-cookie"], undefined);
+  assert.match(result.headers["content-security-policy"], /default-src 'none'/);
+  const html = result.body.toString();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /Reconnecting to HireLens/);
+  assert.match(html, /http-equiv="refresh" content="15"/);
+  assert.match(html, /href="\/auth\/company\?next=%2Fjobs&amp;source=test"/);
+  assert.match(html, /focus-visible/);
+  assert.match(html, /prefers-color-scheme:dark/);
+  assert.match(html, /prefers-reduced-motion/);
+  assert.doesNotMatch(html, /<script|https?:\/\/|laptop|trycloudflare|private transport/);
+  const head = await request(port, path, { method: "HEAD", headers });
+  assert.equal(head.status, 503);
+  assert.equal(head.headers["content-type"], result.headers["content-type"]);
+  assert.equal(head.headers["content-length"], result.headers["content-length"]);
+  assert.equal(head.headers["retry-after"], "15");
+  assert.equal(head.body.length, 0);
+});
+
+test("API, polling, non-navigation and WebSocket outages keep their JSON protocol and original status", async (t) => {
+  const { port } = await fixture(t, (_req, res) => res.end(), { gatewayOptions: { request: () => { throw new Error("private outage details"); } } });
+  for (const path of ["/api", "/api/health", "/%61pi/health", "/socket.io/?EIO=4&transport=polling"]) {
+    const result = await request(port, path, { headers: { accept: "text/html", "sec-fetch-site": "same-origin" } });
+    assert.equal(result.status, 502);
+    assert.equal(result.headers["content-type"], "application/json; charset=utf-8");
+    assert.equal(JSON.parse(result.body).error.code, "PREVIEW_UNAVAILABLE");
+    assert.equal(result.headers["retry-after"], undefined);
+  }
+  for (const options of [
+    {},
+    { headers: { accept: "text/html;q=0,application/json" } },
+    { method: "POST", headers: { origin: publicOrigin, accept: "text/html" } },
+  ]) {
+    const result = await request(port, "/auth/company", options);
+    assert.equal(result.status, 502);
+    assert.equal(result.headers["content-type"], "application/json; charset=utf-8");
+    assert.equal(JSON.parse(result.body).error.code, "PREVIEW_UNAVAILABLE");
+  }
+  const head = await request(port, "/api/health", { method: "HEAD", headers: { accept: "text/html" } });
+  assert.equal(head.status, 502);
+  assert.equal(head.headers["content-type"], "application/json; charset=utf-8");
+  assert.equal(head.body.length, 0);
+  const attempt = raw(port, "/socket.io/?EIO=4&transport=websocket", { headers: { ...wsHeaders, Accept: "text/html" } });
+  await until(() => attempt.socket.destroyed);
+  const response = attempt.data.bytes.toString();
+  assert.match(response, /^HTTP\/1\.1 502/);
+  assert.match(response, /Content-Type: application\/json/);
+  assert.match(response, /"code":"PREVIEW_UNAVAILABLE"/);
+  assert.doesNotMatch(response, /<html|laptop|private outage details/);
+});
+
+test("upstream outage status pages are replaced only for browser navigations", async (t) => {
+  let status = 502;
+  const upstreamBody = "upstream outage details";
+  const { port } = await fixture(t, (_req, res) => {
+    res.writeHead(status, { "content-type": "text/plain" });
+    res.end(upstreamBody);
+  });
+  for (status of [502, 503, 504]) {
+    const page = await request(port, "/auth/candidate", { headers: { accept: "text/html" } });
+    assert.equal(page.status, 503);
+    assert.equal(page.headers["retry-after"], "15");
+    assert.match(page.body.toString(), /Reconnecting to HireLens/);
+    assert(!page.body.includes(Buffer.from(upstreamBody)));
+    const api = await request(port, "/api/health", { headers: { accept: "text/html" } });
+    assert.equal(api.status, status);
+    assert.equal(api.body.toString(), upstreamBody);
+  }
+  status = 401;
+  const denied = await request(port, "/auth/company", { headers: { accept: "text/html" } });
+  assert.equal(denied.status, 401);
+  assert.equal(denied.body.toString(), upstreamBody);
+  const forbidden = await request(port, "/api/_fixture/candidate", { headers: { accept: "text/html" } });
+  assert.equal(forbidden.status, 404);
+  assert.equal(JSON.parse(forbidden.body).error.code, "NOT_FOUND");
 });
 
 test("WebSocket Origin and path checks run before any upstream handshake", async (t) => {

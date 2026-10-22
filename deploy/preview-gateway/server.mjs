@@ -75,19 +75,46 @@ function htmlEscape(text) {
   return text.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
+function htmlNavigation(request) {
+  const target = targetFor(request);
+  return ["GET", "HEAD"].includes(request.method) && target &&
+    !/^\/(?:api|socket\.io)(?:\/|$)/.test(target.decodedPath) &&
+    request.headers.accept?.split(",").some((value) => {
+      const [type, ...parameters] = value.trim().toLowerCase().split(";");
+      const quality = parameters.find((part) => part.trim().startsWith("q="));
+      return type === "text/html" && (quality === undefined || Number(quality.trim().slice(2)) > 0);
+    });
+}
+
 function errorBody(request, code, message) {
-  if (!request.url?.startsWith("/api/") && request.headers.accept?.includes("text/html")) {
+  if (htmlNavigation(request)) {
     return { type: "text/html; charset=utf-8", body: `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HireLens test preview</title><body><h1>HireLens test preview</h1><p>${htmlEscape(message)}</p></body></html>` };
   }
   return { type: "application/json; charset=utf-8", body: JSON.stringify({ error: { code, message } }) };
 }
 
-function sendError(request, response, status, code, message) {
+function sendBody(request, response, status, type, body, headers = {}) {
   if (response.destroyed || response.writableEnded) return;
   if (response.headersSent) { response.destroy(); return; }
-  const { type, body } = errorBody(request, code, message);
-  response.writeHead(status, { ...securityHeaders, "content-type": type, "content-length": Buffer.byteLength(body), connection: "close" });
+  response.writeHead(status, { ...securityHeaders, ...headers, "content-type": type, "content-length": Buffer.byteLength(body), connection: "close" });
   response.end(request.method === "HEAD" ? undefined : body);
+}
+
+function sendError(request, response, status, code, message) {
+  const { type, body } = errorBody(request, code, message);
+  sendBody(request, response, status, type, body);
+}
+
+function sendReconnectPage(request, response) {
+  const body = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="15"><meta name="color-scheme" content="light dark"><title>Reconnecting · HireLens</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#182333;background:#f4f6f9;--surface:#fff;--border:#dde3eb;--muted:#506078;--accent:#855200;--button:#192b42;--button-text:#fff;--focus:#a85c00}*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px}main{width:100%;max-width:460px;padding:clamp(24px,6vw,42px);background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:0 16px 60px #0000000a}.brand{font-size:14px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0 0 32px}h1{font-size:clamp(25px,6vw,32px);line-height:1.2;letter-spacing:-.035em;margin:0 0 16px}p{color:var(--muted);font-size:16px;line-height:1.6;margin:0 0 24px}.retry{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 22px;border-radius:12px;background:var(--button);color:var(--button-text);font-weight:650;text-decoration:none}.retry:hover{opacity:.88}.retry:focus-visible{outline:3px solid var(--focus);outline-offset:4px}@media(prefers-color-scheme:dark){:root{color:#f4f0e7;background:#101114;--surface:#1b1c20;--border:#34353b;--muted:#c1bcc1;--accent:#f5b84c;--button:#f5b84c;--button-text:#221801;--focus:#ffd587}}@media(prefers-reduced-motion:no-preference){.retry{transition:opacity .15s ease}}
+</style></head><body><main aria-labelledby="reconnect-title"><div class="brand">HIRELENS</div><h1 id="reconnect-title">Reconnecting to HireLens</h1><p>We couldn’t connect just now. This page will try again in 15 seconds.</p><a class="retry" href="${htmlEscape(request.url)}">Try again</a></main></body></html>`;
+  sendBody(request, response, 503, "text/html; charset=utf-8", body, {
+    "retry-after": "15",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+  });
 }
 
 function rejectUpgrade(socket, status, code, message) {
@@ -117,7 +144,7 @@ export function createGateway(configuration, {
   let deadline;
 
   const expiredMessage = "Temporary HireLens access has ended. Ask the owner to start a new authorised preview.";
-  const unavailableMessage = "The HireLens test preview is unavailable. The owner's laptop and temporary preview must stay running.";
+  const unavailableMessage = "HireLens is temporarily unavailable. Please try again shortly.";
 
   function finishUpgrade(record) {
     if (record.finished) return;
@@ -234,11 +261,19 @@ export function createGateway(configuration, {
     const record = { client: request, response, upstream: undefined };
     activeHttp.add(record);
     let bytes = 0;
-    const fail = () => sendError(request, response, 502, "PREVIEW_UNAVAILABLE", unavailableMessage);
+    const fail = () => {
+      if (htmlNavigation(request)) sendReconnectPage(request, response);
+      else sendError(request, response, 502, "PREVIEW_UNAVAILABLE", unavailableMessage);
+    };
     try {
       record.upstream = requestUpstream(options(request, checked.target), (remoteResponse) => {
         if (expired || now() >= expiresAt) { expire(); remoteResponse.destroy(); return; }
         if (response.destroyed || response.writableEnded) { remoteResponse.destroy(); return; }
+        if ([502, 503, 504].includes(remoteResponse.statusCode) && htmlNavigation(request)) {
+          remoteResponse.resume();
+          sendReconnectPage(request, response);
+          return;
+        }
         response.writeHead(remoteResponse.statusCode || 502, responseHeaders(remoteResponse.headers));
         remoteResponse.on("error", () => response.destroy());
         remoteResponse.pipe(response);

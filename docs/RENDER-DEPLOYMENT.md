@@ -53,6 +53,17 @@ starting another test requires a new authorized session and an explicit
 upstream/expiry update. Public TURN is still a separate requirement for reliable
 media across different networks.
 
+For a laptop-backed test, optional Windows recovery can run at the owner's next
+sign-in and periodically during the already authorized window. It must use an
+interactive, least-privilege task with a fixed end boundary, preserve the exact
+company scope and expiry, and leave healthy services running. A manual preview
+stop must prevent automatic restart. Check local application/database readiness
+only; email or AI provider outages must not trigger a hosting restart. Recovery
+can restore a crashed local process and update a changed tunnel hostname, but
+cannot serve HireLens while the laptop is powered off, signed out or offline.
+It does not extend hosting, change the power plan or make this independent cloud
+hosting. Keep deployment credentials in ignored local configuration.
+
 ## Independent cloud deployment
 
 Status: prepared configuration only for an independent application server.
