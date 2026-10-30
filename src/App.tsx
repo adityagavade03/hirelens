@@ -1,6 +1,13 @@
 import { ThemeToggle } from "./theme";
 import { useNavigationDrawer } from "./navigation";
-import { useState, useEffect, lazy, Suspense, type FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  lazy,
+  Suspense,
+  type FormEvent,
+} from "react";
 import {
   Routes,
   Route,
@@ -46,7 +53,9 @@ import type {
   Notification,
   ServiceStatus,
 } from "../shared/types";
-import { api, send, useResource, dateLabel } from "./api";
+import { api, send, useResource, dateLabel, ApiError } from "./api";
+import { clearHrCompanyContext, setApiUserContext } from "./hr-company-context";
+import { HrCompanySwitcher } from "./HrCompanySwitcher";
 import {
   Avatar,
   Badge,
@@ -100,25 +109,121 @@ export default function App() {
 }
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [companyError, setCompanyError] = useState("");
+  const authRequest = useRef(0);
+  const recoveringCompany = useRef(false);
   const refresh = async () => {
-    const result = await api<{ user: User }>("/auth/me");
+    const request = ++authRequest.current;
+    let result: { user: User };
+    try {
+      result = await api<{ user: User }>("/auth/me");
+    } catch (error) {
+      if (
+        !(error instanceof ApiError) ||
+        error.code !== "HR_COMPANY_ACCESS_DENIED"
+      )
+        throw error;
+      clearHrCompanyContext();
+      result = await api<{ user: User }>("/auth/me");
+    }
+    if (request !== authRequest.current) return;
+    setApiUserContext(result.user);
     setUser(result.user);
   };
   useEffect(() => {
-    const expired = () => setUser(null);
+    const expired = () => {
+      authRequest.current++;
+      clearHrCompanyContext();
+      setSwitching(false);
+      setUser(null);
+    };
+    const accessLost = () => {
+      if (recoveringCompany.current) return;
+      recoveringCompany.current = true;
+      clearHrCompanyContext();
+      setSwitching(false);
+      setReady(false);
+      setCompanyError(
+        "Your company access changed. Your available workspace has been refreshed.",
+      );
+      void refresh()
+        .catch(expired)
+        .finally(() => {
+          recoveringCompany.current = false;
+          setReady(true);
+        });
+    };
     window.addEventListener("hirelens:session-expired", expired);
+    window.addEventListener("hirelens:company-access-lost", accessLost);
     refresh()
-      .catch(() => setUser(null))
+      .catch(expired)
       .finally(() => setReady(true));
-    return () =>
+    return () => {
       window.removeEventListener("hirelens:session-expired", expired);
+      window.removeEventListener("hirelens:company-access-lost", accessLost);
+    };
   }, []);
+  const onLogin = (value: User) => {
+    authRequest.current++;
+    setApiUserContext(value);
+    setSwitching(false);
+    setCompanyError("");
+    setUser(value);
+  };
   const logout = async () => {
     await send("/auth/logout");
+    authRequest.current++;
+    clearHrCompanyContext();
     setUser(null);
   };
+  const switchCompany = async (companyId: string, destination = "/hr") => {
+    if (user?.role !== "hr" || companyId === user.companyId) return;
+    const request = ++authRequest.current;
+    setCompanyError("");
+    setSwitching(true);
+    try {
+      const result = await send<{ user: User }>(
+        "/hr/companies/active",
+        { companyId },
+        "PATCH",
+      );
+      if (request !== authRequest.current) return;
+      setApiUserContext(result.user);
+      setUser(result.user);
+      navigate(destination, { replace: true });
+    } catch (error) {
+      if (request === authRequest.current)
+        setCompanyError((error as Error).message);
+      if (request === authRequest.current && destination !== "/hr")
+        navigate("/hr", { replace: true });
+    } finally {
+      if (request === authRequest.current) setSwitching(false);
+    }
+  };
+  const requestedCompanyId =
+    user?.role === "hr"
+      ? new URLSearchParams(location.search).get("hrCompanyId")
+      : null;
+  useEffect(() => {
+    if (!ready || user?.role !== "hr" || requestedCompanyId === null) return;
+    const params = new URLSearchParams(location.search);
+    params.delete("hrCompanyId");
+    const target = `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`;
+    if (requestedCompanyId === user.companyId)
+      navigate(target, { replace: true });
+    else void switchCompany(requestedCompanyId, target);
+  }, [
+    ready,
+    user?._id,
+    user?.companyId,
+    location.pathname,
+    location.search,
+    location.hash,
+  ]);
   if (
     [
       "/auth/forgot-password",
@@ -129,24 +234,31 @@ function AppContent() {
   )
     return <AccountAccess key={location.pathname} />;
   if (!ready) return <Loading />;
-  if (!user) return <AuthPage key={location.pathname} onLogin={setUser} />;
+  if (!user) return <AuthPage key={location.pathname} onLogin={onLogin} />;
   return (
-    <AuthContext.Provider value={{ user, refresh, logout }}>
-      <Routes>
-        <Route
-          path="/room/:id"
-          element={
-            <Suspense fallback={<Loading />}>
-              {user.role === "company" ? (
-                <Navigate to="/interviews" replace />
-              ) : (
-                <Room />
-              )}
-            </Suspense>
-          }
-        />
-        <Route path="/*" element={<Shell />} />
-      </Routes>
+    <AuthContext.Provider
+      value={{ user, refresh, logout, switchCompany, companyError }}
+    >
+      {switching ||
+      (requestedCompanyId !== null && requestedCompanyId !== user.companyId) ? (
+        <Loading />
+      ) : (
+        <Routes key={`${user._id}:${user.companyId || "personal"}`}>
+          <Route
+            path="/room/:id"
+            element={
+              <Suspense fallback={<Loading />}>
+                {user.role === "company" ? (
+                  <Navigate to="/interviews" replace />
+                ) : (
+                  <Room />
+                )}
+              </Suspense>
+            }
+          />
+          <Route path="/*" element={<Shell />} />
+        </Routes>
+      )}
     </AuthContext.Provider>
   );
 }
@@ -190,7 +302,7 @@ const roleNavs = {
     ...sharedNavs.map((n) =>
       n.to === "/jobs" ? { ...n, label: "Assigned jobs" } : n,
     ),
-    { to: "/team", label: "Hiring team", icon: Users },
+    { to: "/team", label: "Companies & invitations", icon: Users },
   ],
   candidate: [
     { to: "/candidate", label: "My overview", icon: LayoutDashboard },
@@ -224,7 +336,7 @@ function RolePage({
   );
 }
 function Shell() {
-  const { user, logout } = useAuth();
+  const { user, logout, companyError } = useAuth();
   const navs = roleNavs[user.role];
   const [mobile, setMobile] = useState(false);
   const drawer = useNavigationDrawer(mobile, () => setMobile(false));
@@ -264,43 +376,43 @@ function Shell() {
           <PanelLeftClose size={20} />
         </button>
         <Brand />
-        <button
-          className="workspace-switch"
-          onClick={() =>
-            window.location.assign(
-              user.role === "candidate"
-                ? "/profile"
-                : user.role === "company"
-                  ? "/company/profile"
-                  : "/team",
-            )
-          }
-        >
-          <span className="workspace-logo">
-            {user.role === "candidate" ? (
-              <UserRound size={17} />
-            ) : (
-              <BriefcaseBusiness size={17} />
-            )}
-          </span>
-          <span>
-            <strong>
-              {user.role === "candidate"
-                ? "My workspace"
-                : user.role === "company"
-                  ? "Company workspace"
-                  : "Interviewer workspace"}
-            </strong>
-            <small>
-              {user.role === "company"
-                ? "Company administrator"
-                : user.role === "hr"
-                  ? "HR & interviewer"
+        {user.role === "hr" ? (
+          <HrCompanySwitcher />
+        ) : (
+          <button
+            className="workspace-switch"
+            onClick={() =>
+              window.location.assign(
+                user.role === "candidate"
+                  ? "/profile"
+                  : user.role === "company"
+                    ? "/company/profile"
+                    : "/team",
+              )
+            }
+          >
+            <span className="workspace-logo">
+              {user.role === "candidate" ? (
+                <UserRound size={17} />
+              ) : (
+                <BriefcaseBusiness size={17} />
+              )}
+            </span>
+            <span>
+              <strong>
+                {user.role === "candidate"
+                  ? "My workspace"
+                  : "Company workspace"}
+              </strong>
+              <small>
+                {user.role === "company"
+                  ? "Company administrator"
                   : "Candidate account"}
-            </small>
-          </span>
-          <ChevronDown size={14} />
-        </button>
+              </small>
+            </span>
+            <ChevronDown size={14} />
+          </button>
+        )}
         <div className="nav-caption">WORKSPACE</div>
         <nav>
           {navs.map((n) => (
@@ -469,7 +581,7 @@ function Shell() {
         </header>
         <main id="main-content" tabIndex={-1} className="page-content">
           <div className="page-transition" key={location.pathname}>
-            <ErrorBox message={logoutError} />
+            <ErrorBox message={companyError || logoutError} />
             <Routes>
               <Route
                 path="/"
@@ -613,7 +725,12 @@ function Shell() {
 export function Dashboard() {
   const { user } = useAuth();
   const applicationResource = useResource<Application[]>("/applications", []);
-  const apps = {...applicationResource, data: applicationResource.data.filter(a => user.role === "candidate" || a.assignedHrId === user._id)};
+  const apps = {
+    ...applicationResource,
+    data: applicationResource.data.filter(
+      (a) => user.role === "candidate" || a.assignedHrId === user._id,
+    ),
+  };
   const interviews = useResource<Interview[]>("/interviews", []);
   const jobs = useResource<Job[]>("/jobs", []);
   const candidate = user.role === "candidate";
@@ -723,22 +840,99 @@ export function Dashboard() {
       </div>
       {!candidate && <HrRequestsSummary />}
       {!candidate && <HrAvailabilityPanel />}
-      {candidate && <Panel title="Application progress" description="Your submitted resume, AI screening result and next interview step." action={<Link className="text-link" to="/applications">View all applications</Link>}>
-        <div className="panel-form">
-          {apps.loading ? <Loading /> : apps.data.length ? apps.data.slice(0, 5).map(a => {
-            const appointment = upcoming.find(i => i.applicationId === a._id);
-            return <div className="evidence" key={a._id}>
-              <h3>{a.jobTitle} · {a.companyName}</h3>
-              <p><Status value={a.status} /> · AI match: <strong>{a.match?.score == null ? (a.screening && ["queued", "processing"].includes(a.screening.state) ? "Awaiting screening" : "Not available") : `${a.match.score}%`}</strong></p>
-              {a.screening?.state === "completed" && <p>{a.status === "Shortlisted" ? "You have been shortlisted for the next stage." : a.screening.outcome === "not_shortlisted" && a.status === "Rejected" ? "Your resume does not currently meet the required matching threshold." : `Original AI result: ${a.screening.outcome === "shortlisted" ? "match threshold met" : a.screening.outcome === "not_shortlisted" ? "below the matching threshold" : "further review needed"}. Current stage: ${a.status}.`}</p>}
-              {!!a.match?.matching?.length && <p><strong>Matched skills:</strong> {a.match.matching.join(", ")}</p>}
-              {!!a.match?.missing?.length && <p><strong>Missing or partial evidence:</strong> {a.match.missing.join(", ")}</p>}
-              {a.assignedHrId ? <p><strong>Assigned HR:</strong> {a.assignedHrName || "Hiring team interviewer"}</p> : a.status === "Shortlisted" ? <p>Shortlisted — waiting for an available HR interviewer.</p> : null}
-              {appointment && <p>{dateLabel(appointment.scheduledAt)} · {appointment.mode === "in_person" ? `In person: ${appointment.venue}` : "Video interview"} · <Link className="text-link" to={`/room/${appointment._id}`}>View interview</Link></p>}
-            </div>;
-          }) : <Empty title="No applications yet" detail="Choose a job and review your application details to apply." />}
-        </div>
-      </Panel>}
+      {candidate && (
+        <Panel
+          title="Application progress"
+          description="Your submitted resume, AI screening result and next interview step."
+          action={
+            <Link className="text-link" to="/applications">
+              View all applications
+            </Link>
+          }
+        >
+          <div className="panel-form">
+            {apps.loading ? (
+              <Loading />
+            ) : apps.data.length ? (
+              apps.data.slice(0, 5).map((a) => {
+                const appointment = upcoming.find(
+                  (i) => i.applicationId === a._id,
+                );
+                return (
+                  <div className="evidence" key={a._id}>
+                    <h3>
+                      {a.jobTitle} · {a.companyName}
+                    </h3>
+                    <p>
+                      <Status value={a.status} /> · AI match:{" "}
+                      <strong>
+                        {a.match?.score == null
+                          ? a.screening &&
+                            ["queued", "processing"].includes(a.screening.state)
+                            ? "Awaiting screening"
+                            : "Not available"
+                          : `${a.match.score}%`}
+                      </strong>
+                    </p>
+                    {a.screening?.state === "completed" && (
+                      <p>
+                        {a.status === "Shortlisted"
+                          ? "You have been shortlisted for the next stage."
+                          : a.screening.outcome === "not_shortlisted" &&
+                              a.status === "Rejected"
+                            ? "Your resume does not currently meet the required matching threshold."
+                            : `Original AI result: ${a.screening.outcome === "shortlisted" ? "match threshold met" : a.screening.outcome === "not_shortlisted" ? "below the matching threshold" : "further review needed"}. Current stage: ${a.status}.`}
+                      </p>
+                    )}
+                    {!!a.match?.matching?.length && (
+                      <p>
+                        <strong>Matched skills:</strong>{" "}
+                        {a.match.matching.join(", ")}
+                      </p>
+                    )}
+                    {!!a.match?.missing?.length && (
+                      <p>
+                        <strong>Missing or partial evidence:</strong>{" "}
+                        {a.match.missing.join(", ")}
+                      </p>
+                    )}
+                    {a.assignedHrId ? (
+                      <p>
+                        <strong>Assigned HR:</strong>{" "}
+                        {a.assignedHrName || "Hiring team interviewer"}
+                      </p>
+                    ) : a.status === "Shortlisted" ? (
+                      <p>
+                        Shortlisted — waiting for an available HR interviewer.
+                      </p>
+                    ) : null}
+                    {appointment && (
+                      <p>
+                        {dateLabel(appointment.scheduledAt)} ·{" "}
+                        {appointment.mode === "in_person"
+                          ? `In person: ${appointment.venue}`
+                          : "Video interview"}{" "}
+                        ·{" "}
+                        <Link
+                          className="text-link"
+                          to={`/room/${appointment._id}`}
+                        >
+                          View interview
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <Empty
+                title="No applications yet"
+                detail="Choose a job and review your application details to apply."
+              />
+            )}
+          </div>
+        </Panel>
+      )}
       <div className="dashboard-columns">
         <div className="dashboard-primary">
           <section className="feature-banner">
@@ -869,7 +1063,10 @@ export function Dashboard() {
                     </div>
                     <Status value={i.status} />
                     <Link to={`/room/${i._id}`} className="btn subtle">
-                      {i.mode === "in_person" ? "Appointment details" : "Open room"} <ArrowUpRight size={15} />
+                      {i.mode === "in_person"
+                        ? "Appointment details"
+                        : "Open room"}{" "}
+                      <ArrowUpRight size={15} />
                     </Link>
                   </div>
                 ))}
@@ -1054,48 +1251,57 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {apps.data.filter(a => a.assignedHrId === user._id).slice(0, 5).map((a) => (
-                  <tr key={a._id}>
-                    <td>
-                      <div className="person-cell">
-                        <Avatar name={a.candidateName} />
-                        <strong>{a.candidateName}</strong>
-                      </div>
-                    </td>
-                    <td>{a.jobTitle}</td>
-                    <td>
-                      {a.match?.score == null ? (
-                        "Not available"
-                      ) : (
-                        <span className="match-score">
-                          {a.match.score}%{" "}
-                          <span className="score-mini">
-                            <i style={{ width: `${a.match.score}%` }} />
+                {apps.data
+                  .filter((a) => a.assignedHrId === user._id)
+                  .slice(0, 5)
+                  .map((a) => (
+                    <tr key={a._id}>
+                      <td>
+                        <div className="person-cell">
+                          <Avatar name={a.candidateName} />
+                          <strong>{a.candidateName}</strong>
+                        </div>
+                      </td>
+                      <td>{a.jobTitle}</td>
+                      <td>
+                        {a.match?.score == null ? (
+                          "Not available"
+                        ) : (
+                          <span className="match-score">
+                            {a.match.score}%{" "}
+                            <span className="score-mini">
+                              <i style={{ width: `${a.match.score}%` }} />
+                            </span>
                           </span>
-                        </span>
-                      )}
-                      <small>Matched: {a.match?.matching?.join(", ") || "None recorded"}</small>
-                      <small>Missing / partial: {a.match?.missing?.join(", ") || "None recorded"}</small>
-                    </td>
-                    <td>
-                      <Status value={a.status} />
-                    </td>
-                    <td className="muted">
-                      {dateLabel(a.createdAt, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
-                    <td>
-                      <Link
-                        to="/applications"
-                        aria-label={`Review ${a.candidateName}`}
-                      >
-                        <ArrowUpRight size={17} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                        )}
+                        <small>
+                          Matched:{" "}
+                          {a.match?.matching?.join(", ") || "None recorded"}
+                        </small>
+                        <small>
+                          Missing / partial:{" "}
+                          {a.match?.missing?.join(", ") || "None recorded"}
+                        </small>
+                      </td>
+                      <td>
+                        <Status value={a.status} />
+                      </td>
+                      <td className="muted">
+                        {dateLabel(a.createdAt, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                      <td>
+                        <Link
+                          to="/applications"
+                          aria-label={`Review ${a.candidateName}`}
+                        >
+                          <ArrowUpRight size={17} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
             {!apps.loading && !apps.data.length && (

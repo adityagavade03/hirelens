@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { api, send, useResource, dateLabel } from "./api";
 import { ErrorBox, Notice, Panel } from "./ui";
@@ -145,7 +146,7 @@ export function MediaReview({
               controls
               playsInline
               preload="metadata"
-              src={`/api/media/${clip._id}/play`}
+              src={scopedApiUrl(`/api/media/${clip._id}/play`)}
               onError={() =>
                 setPlaybackError(
                   "This recording segment could not be played. Check your connection and refresh recordings, or try a browser that supports this recording format.",

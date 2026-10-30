@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -69,7 +70,11 @@ export function CompanyDashboard() {
     ["Scheduled", d.interviews.scheduled || 0, "/interviews"],
     ["Completed", d.interviews.completed || 0, "/interviews"],
     ["Selected", d.applications.Selected || 0, "/applications?status=Selected"],
-    ["Not shortlisted / rejected", d.applications.Rejected || 0, "/applications?status=Rejected"],
+    [
+      "Not shortlisted / rejected",
+      d.applications.Rejected || 0,
+      "/applications?status=Rejected",
+    ],
   ] as const;
   return (
     <div className="company-dashboard">
@@ -87,7 +92,10 @@ export function CompanyDashboard() {
       <section className="company-banner">
         <div className="company-banner-brand">
           {d.company.hasLogo ? (
-            <img src="/api/company/logo" alt={`${d.company.name} logo`} />
+            <img
+              src={scopedApiUrl("/api/company/logo")}
+              alt={`${d.company.name} logo`}
+            />
           ) : (
             <span>
               <Building2 size={29} />
@@ -217,9 +225,20 @@ export function CompanyDashboard() {
         </Panel>
       </div>
       <CompanyWorkloadPanel />
-      <Panel title="Monitoring review" description="Observed events require context and human review; they never decide selection automatically.">
-        <div className="panel-form"><p>{d.proctoringReviews?.pending || 0} awaiting review · {d.proctoringReviews?.reviewed || 0} reviewed · {d.proctoringReviews?.explained || 0} explained · {d.proctoringReviews?.follow_up || 0} need follow-up</p>
-          <Link className="text-link" to="/reports">Open interview reports and event timelines</Link>
+      <Panel
+        title="Monitoring review"
+        description="Observed events require context and human review; they never decide selection automatically."
+      >
+        <div className="panel-form">
+          <p>
+            {d.proctoringReviews?.pending || 0} awaiting review ·{" "}
+            {d.proctoringReviews?.reviewed || 0} reviewed ·{" "}
+            {d.proctoringReviews?.explained || 0} explained ·{" "}
+            {d.proctoringReviews?.follow_up || 0} need follow-up
+          </p>
+          <Link className="text-link" to="/reports">
+            Open interview reports and event timelines
+          </Link>
         </div>
       </Panel>
       <div className="company-main-grid">
@@ -351,8 +370,8 @@ export function CompanyProfilePage() {
       {company.localDevelopment && !verified && (
         <Notice>
           This company is unverified. Job publishing and recruitment require an
-          administrator-authorized test workspace. Complete official verification
-          before production use.
+          administrator-authorized test workspace. Complete official
+          verification before production use.
         </Notice>
       )}
       {options.data && !options.data.companyVerification && (
@@ -365,7 +384,7 @@ export function CompanyProfilePage() {
         <Panel className="company-profile-summary">
           {company.hasLogo ? (
             <img
-              src={`/api/company/logo?v=${logoVersion}`}
+              src={scopedApiUrl(`/api/company/logo?v=${logoVersion}`)}
               alt="Company logo"
             />
           ) : (

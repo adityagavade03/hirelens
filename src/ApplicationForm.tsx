@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { useState, type FormEvent } from "react";
 import type { Application, Job, User } from "../shared/types";
 import { applicationInputSchema, resumeMaxBytes } from "../shared/application";
@@ -305,7 +306,7 @@ export function ApplicationForm({
           ) : (
             <p>
               <a
-                href={`/api/resumes/${profile.resumeId}`}
+                href={scopedApiUrl(`/api/resumes/${profile.resumeId}`)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-link"

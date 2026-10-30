@@ -19,6 +19,10 @@ import { resolveProblem } from "./coding.js";
 import { roomChanged, humanRoom } from "./room-events.js";
 import { withResources } from "./locks.js";
 import { withUploadStorage } from "./storage-budget.js";
+import {
+  candidateCameraInput,
+  consentedCameraSnapshot,
+} from "../shared/camera-status.js";
 
 async function room(req: Request) {
   const i = await accessibleInterview(req.user, objectId.parse(req.params.id));
@@ -44,6 +48,50 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 export function registerInterviewRoom(app: Express) {
+  app.post(
+    "/api/interviews/:id/room/camera-status",
+    permit("candidate"),
+    async (req, res) => {
+      const input = candidateCameraInput.parse(req.body);
+      const id = objectId.parse(req.params.id);
+      await withResources([`room:${id}`], async () => {
+        const i = await room(req);
+        if (i.status !== "live" || !i.admittedAt || !i.consentAt)
+          throw new ApiError(
+            409,
+            "Candidate monitoring starts after admission and consent.",
+          );
+        const faceConsent = i.faceConsentWindows.some((w: any) => !w.revokedAt);
+        const objectConsent = i.objectConsentWindows.some(
+          (w: any) => !w.revokedAt,
+        );
+        const snapshot = consentedCameraSnapshot(
+          { ...input, at: new Date().toISOString() },
+          faceConsent,
+          objectConsent,
+          true,
+        )!;
+        if (!snapshot.camera) {
+          snapshot.face = {
+            state: faceConsent && input.face.state !== "off" ? "paused" : "off",
+            count: null,
+          };
+          snapshot.objects = {
+            state:
+              objectConsent && input.objects.state !== "off" ? "paused" : "off",
+            items: [],
+          };
+        }
+        if (snapshot.face.state !== "ready") snapshot.face.count = null;
+        if (snapshot.objects.state !== "ready") snapshot.objects.items = [];
+        i.candidateCameraStatus = snapshot;
+        await i.save();
+        // Existing authorized room refreshes read this heartbeat. Do not fan out
+        // every frame/status update into full workspace reloads for both peers.
+        res.json({ ok: true });
+      });
+    },
+  );
   // Independent optional consent for object observations, including AI-led
   // hiring interviews. Practice observations stay local and are not persisted.
   app.post(
@@ -70,6 +118,12 @@ export function registerInterviewRoom(app: Express) {
             );
           i.objectConsentWindows.push({ grantedAt: new Date() });
         } else if (!accepted && current) current.revokedAt = new Date();
+        if (i.candidateCameraStatus)
+          i.candidateCameraStatus = {
+            ...i.candidateCameraStatus,
+            objects: { state: "off", items: [] },
+            frameAspect: null,
+          };
         await i.save();
         roomChanged(i.id, "object-consent");
         res.json({ accepted, objectConsent: accepted });
@@ -94,6 +148,11 @@ export function registerInterviewRoom(app: Express) {
             );
           i.faceConsentWindows.push({ grantedAt: new Date() });
         } else if (!accepted && current) current.revokedAt = new Date();
+        if (i.candidateCameraStatus)
+          i.candidateCameraStatus = {
+            ...i.candidateCameraStatus,
+            face: { state: "off", count: null },
+          };
         await i.save();
         roomChanged(i.id, "face-consent");
         res.json({ accepted });
@@ -112,6 +171,12 @@ export function registerInterviewRoom(app: Express) {
     res.json({
       interviewerName: interviewer?.name || "Assigned interviewer",
       candidateName: i.candidateName,
+      candidateCameraStatus: consentedCameraSnapshot(
+        i.candidateCameraStatus,
+        i.faceConsentWindows.some((w: any) => !w.revokedAt),
+        i.objectConsentWindows.some((w: any) => !w.revokedAt),
+        i.status === "live" && !!i.admittedAt,
+      ),
       waitingAt: i.waitingAt,
       admittedAt: i.admittedAt,
       resumeId: resume?.id,

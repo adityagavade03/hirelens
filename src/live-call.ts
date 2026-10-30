@@ -1,3 +1,4 @@
+import { getActiveHrCompanyId } from "./hr-company-context";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "./api";
@@ -313,6 +314,7 @@ export function useLiveCall({
     let queued: Signal[] = [];
     const channel = io({
       withCredentials: true,
+      auth: { companyId: getActiveHrCompanyId() },
       autoConnect: false,
       timeout: 10000,
     });

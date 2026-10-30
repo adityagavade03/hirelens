@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { getActiveHrCompanyId } from "./hr-company-context";
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -13,16 +14,17 @@ export async function api<T>(
   options: RequestInit = {},
 ): Promise<T> {
   let response: Response;
+  const companyId = getActiveHrCompanyId();
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData))
+    headers.set("Content-Type", "application/json");
+  if (companyId && (!path.startsWith("/auth/") || path === "/auth/me"))
+    headers.set("X-HireLens-Company", companyId);
   try {
     response = await fetch(`/api${path}`, {
       credentials: "include",
       ...options,
-      headers: {
-        ...(!(options.body instanceof FormData)
-          ? { "Content-Type": "application/json" }
-          : {}),
-        ...options.headers,
-      },
+      headers,
     });
   } catch {
     throw new ApiError(
@@ -41,6 +43,14 @@ export async function api<T>(
   }
   if (response.status === 401 && !path.startsWith("/auth/"))
     window.dispatchEvent(new Event("hirelens:session-expired"));
+  if (
+    response.status === 403 &&
+    data?.error?.code === "HR_COMPANY_ACCESS_DENIED" &&
+    companyId === getActiveHrCompanyId() &&
+    path !== "/auth/me" &&
+    path !== "/hr/companies/active"
+  )
+    window.dispatchEvent(new Event("hirelens:company-access-lost"));
   if (!response.ok)
     throw new ApiError(
       typeof data?.error?.message === "string"

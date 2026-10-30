@@ -103,6 +103,10 @@ export const objectDetectionSettings = {
   frameIntervalMs: 500,
   freshFrameMs: 2000,
 } as const;
+/** CPU inference on the detail model can exceed two seconds. Keep results
+ * bounded, while allowing its actual sampling cadence to form observations. */
+export const objectResultFreshnessMs = (profile: ObjectDetectionProfile) =>
+  profile === "detail" ? 6000 : objectDetectionSettings.freshFrameMs;
 export const reviewObjectLabels = ["cell phone", "book"] as const;
 export type ReviewObjectLabel = (typeof reviewObjectLabels)[number];
 
@@ -223,7 +227,12 @@ export class SustainedObjectObservations {
   reset() {
     this.observations.clear();
   }
-  observe(objects: CameraObject[], capturedAt: number, thresholdMs = 3000) {
+  observe(
+    objects: CameraObject[],
+    capturedAt: number,
+    thresholdMs = 3000,
+    frameGapMs = objectDetectionSettings.freshFrameMs as number,
+  ) {
     if (!Number.isFinite(capturedAt)) {
       this.reset();
       return [];
@@ -245,7 +254,11 @@ export class SustainedObjectObservations {
       if (
         !prior ||
         capturedAt < prior.last ||
-        capturedAt - prior.last > objectDetectionSettings.freshFrameMs
+        capturedAt - prior.last >
+          Math.min(
+            6000,
+            Math.max(objectDetectionSettings.freshFrameMs, frameGapMs),
+          )
       ) {
         prior = { since: capturedAt, last: capturedAt, notified: false };
         this.observations.set(label, prior);

@@ -12,7 +12,13 @@ import {
   NotificationModel,
   MonitoringModel,
 } from "./models.js";
-import { ApiError, permit, objectId, accessibleJob } from "./security.js";
+import {
+  ApiError,
+  permit,
+  objectId,
+  accessibleJob,
+  hrMemberFilter,
+} from "./security.js";
 import {
   companyDetailsSchema,
   companyRecord,
@@ -22,6 +28,7 @@ import { config, localCompanyRegistrationEnabled } from "./config.js";
 import { previewAllowsCompany } from "./private-preview.js";
 import { withUploadStorage } from "./storage-budget.js";
 import { cloudTestAllowsCompany } from "./cloud-test-companies.js";
+import { retryHrCompanyAssignments } from "./recruitment.js";
 
 export async function assertPublishable(companyId: string) {
   const company = await CompanyModel.findById(companyId);
@@ -51,9 +58,12 @@ export function registerCompanyRoutes(app: Express) {
       ? await CompanyModel.findById(req.user.companyId)
       : null;
     const members = company
-      ? await UserModel.find({ companyId: company._id.toString() }).select(
-          "name email role profile",
-        )
+      ? await UserModel.find({
+          $or: [
+            { role: "company", companyId: company._id.toString() },
+            hrMemberFilter(company._id.toString()),
+          ],
+        }).select("name email role profile")
       : [];
     res.json({ company, members });
   });
@@ -205,7 +215,7 @@ export function registerCompanyRoutes(app: Express) {
         { $match: scope },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
-      UserModel.countDocuments({ ...scope, role: "hr" }),
+      UserModel.countDocuments(hrMemberFilter(req.user.companyId || "__none")),
       ApplicationModel.find(scope).sort({ createdAt: -1 }).limit(6),
       JobModel.find(scope).sort({ createdAt: -1 }).limit(5),
     ]);
@@ -213,8 +223,15 @@ export function registerCompanyRoutes(app: Express) {
       Object.fromEntries(rows.map((r) => [r._id, r.count]));
     const monitoredInterviews = await InterviewModel.find(scope).select("_id");
     const eventCounts = await MonitoringModel.aggregate([
-      {$match: {interviewId: {$in: monitoredInterviews.map(i => i.id)}}},
-      {$group: {_id: {$ifNull: ["$review.status", "pending"]}, count: {$sum: 1}}},
+      {
+        $match: { interviewId: { $in: monitoredInterviews.map((i) => i.id) } },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ["$review.status", "pending"] },
+          count: { $sum: 1 },
+        },
+      },
     ]);
     res.json({
       company,
@@ -230,7 +247,7 @@ export function registerCompanyRoutes(app: Express) {
   app.get("/api/company/interviewers", permit("company"), async (req, res) => {
     const companyId = req.user.companyId;
     const [members, jobs, interviews] = await Promise.all([
-      UserModel.find({ companyId, role: "hr" }).select(
+      UserModel.find(hrMemberFilter(companyId || "__none")).select(
         "name email profile role",
       ),
       JobModel.aggregate([
@@ -288,6 +305,7 @@ export function registerCompanyRoutes(app: Express) {
         },
       },
     );
+    await retryHrCompanyAssignments(req.user);
     res.json({ ok: true });
   });
 }

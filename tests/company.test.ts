@@ -553,7 +553,7 @@ describe("Company recruitment and HR assignment", () => {
     expect(
       await NotificationModel.exists({
         userId: hrUser._id,
-        href: "/assignments",
+        href: `/assignments?hrCompanyId=${ownerUser.companyId}`,
       }),
     ).not.toBeNull();
     expect((await hr.get("/api/hr/assignments")).body[0]._id).toBe(job._id);
@@ -778,7 +778,7 @@ describe("Company recruitment and HR assignment", () => {
     expect(
       await NotificationModel.exists({
         userId: secondId,
-        href: `/applications?jobId=${job._id}&applicationId=${another.id}`,
+        href: `/applications?jobId=${job._id}&applicationId=${another.id}&hrCompanyId=${ownerUser.companyId}`,
       }),
     ).not.toBeNull();
   });

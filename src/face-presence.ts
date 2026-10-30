@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { SustainedObservation } from "../shared/monitoring";
 import type { ServiceStatus } from "../shared/types";
+export type CameraCheckState =
+  "off" | "loading" | "ready" | "paused" | "error" | "not-configured";
 
 export function useFacePresence({
   enabled,
@@ -17,18 +19,24 @@ export function useFacePresence({
 }) {
   const [status, setStatus] = useState("Face presence check is off");
   const [ready, setReady] = useState(false);
+  const [state, setState] = useState<CameraCheckState>("off");
+  const [count, setCount] = useState<number | null>(null);
+  const [model, setModel] = useState("BlazeFace");
   const [attempt, setAttempt] = useState(0);
   const latest = useRef({ active, record });
   latest.current = { active, record };
   useEffect(() => {
     setReady(false);
+    setCount(null);
     if (!enabled || !video) {
+      setState(enabled ? "paused" : "off");
       setStatus(
         enabled ? "Waiting for camera preview" : "Face presence check is off",
       );
       return;
     }
     if (!services?.face) {
+      setState("not-configured");
       setStatus("Face model is not configured; browser monitoring still works");
       return;
     }
@@ -36,6 +44,7 @@ export function useFacePresence({
       typeof Worker === "undefined" ||
       typeof createImageBitmap === "undefined"
     ) {
+      setState("error");
       setStatus(
         "Face check is unavailable in this browser; browser monitoring still works",
       );
@@ -45,12 +54,11 @@ export function useFacePresence({
       loaded = false,
       busy = false,
       failed = false;
-    let calibrated = false,
-      singleFrames = 0,
-      lastFrame = -1,
+    let lastFrame = -1,
       frameStarted = 0,
       lastFreshFrameAt = Date.now(),
       frameStalled = false;
+    let requestId = 0;
     let frameTrack: MediaStreamTrack | undefined;
     let frameActive = false;
     let cameraReady: boolean | undefined;
@@ -62,6 +70,8 @@ export function useFacePresence({
       if (disposed || failed) return;
       failed = true;
       setReady(false);
+      setCount(null);
+      setState("error");
       setStatus(
         "Face check unavailable · retry or leave it off; the interview can continue",
       );
@@ -88,12 +98,25 @@ export function useFacePresence({
           console.warn("Optional face check:", data.message);
           return failure();
         }
+        if (data.kind === "loading") {
+          setState("loading");
+          setStatus(
+            "Loading Face Landmarker fallback · camera images stay on this device",
+          );
+          return;
+        }
         if (data.kind === "ready") {
           loaded = true;
+          setModel(
+            data.model === "Face Landmarker fallback"
+              ? data.model
+              : "BlazeFace",
+          );
           setStatus("Face model loaded · waiting for working camera frames");
           return;
         }
         if (data.kind !== "count") return;
+        if (data.requestId !== requestId) return;
         busy = false;
         // A result from a hidden page, stopped camera or pre-interview frame is not evidence.
         const track = (
@@ -104,24 +127,23 @@ export function useFacePresence({
           !track?.enabled ||
           track.muted ||
           track.readyState !== "live" ||
-          track !== frameTrack
+          track !== frameTrack ||
+          video.paused ||
+          Date.now() - frameStarted > 5000
         ) {
+          setReady(false);
+          setCount(null);
+          setState("paused");
           observation.observe("unavailable", Date.now(), 0);
           return;
         }
-        if (!calibrated) {
-          singleFrames = data.count === 1 ? singleFrames + 1 : 0;
-          if (singleFrames < 3) {
-            setStatus(
-              data.count === 1
-                ? "Checking camera frames…"
-                : "Camera check: place one face in view with good lighting",
-            );
-            return;
-          }
-          calibrated = true;
-        }
+        // Zero/multiple faces are valid model results too. Requiring a prior
+        // one-face calibration silently disabled these checks indefinitely.
+        if (!Number.isInteger(data.count) || data.count < 0 || data.count > 100)
+          return failure();
         setReady(true);
+        setCount(data.count);
+        setState("ready");
         setStatus(
           latest.current.active
             ? data.count === 0
@@ -129,7 +151,7 @@ export function useFacePresence({
               : data.count > 1
                 ? "Face presence active · multiple faces estimated in the current frame"
                 : "Face presence active · local processing"
-            : "Camera check passed · observations start after admission",
+            : `Camera preview · ${data.count} face${data.count === 1 ? "" : "s"} estimated; observations start after admission`,
         );
         if (!latest.current.active || !wasActive || !frameActive) {
           observation.observe("unavailable", Date.now(), 0);
@@ -152,10 +174,14 @@ export function useFacePresence({
           );
       };
       setStatus("Loading local face model…");
+      setState("loading");
       worker.postMessage({
         kind: "init",
         model: new URL(services.faceModelUrl, location.href).href,
         wasm: new URL(services.mediapipeWasmUrl, location.href).href,
+        fallbackModel: services.faceLandmarkModelUrl
+          ? new URL(services.faceLandmarkModelUrl, location.href).href
+          : undefined,
       });
     } catch {
       failure();
@@ -164,7 +190,7 @@ export function useFacePresence({
     const timer = setInterval(async () => {
       if (disposed || failed) return;
       if (
-        (!loaded && Date.now() - started > 30000) ||
+        (!loaded && Date.now() - started > 60000) ||
         (busy && Date.now() - frameStarted > 10000)
       )
         return failure();
@@ -181,8 +207,13 @@ export function useFacePresence({
         !track.muted &&
         track.readyState === "live" &&
         video.readyState >= 2 &&
-        !video.paused;
+        !video.paused &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0;
       if (!available) {
+        setReady(false);
+        setCount(null);
+        setState("paused");
         observation.observe("unavailable", Date.now(), 0);
         lastFreshFrameAt = Date.now();
         if (cameraReady !== false) {
@@ -206,6 +237,8 @@ export function useFacePresence({
         if (!frameStalled && Date.now() - lastFreshFrameAt >= 3000) {
           frameStalled = true;
           setReady(false);
+          setCount(null);
+          setState("paused");
           setStatus("Face check paused · waiting for fresh camera frames");
           if (latest.current.active)
             latest.current.record(
@@ -223,12 +256,16 @@ export function useFacePresence({
       frameStarted = Date.now();
       frameTrack = track;
       frameActive = latest.current.active;
+      requestId++;
       try {
         const frame = await createImageBitmap(video, {
-          resizeWidth: 320,
+          resizeWidth: Math.min(640, video.videoWidth),
           resizeHeight: Math.max(
             1,
-            Math.round((320 * video.videoHeight) / video.videoWidth),
+            Math.round(
+              (Math.min(640, video.videoWidth) * video.videoHeight) /
+                video.videoWidth,
+            ),
           ),
         });
         if (disposed || failed) {
@@ -237,7 +274,7 @@ export function useFacePresence({
         }
         try {
           worker.postMessage(
-            { kind: "frame", frame, timestamp: performance.now() },
+            { kind: "frame", frame, timestamp: performance.now(), requestId },
             [frame],
           );
         } catch (error) {
@@ -258,9 +295,17 @@ export function useFacePresence({
     video,
     services?.face,
     services?.faceModelUrl,
+    services?.faceLandmarkModelUrl,
     services?.mediapipeWasmUrl,
     services?.faceThresholdSeconds,
     attempt,
   ]);
-  return { status, ready, retry: () => setAttempt((n) => n + 1) };
+  return {
+    status,
+    state,
+    ready,
+    count,
+    model,
+    retry: () => setAttempt((n) => n + 1),
+  };
 }

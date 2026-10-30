@@ -17,9 +17,6 @@ import {
   PhoneOff,
   Settings,
   Maximize2,
-  FileText,
-  Code2,
-  MessageSquare,
 } from "lucide-react";
 import type {
   Interview,
@@ -30,6 +27,7 @@ import type {
   MonitoringEvent,
 } from "../shared/types";
 import type { RoomState } from "../shared/room";
+import { freshCameraSnapshot } from "../shared/camera-status";
 import { codingLanguages, codingLanguageKeys } from "../shared/languages";
 import { useAuth } from "./auth-context";
 import { api, send, useResource } from "./api";
@@ -55,6 +53,10 @@ import { RoomConversation } from "./RoomConversation";
 import { RoomDiagnostics } from "./RoomDiagnostics";
 import { CalibratedGaze } from "./CalibratedGaze";
 import { EventReviewControls } from "./MonitoringReview";
+import {
+  CandidateCameraReview,
+  useCandidateCameraStatus,
+} from "./CandidateCameraStatus";
 import "./meeting.css";
 const Editor = lazy(() => import("./CodingEditor"));
 const ResumeViewer = lazy(() => import("./RoomResume"));
@@ -102,6 +104,7 @@ export default function HumanRoom({ id }: { id: string }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
     [settings, setSettings] = useState(false),
+    [monitoringSettings, setMonitoringSettings] = useState(false),
     [leave, setLeave] = useState(false);
   const [devicesList, setDevicesList] = useState<MediaDeviceInfo[]>([]),
     [cameraId, setCameraId] = useState(""),
@@ -122,6 +125,7 @@ export default function HumanRoom({ id }: { id: string }) {
   const [spokenRecording, setSpokenRecording] = useState(false);
   const [faceEnabled, setFaceEnabled] = useState(false);
   const [faceVideo, setFaceVideo] = useState<HTMLVideoElement | null>(null);
+  const [remoteVideo, setRemoteVideo] = useState<HTMLVideoElement | null>(null);
   const [faceConsentError, setFaceConsentError] = useState("");
   const [languages, setLanguages] = useState<string[]>([]),
     [languageError, setLanguageError] = useState("");
@@ -157,6 +161,18 @@ export default function HumanRoom({ id }: { id: string }) {
     video: faceVideo,
     services: services.data,
     record: monitoring.record,
+  });
+  const cameraStatusError = useCandidateCameraStatus({
+    id,
+    enabled: candidate,
+    active: !!active && consent,
+    camera: devices.camera,
+    face: { state: face.state, count: face.count },
+    objects: {
+      state: objects.state,
+      detections: objects.detections,
+      frameAspect: objects.frameAspect,
+    },
   });
   const call = useLiveCall({
     id,
@@ -515,29 +531,44 @@ export default function HumanRoom({ id }: { id: string }) {
         </button>
       )}
       <MicrophoneLevel stream={devices.stream} muted={!devices.mic} />
+    </div>
+  );
+  const monitoringControls = candidate && (
+    <section
+      className="meeting-candidate-monitoring"
+      aria-label="Your camera monitoring settings"
+    >
+      <h2>Your camera checks</h2>
+      <p>
+        These checks apply to your camera only. After admission, enabled
+        observations are visible to your assigned interviewer.
+      </p>
       {faceControls}
-      {candidate && (
-        <ObjectDetectionControls
-          profile={objects.profile}
-          onProfileChange={objects.setProfile}
-          accuracyAvailable={objects.accuracyAvailable}
-          consent={objectConsent}
-          configured={!!services.data?.objects}
-          savedConsent={room?.objectConsent}
-          status={objects.status}
-          ready={objects.ready}
-          detections={objects.detections}
-          retry={objects.retry}
-        />
-      )}
-      {candidate && (
+      <ObjectDetectionControls
+        profile={objects.profile}
+        onProfileChange={objects.setProfile}
+        accuracyAvailable={objects.accuracyAvailable}
+        consent={objectConsent}
+        configured={!!services.data?.objects}
+        savedConsent={room?.objectConsent}
+        status={objects.status}
+        ready={objects.ready}
+        detections={objects.detections}
+        retry={objects.retry}
+      />
+      <details className="meeting-optional-check">
+        <summary>Experimental gaze check · optional</summary>
+        <p>
+          Calibration is required. This check is experimental and does not
+          determine attention or misconduct.
+        </p>
         <CalibratedGaze
           video={faceVideo}
           services={services.data}
           active={!!active}
         />
-      )}
-    </div>
+      </details>
+    </section>
   );
   if (interview.loading || state.loading) return <Loading />;
   if (!i || !room)
@@ -569,9 +600,15 @@ export default function HumanRoom({ id }: { id: string }) {
           <Link to="/interviews">← Interviews</Link>
           <ThemeToggle />
         </div>
-        <p className="eyebrow">HIRELENS · INTERVIEW ROOM</p>
+        <p className="eyebrow">
+          HIRELENS · {candidate ? "CANDIDATE SETUP" : "INTERVIEWER SETUP"}
+        </p>
         <h1>
-          {waiting ? "You’re in the waiting room" : "Let’s get you ready"}
+          {waiting
+            ? "You’re in the waiting room"
+            : candidate
+              ? "Prepare for your interview"
+              : "Prepare to interview your candidate"}
         </h1>
         <p>
           {i.jobTitle} · {i.companyName} · {i.duration} minutes
@@ -587,7 +624,7 @@ export default function HumanRoom({ id }: { id: string }) {
                 stream={devices.stream}
                 label="Your camera preview"
                 muted
-                onVideo={setFaceVideo}
+                onVideo={candidate ? setFaceVideo : undefined}
               />
               {candidate && objectConsent.enabled && devices.camera && (
                 <ObjectDetectionOverlay
@@ -602,17 +639,22 @@ export default function HumanRoom({ id }: { id: string }) {
               <span className="meeting-video-label">{user.name} · You</span>
             </div>
             {deviceControls}
-            <RoomDiagnostics
-              id={id}
-              services={services.data}
-              stats={call.stats}
-              connection={call.connection}
-            />
+            {monitoringControls}
+            <details className="meeting-optional-check">
+              <summary>Connection help</summary>
+              <RoomDiagnostics
+                id={id}
+                services={services.data}
+                stats={call.stats}
+                connection={call.connection}
+              />
+            </details>
           </section>
           <section className="meeting-setup-card">
             <ErrorBox message={error || state.error || interview.error} />
             {candidate ? (
               <>
+                {!waiting && <RoleGuide candidate />}
                 {waiting ? (
                   <div className="meeting-wait" role="status">
                     <h2>Waiting for the interviewer to admit you.</h2>
@@ -695,6 +737,19 @@ export default function HumanRoom({ id }: { id: string }) {
                   Open the room, then admit {i.candidateName} when they finish
                   setup. Only you and the assigned candidate can enter.
                 </p>
+                <RoleGuide candidate={false} />
+                <p className="meeting-role-note">
+                  Your camera and microphone are for the call. Camera detection
+                  and browser monitoring apply to the candidate only.
+                </p>
+                {i.applicationId && (
+                  <Link
+                    className="btn secondary"
+                    to={`/applications?applicationId=${i.applicationId}`}
+                  >
+                    Review assigned application
+                  </Link>
+                )}
                 <RoomPolicy
                   id={id}
                   room={room}
@@ -787,13 +842,22 @@ export default function HumanRoom({ id }: { id: string }) {
     </div>
   );
   return (
-    <main className={`meeting-shell ${expanded ? "meeting-expanded" : ""}`}>
+    <main
+      className={`meeting-shell ${candidate ? "meeting-candidate" : "meeting-interviewer"} ${expanded ? "meeting-expanded" : ""}`}
+    >
       <header className="meeting-header">
         <div>
-          <span className="eyebrow">HIRELENS · LIVE INTERVIEW</span>
+          <span className="eyebrow">
+            HIRELENS ·{" "}
+            {candidate ? "CANDIDATE WORKSPACE" : "INTERVIEWER WORKSPACE"}
+          </span>
           <h1>{i.jobTitle}</h1>
           <p>
-            {i.companyName} · {clock} elapsed
+            {i.companyName} ·{" "}
+            {candidate
+              ? `Interview with ${room.interviewerName}`
+              : `Candidate: ${i.candidateName}`}{" "}
+            · {clock} elapsed
           </p>
         </div>
         <div className="meeting-status">
@@ -830,6 +894,7 @@ export default function HumanRoom({ id }: { id: string }) {
         <ErrorBox
           message={error || call.issue || state.error || interview.error}
         />
+        {candidate && <ErrorBox message={cameraStatusError} />}
         {candidate && monitoring.warning && (
           <div className="meeting-warning" role="alert">
             {monitoring.warning}
@@ -932,7 +997,21 @@ export default function HumanRoom({ id }: { id: string }) {
               <MediaVideo
                 stream={call.remote}
                 label={candidate ? room.interviewerName : i.candidateName}
+                onVideo={!candidate ? setRemoteVideo : undefined}
               />
+              {!candidate &&
+                call.remote &&
+                call.remoteMedia?.camera &&
+                room.objectConsent &&
+                room.candidateCameraStatus?.camera &&
+                room.candidateCameraStatus.objects.state === "ready" &&
+                freshCameraSnapshot(room.candidateCameraStatus, now) && (
+                  <ObjectDetectionOverlay
+                    video={remoteVideo}
+                    detections={room.candidateCameraStatus.objects.items}
+                    frameAspect={room.candidateCameraStatus.frameAspect}
+                  />
+                )}
               {!call.remoteMedia?.camera && (
                 <div className="meeting-video-empty">
                   {candidate ? room.interviewerName : i.candidateName}
@@ -952,7 +1031,7 @@ export default function HumanRoom({ id }: { id: string }) {
                 stream={devices.stream}
                 label={`${user.name}, your video`}
                 muted
-                onVideo={setFaceVideo}
+                onVideo={candidate ? setFaceVideo : undefined}
               />
               {candidate && objectConsent.enabled && devices.camera && (
                 <ObjectDetectionOverlay
@@ -970,36 +1049,49 @@ export default function HumanRoom({ id }: { id: string }) {
               </span>
             </div>
           </div>
+          {!candidate && (
+            <CandidateCameraReview
+              snapshot={room.candidateCameraStatus}
+              faceConsent={room.faceConsent}
+              objectConsent={room.objectConsent}
+            />
+          )}
           {candidate && objectConsent.enabled && objects.ready && (
             <ObjectDetectionLabels detections={objects.detections} />
           )}
-          <div className="meeting-screen">
-            <div className="meeting-section-title">
-              <h2>Candidate’s shared screen</h2>
-              <button
-                className="btn secondary"
-                onClick={() => {
-                  setTab("screen");
-                  setExpanded(true);
-                }}
-              >
-                Expand screen
-              </button>
+          {(!candidate || screen) && (
+            <div className="meeting-screen">
+              <div className="meeting-section-title">
+                <h2>
+                  {candidate
+                    ? "Your shared screen"
+                    : "Candidate’s shared screen"}
+                </h2>
+                <button
+                  className="btn secondary"
+                  onClick={() => {
+                    setTab("screen");
+                    setExpanded(true);
+                  }}
+                >
+                  Expand screen
+                </button>
+              </div>
+              {screen ? (
+                <MediaVideo
+                  stream={screen}
+                  label="Candidate shared screen"
+                  muted
+                />
+              ) : (
+                <p>
+                  {call.remoteMedia?.screen
+                    ? "Connecting shared screen…"
+                    : "No screen is being shared."}
+                </p>
+              )}
             </div>
-            {screen ? (
-              <MediaVideo
-                stream={screen}
-                label="Candidate shared screen"
-                muted
-              />
-            ) : (
-              <p>
-                {call.remoteMedia?.screen
-                  ? "Connecting shared screen…"
-                  : "No screen is being shared."}
-              </p>
-            )}
-          </div>
+          )}
           {hrControls}
         </section>
         <div className="meeting-resizer">
@@ -1018,13 +1110,18 @@ export default function HumanRoom({ id }: { id: string }) {
         <section className="meeting-workspace" aria-label="Interview workspace">
           <nav className="meeting-tabs" aria-label="Interview panels">
             {[
-              ["interview", "Interview"],
-              ["resume", "Resume"],
-              ["code", "Coding"],
-              ["screen", "Screen"],
+              [
+                "interview",
+                candidate ? "Your interview" : "Questions & instructions",
+              ],
+              ["resume", candidate ? "Your resume" : "Candidate resume"],
+              ["code", candidate ? "Coding task" : "Review candidate code"],
+              ...(!candidate || screen
+                ? [["screen", candidate ? "Your screen" : "Candidate screen"]]
+                : []),
               ...(!candidate
                 ? [
-                    ["activity", `Activity (${events.length})`],
+                    ["activity", `Candidate monitoring (${events.length})`],
                     ["notes", "Private notes"],
                   ]
                 : []),
@@ -1050,6 +1147,26 @@ export default function HumanRoom({ id }: { id: string }) {
           </nav>
           <div className="meeting-panel" hidden={tab !== "interview"}>
             <div className="meeting-mobile-actions">{hrControls}</div>
+            <div className="meeting-workspace-intro">
+              <h2>
+                {candidate ? "Answer your interviewer" : "Lead the interview"}
+              </h2>
+              <p>
+                {candidate
+                  ? "Listen to the question and explain your approach. Use Coding task when your interviewer sends a problem; your work saves automatically."
+                  : "Ask questions, review the candidate’s answers and send clear instructions. Candidate monitoring and your private notes are available in their own panels."}
+              </p>
+              {!candidate && (
+                <p className="meeting-context-line">
+                  {i.type} · {i.difficulty} ·{" "}
+                  {i.roundName ||
+                    `Round ${i.roundIndex ? i.roundIndex + 1 : 1}`}{" "}
+                  · Topics:{" "}
+                  {i.topics?.join(", ") ||
+                    "Discuss the assigned job requirements"}
+                </p>
+              )}
+            </div>
             <RoomConversation
               interview={i}
               candidate={candidate}
@@ -1203,16 +1320,18 @@ export default function HumanRoom({ id }: { id: string }) {
                 />
               </Suspense>
             </div>
-            <label className="field">
-              Standard input
-              <textarea
-                rows={2}
-                value={stdin}
-                onChange={(e) => setStdin(e.target.value)}
-                disabled={!candidate}
-                placeholder="Input passed to your program when you choose Run"
-              />
-            </label>
+            {candidate && (
+              <label className="field">
+                Standard input
+                <textarea
+                  rows={2}
+                  value={stdin}
+                  onChange={(e) => setStdin(e.target.value)}
+                  disabled={!candidate}
+                  placeholder="Input passed to your program when you choose Run"
+                />
+              </label>
+            )}
             <CodeExecutionNotice
               publicDemo={services.data?.codePublicDemo}
               practice={false}
@@ -1459,32 +1578,30 @@ export default function HumanRoom({ id }: { id: string }) {
             {devices.screen ? "Stop sharing" : "Share screen"}
           </button>
         )}
-        <button className="btn secondary" onClick={() => setTab("interview")}>
-          <MessageSquare size={18} />
-          Interview
-        </button>
-        <button className="btn secondary" onClick={() => setTab("resume")}>
-          <FileText size={18} />
-          Resume
-        </button>
-        <button className="btn secondary" onClick={() => setTab("code")}>
-          <Code2 size={18} />
-          Coding
-        </button>
-        <button
-          className="btn secondary"
-          onClick={() =>
-            void action("fullscreen", async () => {
-              if (document.fullscreenElement) await document.exitFullscreen();
-              else if (document.documentElement.requestFullscreen)
-                await document.documentElement.requestFullscreen();
-              else
-                throw new Error("Fullscreen is unavailable in this browser.");
-            })
-          }
-        >
-          Fullscreen
-        </button>
+        {candidate && (
+          <button
+            className="btn secondary"
+            onClick={() => setMonitoringSettings(true)}
+          >
+            Camera checks
+          </button>
+        )}
+        {candidate && (
+          <button
+            className="btn secondary"
+            onClick={() =>
+              void action("fullscreen", async () => {
+                if (document.fullscreenElement) await document.exitFullscreen();
+                else if (document.documentElement.requestFullscreen)
+                  await document.documentElement.requestFullscreen();
+                else
+                  throw new Error("Fullscreen is unavailable in this browser.");
+              })
+            }
+          >
+            Fullscreen
+          </button>
+        )}
         <button className="btn secondary" onClick={call.reconnect}>
           Reconnect video
         </button>
@@ -1496,6 +1613,14 @@ export default function HumanRoom({ id }: { id: string }) {
       {settings && (
         <Modal title="Device settings" onClose={() => setSettings(false)}>
           {deviceControls}
+        </Modal>
+      )}
+      {candidate && monitoringSettings && (
+        <Modal
+          title="Your camera checks"
+          onClose={() => setMonitoringSettings(false)}
+        >
+          {monitoringControls}
         </Modal>
       )}
       {leave && (
@@ -1535,6 +1660,50 @@ export default function HumanRoom({ id }: { id: string }) {
   );
 }
 
+function RoleGuide({ candidate }: { candidate: boolean }) {
+  return (
+    <section
+      className="meeting-role-guide"
+      aria-label={candidate ? "Candidate steps" : "Interviewer steps"}
+    >
+      <h2>{candidate ? "What you will do" : "Your interview workflow"}</h2>
+      <ol>
+        {candidate ? (
+          <>
+            <li>
+              Check your devices, review your resume and choose your optional
+              camera checks.
+            </li>
+            <li>
+              Accept the monitoring notice and wait for your interviewer to
+              admit you.
+            </li>
+            <li>
+              Answer questions, complete the coding task and share your screen
+              when requested.
+            </li>
+          </>
+        ) : (
+          <>
+            <li>
+              Review the assigned candidate and job, then open the room and
+              admit the candidate.
+            </li>
+            <li>
+              Ask questions, send coding tasks and review the candidate’s video,
+              screen and monitoring observations.
+            </li>
+            <li>
+              Save your private notes, end the interview and review the
+              assessment report.
+            </li>
+          </>
+        )}
+      </ol>
+    </section>
+  );
+}
+
 function ResumeSetup({
   id,
   room,
@@ -1569,54 +1738,89 @@ function ResumeSetup({
     <div>
       <h2>Prepare your resume</h2>
       <ErrorBox message={result.error} />
-      <label className="field">
-        Existing resume
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-          <option value="">Select a resume</option>
-          {result.data.resumes.map((r) => (
-            <option key={r._id} value={r._id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        className="btn secondary"
-        disabled={busy || !selected || !!room.admittedAt}
-        onClick={() =>
-          void action("resume", async () => {
-            await send(`/interviews/${id}/room/resume`, { resumeId: selected });
-            await reload();
-          })
-        }
-      >
-        Use selected resume
-      </button>
-      <label className="field">
-        Or upload a PDF (up to 5 MB)
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          disabled={busy || !!room.admittedAt}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            e.target.value = "";
-            void action("upload", async () => {
-              if (file.size > 5 * 1024 * 1024)
-                throw new Error("Choose a PDF up to 5 MB.");
-              const body = new FormData();
-              body.append("resume", file);
-              await api(`/interviews/${id}/room/resume/upload`, {
-                method: "POST",
-                body,
+      {result.data.recommendedId && (
+        <div className="meeting-notice">
+          <p>
+            Your application already includes a resume for this job. Use that
+            document so your interviewer reviews the same application evidence.
+          </p>
+          <button
+            className="btn primary"
+            disabled={busy || !!room.admittedAt}
+            onClick={() =>
+              void action("resume", async () => {
+                await send(`/interviews/${id}/room/resume`, {
+                  resumeId: result.data.recommendedId,
+                });
+                setSelected(result.data.recommendedId!);
+                await reload();
+              })
+            }
+          >
+            Use resume submitted for this job
+          </button>
+        </div>
+      )}
+      <p className="muted">
+        The resume and details saved with your original application stay
+        unchanged. Any alternate resume is used only for this interview room.
+      </p>
+      <details className="meeting-optional-check">
+        <summary>Use another resume (optional)</summary>
+        <label className="field">
+          Existing resume
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+          >
+            <option value="">Select a resume</option>
+            {result.data.resumes.map((r) => (
+              <option key={r._id} value={r._id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="btn secondary"
+          disabled={busy || !selected || !!room.admittedAt}
+          onClick={() =>
+            void action("resume", async () => {
+              await send(`/interviews/${id}/room/resume`, {
+                resumeId: selected,
               });
-              await result.reload();
               await reload();
-            });
-          }}
-        />
-      </label>
+            })
+          }
+        >
+          Use selected resume
+        </button>
+        <label className="field">
+          Or upload a PDF (up to 5 MB)
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            disabled={busy || !!room.admittedAt}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              e.target.value = "";
+              void action("upload", async () => {
+                if (file.size > 5 * 1024 * 1024)
+                  throw new Error("Choose a PDF up to 5 MB.");
+                const body = new FormData();
+                body.append("resume", file);
+                await api(`/interviews/${id}/room/resume/upload`, {
+                  method: "POST",
+                  body,
+                });
+                await result.reload();
+                await reload();
+              });
+            }}
+          />
+        </label>
+      </details>
       <p role="status">
         {room.resumeId
           ? `${room.resumeName} is ready. Share it with the interviewer after admission.`

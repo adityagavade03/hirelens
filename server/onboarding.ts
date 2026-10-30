@@ -27,6 +27,7 @@ import {
   newSession,
   publicUser,
   localCompanyAccessAllowed,
+  resolveUserCompanyContext,
 } from "./security.js";
 import { rateStore } from "./scaling.js";
 import { emailReady, sendEmail } from "./delivery.js";
@@ -188,8 +189,12 @@ export function companyRecord(
     },
   };
 }
-async function assertLocalCompanyAccess(user: { companyId?: string | null }) {
-  if (!(await localCompanyAccessAllowed(user)))
+async function assertLocalCompanyAccess(user: any) {
+  if (
+    !(user.role === "hr"
+      ? await resolveUserCompanyContext(publicUser(user))
+      : await localCompanyAccessAllowed(user))
+  )
     throw new ApiError(
       403,
       "Local development company access is disabled in this environment.",
@@ -277,7 +282,7 @@ async function finishLogin(res: ExpressResponse, user: any, oldToken?: string) {
   if (oldToken)
     await SessionModel.deleteOne({ tokenHash: hashToken(oldToken) });
   await newSession(res, user._id.toString());
-  res.json({ user: publicUser(user) });
+  res.json({ user: await resolveUserCompanyContext(publicUser(user)) });
 }
 export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
   const verificationLimit = rateLimit({

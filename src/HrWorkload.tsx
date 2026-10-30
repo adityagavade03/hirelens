@@ -49,7 +49,7 @@ export function HrAvailabilityPanel() {
   return (
     <Panel
       title="My interview availability"
-      description="Automatic assignment uses your accepted jobs, availability and current candidate workload."
+      description="Availability and capacity settings apply to all your companies. Active candidate counts and capacity limits are calculated separately for each company."
     >
       <ErrorBox message={error || record.error} />
       {record.loading ? (
@@ -76,7 +76,7 @@ export function HrAvailabilityPanel() {
                 <option value="unavailable">Unavailable</option>
               </select>
             </Field>
-            <Field label="Maximum active candidates">
+            <Field label="Maximum active candidates per company">
               <input
                 type="number"
                 name="capacity"

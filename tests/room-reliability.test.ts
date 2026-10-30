@@ -91,7 +91,10 @@ class FaceWorker {
     FaceWorker.instances.push(this);
   }
   respond(data: any) {
-    this.onmessage?.({ data });
+    const requestId = this.postMessage.mock.calls
+      .filter(([message]) => message.kind === "frame")
+      .at(-1)?.[0].requestId;
+    this.onmessage?.({ data: { requestId, ...data } });
   }
 }
 function faceSetup() {
@@ -139,7 +142,7 @@ function faceSetup() {
   };
   return { track, video, record, render, frame, face: () => face };
 }
-it("requires an opt-in and actual single-face frames, with no preflight event collection", async () => {
+it("requires an opt-in and actual model frames, with no preflight event collection", async () => {
   const f = faceSetup();
   await f.render(false);
   await advance(10000);
@@ -160,6 +163,42 @@ it("requires an opt-in and actual single-face frames, with no preflight event co
   await act(async () => worker.respond({ kind: "count", count: 2 }));
   await advance(30000);
   expect(f.record).toHaveBeenCalledTimes(calls);
+});
+it.each([0, 2])(
+  "reports an initial sustained count of %i without requiring prior single-face calibration",
+  async (count) => {
+    const f = faceSetup();
+    await f.render(true, true);
+    const worker = FaceWorker.instances[0];
+    await act(async () =>
+      worker.respond({ kind: "ready", model: "BlazeFace" }),
+    );
+    for (let n = 0; n < 5; n++) await f.frame(count);
+    expect(f.face()).toMatchObject({ state: "ready", ready: true, count });
+    expect(
+      f.record.mock.calls.filter(
+        (c) => c[0] === (count === 0 ? "no-face" : "multiple-faces"),
+      ),
+    ).toHaveLength(1);
+  },
+);
+it("shows fallback model readiness and rejects mismatched worker results", async () => {
+  const f = faceSetup();
+  await f.render(true, true);
+  const worker = FaceWorker.instances[0];
+  await act(async () =>
+    worker.respond({ kind: "loading", model: "Face Landmarker fallback" }),
+  );
+  expect(f.face().state).toBe("loading");
+  await act(async () =>
+    worker.respond({ kind: "ready", model: "Face Landmarker fallback" }),
+  );
+  await f.frame(1);
+  expect(f.face().model).toBe("Face Landmarker fallback");
+  await act(async () =>
+    worker.respond({ kind: "count", count: 2, requestId: -100 }),
+  );
+  expect(f.face().count).toBe(1);
 });
 it("does not treat a camera outage as missing-face evidence and handles detector failure", async () => {
   const f = faceSetup();

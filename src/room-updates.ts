@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { getActiveHrCompanyId } from "./hr-company-context";
 export function useRoomUpdates(id: string, onUpdate: (kind: string) => void) {
   const latest = useRef(onUpdate);
   latest.current = onUpdate;
   const [status, setStatus] = useState("Connecting room updates…");
   useEffect(() => {
-    const socket = io({ withCredentials: true, autoConnect: false });
+    const socket = io({
+      withCredentials: true,
+      autoConnect: false,
+      auth: { companyId: getActiveHrCompanyId() },
+    });
     let disposed = false;
     socket.on("connect", async () => {
       try {

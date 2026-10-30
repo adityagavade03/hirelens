@@ -1,5 +1,13 @@
 # HireLens
 
+HR accounts can join multiple companies by invitation and switch between their
+workspaces while retaining separate candidate access and calendar conflict checks.
+See [HR accounts and multiple companies](docs/HR-MULTIPLE-COMPANIES.md).
+
+The human interview room separates Candidate tasks from HR controls and displays
+consented candidate camera status to the assigned interviewer. See the
+[live interview role guide](docs/LIVE-INTERVIEW-ROLES.md) for setup and model details.
+
 ## Current status — 21 October 2026
 
 The latest `npm run check` passes **501 automated tests in 48 files**, client/server builds and TypeScript checks. Another **28 Python decoder/evaluator tests** passed. The project includes recruitment, automatic resume screening, HR assignment, interview rooms, coding editors, recordings and optional proctoring. These checks do not establish hiring accuracy or physical-device reliability.

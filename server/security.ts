@@ -48,7 +48,43 @@ export const hashToken = (token: string) =>
 export function publicUser(user: any): User {
   const result = user.toObject ? user.toObject() : { ...user };
   delete result.passwordHash;
+  if (result.role === "hr") result.companyIds = hrCompanyIds(result);
   return JSON.parse(JSON.stringify(result));
+}
+/** Retain existing single-company HR accounts without a destructive migration. */
+export function hrCompanyIds(user: {
+  companyId?: string | null;
+  companyIds?: readonly string[] | null;
+}): string[] {
+  return [
+    ...new Set(
+      [user.companyId, ...(user.companyIds || [])]
+        .filter(
+          (id): id is string =>
+            typeof id === "string" && /^[0-9a-f]{24}$/i.test(id),
+        )
+        .map((id) => id.toLowerCase()),
+    ),
+  ];
+}
+/** Used for HR rosters and assignment checks, including legacy memberships. */
+export function hrMemberFilter(companyId: string) {
+  return {
+    role: "hr" as const,
+    $or: [{ companyId }, { companyIds: companyId }],
+  };
+}
+export async function assertHrMembership(user: User, companyId: string) {
+  if (
+    user.role !== "hr" ||
+    !hrCompanyIds(user).includes(companyId) ||
+    !(await localCompanyAccessAllowed({ companyId }))
+  )
+    throw new ApiError(
+      403,
+      "You are not a member of this company.",
+      "HR_COMPANY_ACCESS_DENIED",
+    );
 }
 export async function localCompanyAccessAllowed(user: {
   companyId?: string | null;
@@ -64,7 +100,40 @@ export async function localCompanyAccessAllowed(user: {
     }))
   );
 }
-export async function userForToken(token?: string) {
+/** Resolve legacy/default access or a validated, explicit tab selection. */
+export async function resolveUserCompanyContext(
+  user: User,
+  requestedCompanyId?: string,
+): Promise<User | null> {
+  const result = publicUser(user);
+  // A tab selects its company explicitly; sessions and other browser tabs do not
+  // silently change context when an HR switches to another company's workspace.
+  if (result.role === "hr") {
+    if (requestedCompanyId !== undefined) {
+      const parsed = objectId.safeParse(requestedCompanyId);
+      if (!parsed.success)
+        throw new ApiError(
+          400,
+          "Select a valid company.",
+          "INVALID_COMPANY_CONTEXT",
+        );
+      await assertHrMembership(result, parsed.data);
+      return { ...result, companyId: parsed.data };
+    }
+    const ids = hrCompanyIds(result);
+    if (!ids.length) return { ...result, companyId: undefined };
+    for (const companyId of ids)
+      if (await localCompanyAccessAllowed({ companyId }))
+        return { ...result, companyId };
+    return null;
+  }
+  // Company and candidate permissions never come from an HR selection header.
+  return (await localCompanyAccessAllowed(result)) ? result : null;
+}
+export async function userForToken(
+  token?: string,
+  requestedCompanyId?: string,
+) {
   if (!token || token.length !== 64) return null;
   const session = await SessionModel.findOne({
     tokenHash: hashToken(token),
@@ -72,8 +141,8 @@ export async function userForToken(token?: string) {
   });
   if (!session) return null;
   const user = await UserModel.findById(session.userId);
-  return user && (await localCompanyAccessAllowed(user))
-    ? publicUser(user)
+  return user
+    ? resolveUserCompanyContext(publicUser(user), requestedCompanyId)
     : null;
 }
 export async function newSession(res: Response, userId: string) {
@@ -93,14 +162,30 @@ export async function newSession(res: Response, userId: string) {
 }
 export async function authenticate(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ) {
-  const user = await userForToken(req.cookies?.hirelens_session);
+  // Listing/joining a different company must remain possible after a stale tab
+  // selection. These endpoints perform their own membership checks instead.
+  const companySelectionRoute =
+    req.path === "/hr/companies" || req.path === "/hr/companies/active";
+  const selection = companySelectionRoute
+    ? undefined
+    : (req.get("X-HireLens-Company") ??
+      ((req.method === "GET" || req.method === "HEAD") && typeof req.query.hrCompanyId === "string"
+        ? req.query.hrCompanyId
+        : undefined));
+  const user = await userForToken(req.cookies?.hirelens_session, selection);
   if (!user)
     throw new ApiError(401, "Please sign in to continue.", "UNAUTHENTICATED");
   req.user = user;
   req.sessionToken = req.cookies.hirelens_session;
+  // Authenticated pages/assets can vary by tab workspace even under the same
+  // session cookie. Keep an earlier stricter cache policy, otherwise disable it.
+  if (!res.hasHeader("Cache-Control"))
+    res.setHeader("Cache-Control", "private, no-store");
+  res.vary("Cookie");
+  res.vary("X-HireLens-Company");
   next();
 }
 export function permit(...allowed: Role[]) {
@@ -205,7 +290,10 @@ export async function mustAttendInterview(user: User, interview: any) {
 }
 export function requireLive(interview: any) {
   if (interview.mode === "in_person")
-    throw new ApiError(409, "Online interview tools are not enabled for an in-person appointment.");
+    throw new ApiError(
+      409,
+      "Online interview tools are not enabled for an in-person appointment.",
+    );
   if (interview.status !== "live")
     throw new ApiError(409, "Start this interview before submitting work.");
   if (

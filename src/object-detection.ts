@@ -5,12 +5,14 @@ import {
   objectFrameSize,
   objectThresholdMs,
   objectQualityMessage,
+  objectResultFreshnessMs,
   sanitizeObjectFrameQuality,
   sanitizeCameraObjects,
   SustainedObjectObservations,
   type CameraObject,
   type ObjectDetectionProfile,
 } from "../shared/object-detection";
+import type { CameraCheckState } from "./face-presence";
 
 export type { CameraObject } from "../shared/object-detection";
 type FrameRequest = {
@@ -47,6 +49,7 @@ export function useObjectDetection({
 }) {
   const [status, setStatus] = useState("Object detection is off");
   const [ready, setReady] = useState(false);
+  const [state, setState] = useState<CameraCheckState>("off");
   const [detections, setDetections] = useState<CameraObject[]>([]);
   const [frameAspect, setFrameAspect] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -80,6 +83,7 @@ export function useObjectDetection({
     setDetections([]);
     setFrameAspect(null);
     if (!enabled || !video) {
+      setState(enabled ? "paused" : "off");
       setStatus(
         enabled
           ? "Object check waiting for camera preview"
@@ -88,6 +92,7 @@ export function useObjectDetection({
       return;
     }
     if (!services?.objects || !selectedModel || !services.mediapipeWasmUrl) {
+      setState("not-configured");
       setStatus(
         "Object model is not configured; the camera and interview can continue.",
       );
@@ -98,6 +103,7 @@ export function useObjectDetection({
       typeof OffscreenCanvas === "undefined" ||
       typeof createImageBitmap === "undefined"
     ) {
+      setState("error");
       setStatus(
         "Object detection is unavailable in this browser. The interview can continue.",
       );
@@ -116,6 +122,7 @@ export function useObjectDetection({
     let available: boolean | undefined;
     let stale = false;
     const started = Date.now();
+    const resultFreshnessMs = objectResultFreshnessMs(profile);
     const observations = new SustainedObjectObservations();
     const reset = (message: string) => {
       epoch++;
@@ -123,6 +130,7 @@ export function useObjectDetection({
       if (control === controls.current)
         control.activityEpoch = latest.current.activityEpoch;
       setReady(false);
+      setState("paused");
       setDetections([]);
       setFrameAspect(null);
       setStatus(message);
@@ -147,6 +155,7 @@ export function useObjectDetection({
       reset(
         "Object check unavailable. Restart the check or leave it off; no object inference is active.",
       );
+      setState("error");
     };
     const visibility = () => {
       if (document.hidden && !disposed) {
@@ -198,7 +207,7 @@ export function useObjectDetection({
           return;
         }
         const age = Date.now() - frame.capturedAt;
-        if (age < 0 || age > objectDetectionSettings.freshFrameMs) {
+        if (age < 0 || age > resultFreshnessMs) {
           stale = true;
           reset(
             "Object check paused · waiting for fresh camera results. Slow frames are not observations.",
@@ -218,12 +227,14 @@ export function useObjectDetection({
           setDetections([]);
           setFrameAspect(null);
           setReady(false);
+          setState("paused");
           setStatus(guidance);
           return;
         }
         setDetections(objects);
         setFrameAspect(frame.aspect);
         setReady(true);
+        setState("ready");
         setStatus(
           `${latest.current.active ? "Object check active" : "Object preview"} · ${objects.length ? `${objects.length} supported object(s) estimated` : "no supported objects estimated in this frame"}${latest.current.localOnly ? "; local preview only; no observations shared." : latest.current.active ? "." : "; observations start after admission."}${guidance ? ` ${guidance}` : ""}`,
         );
@@ -235,6 +246,7 @@ export function useObjectDetection({
           objects,
           frame.capturedAt,
           objectThresholdMs(services.objectThresholdSeconds),
+          resultFreshnessMs,
         )) {
           latest.current.record(
             "object-detected",
@@ -252,13 +264,14 @@ export function useObjectDetection({
       setStatus(
         `Loading the local object model${profile === "detail" ? " · more detail, higher device load" : ""}…`,
       );
+      setState("loading");
     } catch {
       fail();
     }
     const timer = setInterval(async () => {
       if (disposed || failed || !latest.current.enabled) return;
       if (
-        (!loaded && Date.now() - started > 30000) ||
+        (!loaded && Date.now() - started > 60000) ||
         (pending && Date.now() - pending.capturedAt > 10000)
       )
         return fail();
@@ -284,7 +297,7 @@ export function useObjectDetection({
       available = true;
       if (
         lastFreshAt &&
-        Date.now() - lastFreshAt > objectDetectionSettings.freshFrameMs &&
+        Date.now() - lastFreshAt > resultFreshnessMs &&
         !stale
       ) {
         stale = true;
@@ -373,6 +386,7 @@ export function useObjectDetection({
   }, [active, localOnly]);
   return {
     status,
+    state,
     ready,
     detections,
     frameAspect,

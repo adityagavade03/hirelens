@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Trash2, Upload, FileText, Check, Sparkles } from "lucide-react";
@@ -623,7 +624,9 @@ export function ResumeProfile() {
                   {user.profile.resumeId && (
                     <a
                       className="text-link"
-                      href={`/api/resumes/${user.profile.resumeId}`}
+                      href={scopedApiUrl(
+                        `/api/resumes/${user.profile.resumeId}`,
+                      )}
                     >
                       Download current PDF
                     </a>

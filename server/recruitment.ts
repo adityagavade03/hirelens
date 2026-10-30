@@ -9,7 +9,14 @@ import {
   CompanyModel,
   NotificationModel,
 } from "./models.js";
-import { ApiError, objectId, permit, accessibleJob } from "./security.js";
+import {
+  ApiError,
+  objectId,
+  permit,
+  accessibleJob,
+  hrCompanyIds,
+  hrMemberFilter,
+} from "./security.js";
 
 // Serialize shortlisting, distribution and scheduling across API processes on standalone MongoDB.
 export async function withJobWorkflow<T>(
@@ -94,8 +101,10 @@ const activeAssignmentStatuses = [
   "Interview Completed",
 ] as const;
 export async function interviewerWorkloads(companyId: string) {
+  // The saved HR preferences are shared across memberships; usage and capacity
+  // are evaluated separately for this company and never disclose another team's load.
   const [people, applications, jobs] = await Promise.all([
-    UserModel.find({ companyId, role: "hr" })
+    UserModel.find(hrMemberFilter(companyId))
       .select("name email profile")
       .sort({ _id: 1 }),
     ApplicationModel.find({
@@ -228,7 +237,7 @@ export async function assignShortlistedWithinWorkflow(jobId: string) {
         {
           userId: hr.hrId,
           message: `${candidate.candidateName} is assigned to you for ${job.title}. Review the submitted resume and schedule the interview.`,
-          href: `/applications?jobId=${jobId}&applicationId=${candidate.id}`,
+          href: `/applications?jobId=${jobId}&applicationId=${candidate.id}&hrCompanyId=${job.companyId}`,
         },
         {
           userId: candidate.candidateId,
@@ -270,6 +279,14 @@ export async function retryPendingAssignments(companyId?: string) {
   }
 }
 
+/** Shared availability/capacity changes may unblock work in every joined company. */
+export async function retryHrCompanyAssignments(
+  user: Parameters<typeof hrCompanyIds>[0],
+) {
+  for (const companyId of hrCompanyIds(user))
+    await retryPendingAssignments(companyId);
+}
+
 export function registerRecruitmentRoutes(app: Express) {
   app.get("/api/hr/workloads", permit("company"), async (req, res) => {
     res.json(await interviewerWorkloads(req.user.companyId || "__none"));
@@ -297,7 +314,10 @@ export function registerRecruitmentRoutes(app: Express) {
       );
     await withCompanyAllocation(req.user.companyId, async () => {
       await UserModel.updateOne(
-        { _id: req.user._id, role: "hr", companyId: req.user.companyId },
+        {
+          _id: req.user._id,
+          ...hrMemberFilter(req.user.companyId || "__none"),
+        },
         {
           $set: {
             "profile.availability": settings.availability,
@@ -307,7 +327,7 @@ export function registerRecruitmentRoutes(app: Express) {
         },
       );
     });
-    await retryPendingAssignments(req.user.companyId);
+    await retryHrCompanyAssignments(req.user);
     res.json(
       (await interviewerWorkloads(req.user.companyId)).find(
         (hr) => hr.hrId === req.user._id,
@@ -482,8 +502,7 @@ export function registerRecruitmentRoutes(app: Express) {
         );
       const hrs = await UserModel.find({
         _id: { $in: hrIds },
-        companyId: req.user.companyId,
-        role: "hr",
+        ...hrMemberFilter(req.user.companyId || "__none"),
         "profile.availability": { $ne: "unavailable" },
       });
       if (hrs.length !== hrIds.length)
@@ -508,7 +527,7 @@ export function registerRecruitmentRoutes(app: Express) {
         hrIds.map((userId) => ({
           userId,
           message: `Interview request for ${job.title}. Review the instructions and accept or reject.`,
-          href: "/assignments",
+          href: `/assignments?hrCompanyId=${job.companyId}`,
         })),
       );
       return job;
@@ -642,8 +661,7 @@ export function registerRecruitmentRoutes(app: Express) {
           );
           const members = await UserModel.find({
             _id: { $in: [...accepted] },
-            role: "hr",
-            companyId: req.user.companyId,
+            ...hrMemberFilter(req.user.companyId || "__none"),
           }).select("_id name profile");
           const authorized = new Set(members.map((m) => m.id));
           const workloads = await interviewerWorkloads(job.companyId);
@@ -765,7 +783,7 @@ export function registerRecruitmentRoutes(app: Express) {
             [...changedHrs].map((userId) => ({
               userId,
               message: `Your assigned candidates for ${job.title} have been updated. Review the job instructions and candidate list.`,
-              href: `/applications?jobId=${id}`,
+              href: `/applications?jobId=${id}&hrCompanyId=${job.companyId}`,
             })),
           );
           for (const row of changedAssignments) {

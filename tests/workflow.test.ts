@@ -168,7 +168,7 @@ describe("Real MongoDB hiring workflow and isolation", () => {
       ).status,
     ).toBe(403);
   });
-  it("associates HR only after an invitation and enforces role permissions", async () => {
+  it("associates HR only after an invitation and permits invitations from other companies", async () => {
     expect((await candidate.post("/api/jobs").send(jobInput)).status).toBe(403);
     const invite = await owner
       .post("/api/invitations")
@@ -190,7 +190,7 @@ describe("Real MongoDB hiring workflow and isolation", () => {
           .post("/api/invitations")
           .send({ email: "hr@example.test" })
       ).status,
-    ).toBe(409);
+    ).toBe(201);
   });
   it("creates jobs without granting HR access before acceptance", async () => {
     const result = await owner.post("/api/jobs").send(jobInput);

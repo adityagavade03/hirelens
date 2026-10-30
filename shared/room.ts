@@ -1,4 +1,5 @@
 export interface RoomState {
+  candidateCameraStatus?: import("./camera-status.js").CandidateCameraStatus;
   interviewerName: string;
   candidateName: string;
   waitingAt?: string;

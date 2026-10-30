@@ -45,6 +45,8 @@ export interface User {
   phoneVerifiedAt?: string;
   role: Role;
   companyId?: string;
+  /** HR memberships; companyId remains the active company in API responses. */
+  companyIds?: string[];
   profile: Profile;
   sample: boolean;
 }

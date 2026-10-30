@@ -228,7 +228,7 @@ it("offers a detail model only when configured, without granting camera consent"
     root.render(createElement(ObjectDetectionControls, props)),
   );
   const select = host.querySelector("select")!;
-  expect(select.closest("label")?.textContent).toContain("Local model");
+  expect(select.closest("label")?.textContent).toContain("Detection model");
   expect(select.options[1].disabled).toBe(true);
   await act(async () =>
     root.render(

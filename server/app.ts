@@ -62,6 +62,7 @@ import {
   mustAttendInterview,
   requireLive,
   localCompanyAccessAllowed,
+  hrMemberFilter,
 } from "./security.js";
 import { type User, type ApplicationState } from "../shared/types.js";
 import { emptyAiMatch, screeningJob } from "./screening.js";
@@ -95,6 +96,7 @@ import { analyzeIntegrity } from "./integrity.js";
 import { generateAssessment, evidenceHash, codingScore } from "./assessment.js";
 import { registerAuthRoutes } from "./onboarding.js";
 import { registerCompanyRoutes, assertPublishable } from "./company.js";
+import { registerHrCompanyRoutes } from "./hr-companies.js";
 
 import {
   registerRecruitmentRoutes,
@@ -232,8 +234,7 @@ async function checkAssignee(companyId: string, hrId?: string | null) {
   if (!hrId) return;
   const hr = await UserModel.findOne({
     _id: hrId,
-    companyId,
-    role: "hr",
+    ...hrMemberFilter(companyId),
   });
   if (!hr)
     throw new ApiError(400, "Choose an authorized member of your company.");
@@ -425,6 +426,7 @@ export function createApp() {
   });
   app.use("/api", authenticate);
   app.get("/api/auth/me", (req, res) => res.json({ user: req.user }));
+  registerHrCompanyRoutes(app);
   app.get("/api/services", (_req, res) => res.json(serviceStatus()));
   registerCodingRoutes(app);
   registerInterviewRoom(app);
@@ -448,7 +450,12 @@ export function createApp() {
       },
       { returnDocument: "after" },
     );
-    res.json({ user: publicUser(user) });
+    res.json({
+      user: {
+        ...publicUser(user),
+        ...(req.user.role === "hr" ? { companyId: req.user.companyId } : {}),
+      },
+    });
   });
   app.post(
     "/api/profile/resume",
@@ -526,10 +533,16 @@ export function createApp() {
       .object({ email: z.email().transform((v) => v.toLowerCase()) })
       .parse(req.body);
     const hr = await UserModel.findOne({ email, role: "hr" });
-    if (hr?.companyId && hr.companyId !== req.user.companyId)
+    if (
+      hr &&
+      (await UserModel.exists({
+        _id: hr._id,
+        ...hrMemberFilter(req.user.companyId!),
+      }))
+    )
       throw new ApiError(
         409,
-        "This HR manager already belongs to another company.",
+        "This HR interviewer is already a member of your company.",
       );
     const company = await CompanyModel.findById(req.user.companyId);
     const invitation = await InvitationModel.findOneAndUpdate(
@@ -566,16 +579,18 @@ export function createApp() {
       const updated = await UserModel.findOneAndUpdate(
         {
           _id: req.user._id,
-          $or: [
-            { companyId: { $exists: false } },
-            { companyId: invitation.companyId },
-          ],
+          role: "hr",
         },
-        { $set: { companyId: invitation.companyId } },
+        { $addToSet: { companyIds: invitation.companyId } },
         { returnDocument: "after" },
       );
-      if (!updated)
-        throw new ApiError(409, "You already belong to another company.");
+      if (!updated) throw new ApiError(404, "HR account not found.");
+      // Existing primary membership stays intact; concurrent acceptances add
+      // memberships atomically and only the first sets a default workspace.
+      await UserModel.updateOne(
+        { _id: req.user._id, companyId: { $exists: false } },
+        { $set: { companyId: invitation.companyId } },
+      );
     }
     invitation.status = status;
     await invitation.save();
@@ -591,7 +606,8 @@ export function createApp() {
               )
                 .map(String)
                 .filter(
-                  (id) => !previewAllowsCompany(id) && !cloudTestAllowsCompany(id),
+                  (id) =>
+                    !previewAllowsCompany(id) && !cloudTestAllowsCompany(id),
                 ),
             },
           }
@@ -687,13 +703,11 @@ export function createApp() {
       const resume = await withUploadStorage(document, () =>
         ResumeModel.create(document),
       );
-      res
-        .status(201)
-        .json({
-          resumeId: resume.id,
-          name: resume.name,
-          characters: extraction.text.length,
-        });
+      res.status(201).json({
+        resumeId: resume.id,
+        name: resume.name,
+        characters: extraction.text.length,
+      });
     },
   );
   app.post("/api/jobs/:id/apply", permit("candidate"), async (req, res) => {
@@ -931,7 +945,7 @@ export function createApp() {
           await notify(
             application.assignedHrId,
             `${application.candidateName} was removed from your assigned candidates for ${application.jobTitle}.`,
-            "/applications",
+            `/applications?hrCompanyId=${application.companyId}`,
           );
         res.json(result);
       });
@@ -1808,7 +1822,9 @@ export function createApp() {
       const includesObjects =
         req.body?.kind === "object-detected" ||
         (Array.isArray(req.body?.events) &&
-          req.body.events.some((event: any) => event?.kind === "object-detected"));
+          req.body.events.some(
+            (event: any) => event?.kind === "object-detected",
+          ));
       if (includesObjects)
         await withResources(
           [`room:${objectId.parse(req.params.id)}`],
@@ -1942,9 +1958,10 @@ export function createApp() {
         : [];
     const interviewResult = interview.toObject();
     delete (interviewResult as any).objectConsentWindows;
-    (interviewResult as any).objectConsent = !!interview.objectConsentWindows?.some(
-      (window: any) => !window.revokedAt,
-    );
+    (interviewResult as any).objectConsent =
+      !!interview.objectConsentWindows?.some(
+        (window: any) => !window.revokedAt,
+      );
     const transcript = await reviewedTranscript(interview.id);
     delete interviewResult.aiBusyToken;
     delete interviewResult.aiBusyUntil;
@@ -2285,7 +2302,10 @@ export function createApp() {
     ) => {
       const html = await readFile(path.resolve("dist/index.html"), "utf8");
       if (cloudTestConfigured())
-        res.set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
+        res.set({
+          "Cache-Control": "no-store",
+          "X-Robots-Tag": "noindex, nofollow",
+        });
       res
         .type("html")
         .send(decorateCloudTestHtml(decoratePrivatePreviewHtml(html)));

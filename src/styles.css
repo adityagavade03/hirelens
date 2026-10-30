@@ -523,6 +523,42 @@ em {
 .workspace-switch > svg {
   color: var(--text-muted);
 }
+.hr-company-switcher {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-muted, var(--surface));
+}
+.hr-company-switcher label {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+.hr-company-switcher select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+}
+.hr-company-switcher small {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.hr-company-switcher .text-link {
+  font-size: 12px;
+}
+.hr-company-member {
+  flex-wrap: wrap;
+}
+.hr-company-member > div {
+  min-width: 0;
+}
+.hr-company-member .btn {
+  white-space: normal;
+  text-align: left;
+}
 .nav-caption {
   font-size: 12px;
   color: var(--text-muted);

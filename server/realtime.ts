@@ -51,7 +51,11 @@ export function attachRealtime(server: HttpServer) {
           "Content-Type": "application/json",
           "Cache-Control": "no-store",
         });
-        res.end(JSON.stringify({ error: "This HireLens test workspace has expired." }));
+        res.end(
+          JSON.stringify({
+            error: "This HireLens test workspace has expired.",
+          }),
+        );
         return;
       }
       if (privatePreviewSocketAllowed(req)) return next();
@@ -68,7 +72,10 @@ export function attachRealtime(server: HttpServer) {
   );
   if (redis) io.adapter(createAdapter(redis));
   setRoomChannel(io);
-  const localAuth = new Map<string, { user: User; token?: string }>();
+  const localAuth = new Map<
+    string,
+    { user: User; token?: string; companyId?: string }
+  >();
   io.use(async (socket, next) => {
     try {
       if (!cloudTestSocketAllowed())
@@ -80,9 +87,18 @@ export function attachRealtime(server: HttpServer) {
         .map((x) => x.trim())
         .find((x) => x.startsWith("hirelens_session="))
         ?.slice("hirelens_session=".length);
-      const user = await userForToken(token);
+      const selection = socket.handshake.auth?.companyId;
+      if (selection !== undefined && typeof selection !== "string")
+        return next(new Error("Invalid company workspace."));
+      const user = await userForToken(token, selection);
       if (!user) return next(new Error("Please sign in."));
-      localAuth.set(socket.id, { user, token });
+      // Pin each connection to its validated workspace. Revalidate membership
+      // on every packet rather than following another tab's selected company.
+      localAuth.set(socket.id, {
+        user,
+        token,
+        companyId: user.role === "hr" ? user.companyId : undefined,
+      });
       socket.data.userId = user._id;
       next();
     } catch {
@@ -107,7 +123,7 @@ export function attachRealtime(server: HttpServer) {
           count = 0;
         }
         if (++count > 180) throw new Error("Too many room events.");
-        const user = await userForToken(auth.token);
+        const user = await userForToken(auth.token, auth.companyId);
         if (!user) {
           socket.disconnect(true);
           return;
@@ -115,7 +131,9 @@ export function attachRealtime(server: HttpServer) {
         auth.user = user;
         next();
       } catch (error) {
-        next(error instanceof Error ? error : new Error("Unauthorized"));
+        // Rejected/revoked membership must also leave watch and media rooms;
+        // otherwise this connection could still receive future broadcasts.
+        socket.disconnect(true);
       }
     });
     socket.on("room:watch", async (payload, ack) => {

@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { useEffect, useRef, useState } from "react";
 import {
   getDocument,
@@ -29,7 +30,7 @@ export default function RoomResume({
     setError("");
     let active = true;
     const task = getDocument({
-      url: `/api/interviews/${id}/room/resume/pdf`,
+      url: scopedApiUrl(`/api/interviews/${id}/room/resume/pdf`),
       withCredentials: true,
       isEvalSupported: false,
       useWasm: false,

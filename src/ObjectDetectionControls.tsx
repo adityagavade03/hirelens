@@ -164,10 +164,9 @@ export function ObjectDetectionControls({
     <section className="object-check" aria-label="Optional object detection">
       <h3>Phones, books & objects</h3>
       <p>
-        Experimental estimates: show supported objects clearly to the camera to
-        see labels and boxes. Small, covered or poorly lit objects may be missed
-        or mislabelled. Camera accuracy has not been validated; this model
-        cannot recognize every object.
+        Enable the check, then hold the whole phone or book clearly in view.
+        Labels and boxes appear over your camera preview. Use front lighting;
+        small, covered or poorly lit objects may be missed or mislabelled.
       </p>
       <p>
         Images are processed on this device and are not uploaded by this check.{" "}
@@ -189,16 +188,16 @@ export function ObjectDetectionControls({
       </label>
       {onProfileChange && (
         <label className="object-profile">
-          Local model
+          Detection model
           <select
             value={profile}
             onChange={(event) =>
               onProfileChange(event.target.value as ObjectDetectionProfile)
             }
           >
-            <option value="balanced">Balanced · lower device load</option>
+            <option value="balanced">Balanced · EfficientDet-Lite0</option>
             <option value="detail" disabled={!accuracyAvailable}>
-              More detail · higher device load
+              More detail · EfficientDet-Lite2
             </option>
           </select>
           <small>

@@ -1,3 +1,4 @@
+import { scopedApiUrl } from "./hr-company-context";
 import { ThemeSettings } from "./theme";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -54,6 +55,7 @@ import { ResumeProfile } from "./ResumeProfile";
 import { HrAvailabilityPanel } from "./HrWorkload";
 import { ProctoringSummary } from "./ProctoringSummary";
 import { EventReviewControls } from "./MonitoringReview";
+import { HrCompanySwitcher } from "./HrCompanySwitcher";
 export function ProfilePage() {
   const { user } = useAuth();
   return user.role === "candidate" ? (
@@ -129,7 +131,7 @@ function ProfessionalProfile() {
               </p>
               {user.profile.resumeId && (
                 <a
-                  href={`/api/resumes/${user.profile.resumeId}`}
+                  href={scopedApiUrl(`/api/resumes/${user.profile.resumeId}`)}
                   className="text-link"
                 >
                   Download current PDF <Download size={14} />
@@ -360,7 +362,13 @@ export function TeamPage() {
     try {
       await send(`/invitations/${id}`, { status }, "PATCH");
       await refresh();
+      window.dispatchEvent(new Event("hirelens:companies-changed"));
       await Promise.all([company.reload(), invitations.reload()]);
+      setSuccess(
+        status === "accepted"
+          ? "Company joined. Use the company selector to open its workspace, then accept any assigned job requests."
+          : "Company invitation declined.",
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -372,9 +380,14 @@ export function TeamPage() {
       <PageTitle
         eyebrow="BETTER, TOGETHER"
         title="Good hiring is a team sport."
-        description="Bring the right people into your hiring conversations."
+        description={
+          user.role === "hr"
+            ? "Join company teams and switch between their separate hiring workspaces."
+            : "Bring the right people into your hiring conversations."
+        }
       />
       <ErrorBox message={company.error || invitations.error || error} />
+      {user.role === "hr" && <HrCompanySwitcher expanded />}
       {user.role === "hr" && <HrAvailabilityPanel />}
       {success && (
         <div className="notice success">
@@ -660,7 +673,10 @@ export function ReportPage() {
         title={interview.jobTitle}
         description={`${interview.candidateName} · ${dateLabel(interview.scheduledAt)}`}
         action={
-          <a className="btn secondary" href={`/api/reports/${id}/pdf`}>
+          <a
+            className="btn secondary"
+            href={scopedApiUrl(`/api/reports/${id}/pdf`)}
+          >
             <Download size={16} />
             Export PDF
           </a>
@@ -892,7 +908,7 @@ export function ReportPage() {
                 {application.resumeId && (
                   <a
                     className="text-link"
-                    href={`/api/resumes/${application.resumeId}`}
+                    href={scopedApiUrl(`/api/resumes/${application.resumeId}`)}
                     target="_blank"
                     rel="noreferrer"
                   >

@@ -459,6 +459,30 @@ it("switches local model profile and discards the previous model's pending resul
   expect(f.record).toHaveBeenCalledTimes(1);
 });
 
+it("keeps bounded slow detail results usable rather than discarding every CPU inference", async () => {
+  const f = setup();
+  f.services.objectAccuracyModelUrl = "/detail.tflite";
+  await f.render(true, true);
+  await act(async () => f.result().setProfile("detail"));
+  await f.load();
+  const first = await f.capture();
+  await advance(3000);
+  await f.respond(first);
+  expect(f.result()).toMatchObject({ ready: true, state: "ready" });
+  expect(f.result().detections).toHaveLength(1);
+  expect(f.record).not.toHaveBeenCalled();
+  const second = await f.capture();
+  await advance(3000);
+  await f.respond(second);
+  expect(f.record).toHaveBeenCalledOnce();
+  const expired = await f.capture();
+  await advance(6500);
+  await f.respond(expired);
+  expect(f.result().ready).toBe(false);
+  expect(f.result().state).toBe("paused");
+  expect(f.result().detections).toEqual([]);
+});
+
 it("does not silently fall back to balanced when a selected detail model is unavailable", async () => {
   const f = setup();
   await f.render(true);
