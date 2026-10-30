@@ -9,6 +9,7 @@ import "./cloud-test-companies.js";
 import {
   providerConfiguration,
   twilioCredentialConfigurationIssues,
+  validProviderUrl,
 } from "./provider-configuration.js";
 const objectEventSeconds = Number(process.env.OBJECT_EVENT_SECONDS);
 export const config = {
@@ -121,7 +122,15 @@ export function publicJudge0Configured() {
 }
 export function codeExecutionConfigured() {
   if (!config.judgeUrl) return false;
-  if (!publicJudge0Configured()) return true;
+  if (!validProviderUrl(config.judgeUrl, config.production)) return false;
+  if (new URL(config.judgeUrl).search) return false;
+  if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/.test(config.judgeHeader))
+    return false;
+  if (config.judgeKey.length > 4096 || /[\x00-\x1f\x7f]/.test(config.judgeKey))
+    return false;
+  if (!publicJudge0Configured()) {
+    return !config.production || !!config.judgeKey.trim();
+  }
   if (config.production) return false;
   const loopback = (host: string) =>
     ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host.toLowerCase());

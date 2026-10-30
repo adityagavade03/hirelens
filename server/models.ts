@@ -395,6 +395,7 @@ export const SubmissionModel = mongoose.model(
       language: String,
       code: String,
       mode: String,
+      runMode: { type: String, enum: ["custom", "examples"] },
       codeHash: String,
       problemId: String,
       results: [Schema.Types.Mixed],

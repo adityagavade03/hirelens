@@ -1600,6 +1600,7 @@ export function createApp() {
           language: z.enum(codingLanguageKeys),
           code: z.string().min(1).max(50000),
           mode: z.enum(["run", "submit"]),
+          runMode: z.enum(["custom", "examples"]).default("custom"),
           stdin: z.string().max(10000).default(""),
         })
         .parse(req.body);
@@ -1610,7 +1611,9 @@ export function createApp() {
         input.code,
         input.mode === "submit"
           ? problem.tests
-          : [{ input: input.stdin, hidden: false }],
+          : input.runMode === "examples"
+            ? problem.tests.filter((test) => !test.hidden)
+            : [{ input: input.stdin, hidden: false }],
         interview.type === "practice" &&
           !interview.companyId &&
           !interview.applicationId &&
@@ -1640,6 +1643,7 @@ export function createApp() {
               .digest("hex"),
             problemId: interview.problemId,
             mode: input.mode,
+            ...(input.mode === "run" ? { runMode: input.runMode } : {}),
             results,
             passed: results.filter((r) => r.passed).length,
             total: results.length,

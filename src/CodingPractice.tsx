@@ -10,6 +10,11 @@ import { codingLanguages, type CodingLanguage } from "../shared/languages";
 import { api, send, useResource } from "./api";
 import { ErrorBox, Field, Loading, Notice, PageTitle, Panel } from "./ui";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
+import {
+  ExecutionResults,
+  isCustomRun,
+  submissionVerdict,
+} from "./ExecutionResults";
 import "./practice-bank.css";
 const Editor = lazy(() => import("./CodingEditor"));
 export default function CodingPractice() {
@@ -32,6 +37,7 @@ export default function CodingPractice() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [saved, setSaved] = useState("");
+  const [runningAction, setRunningAction] = useState("");
   const [available, setAvailable] = useState<string[]>([]),
     [result, setResult] = useState<Submission | null>(null);
   const drafts = useRef<Record<string, string>>({}),
@@ -91,10 +97,21 @@ export default function CodingPractice() {
       clearTimeout(timer);
     };
   }, [ready, code, language, id, i?.status]);
-  async function run(mode: "run" | "submit") {
+  async function run(
+    mode: "run" | "submit",
+    runMode: "custom" | "examples" = "custom",
+  ) {
     if (!services.data?.code || busy) return;
     setBusy(true);
+    setRunningAction(
+      mode === "submit"
+        ? "Checking all public and hidden test cases…"
+        : runMode === "examples"
+          ? "Checking the visible examples…"
+          : "Running your custom input…",
+    );
     setError("");
+    setResult(null);
     try {
       await persistDraft(code, language);
       const value = await send<Submission>(`/interviews/${id}/code`, {
@@ -102,6 +119,7 @@ export default function CodingPractice() {
         code,
         stdin,
         mode,
+        ...(mode === "run" ? { runMode } : {}),
       });
       setResult(value);
       await submissions.reload();
@@ -109,6 +127,7 @@ export default function CodingPractice() {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setRunningAction("");
     }
   }
   async function finish() {
@@ -277,9 +296,22 @@ export default function CodingPractice() {
                   !available.includes(language) ||
                   i.status !== "live"
                 }
-                onClick={() => void run("run")}
+                onClick={() => void run("run", "examples")}
               >
-                Run code
+                Run examples
+              </button>
+              <button
+                className="btn secondary"
+                disabled={
+                  busy ||
+                  !code.trim() ||
+                  !services.data?.code ||
+                  !available.includes(language) ||
+                  i.status !== "live"
+                }
+                onClick={() => void run("run", "custom")}
+              >
+                Run custom input
               </button>
               <button
                 className="btn primary"
@@ -292,7 +324,7 @@ export default function CodingPractice() {
                 }
                 onClick={() => void run("submit")}
               >
-                {busy ? "Checking…" : "Submit solution"}
+                Submit solution
               </button>
               <button
                 className="btn secondary"
@@ -305,46 +337,47 @@ export default function CodingPractice() {
                 Reset code
               </button>
             </div>
+            <p>
+              Run examples checks the visible cases. Submit solution checks all
+              public and hidden cases. Custom input runs without grading.
+            </p>
+            {runningAction && (
+              <p role="status">
+                {runningAction} Results will appear when the execution service
+                finishes.
+              </p>
+            )}
             {services.data?.code && !available.includes(language) && (
               <p>
                 The connected runner has not confirmed this language is
                 available.
               </p>
             )}
-            {result && (
-              <section aria-label="Execution result">
-                <h3>
-                  {result.mode === "submit"
-                    ? `${result.passed} / ${result.total} tests passed`
-                    : "Run result"}
-                </h3>
-                {result.results.map((r, n) => (
-                  <div key={n}>
-                    <strong>
-                      {r.hidden ? "Hidden test" : `Test ${n + 1}`}: {r.status}
-                    </strong>
-                    {!r.hidden && (
-                      <pre>
-                        {r.compileOutput ||
-                          r.stderr ||
-                          r.stdout ||
-                          "(No output)"}
-                      </pre>
-                    )}
-                  </div>
-                ))}
-              </section>
-            )}
+            {result && <ExecutionResults submission={result} />}
           </div>
         </Panel>
       </div>
       <Panel title="Submission history">
         <div className="panel-form">
           {submissions.data.length ? (
-            <ul>
+            <ul className="execution-history">
               {submissions.data.map((s) => (
                 <li key={s._id}>
-                  {s.language} · {s.mode} · {s.passed}/{s.total} tests passed
+                  <button
+                    className="text-link"
+                    disabled={busy}
+                    onClick={() => setResult(s)}
+                  >
+                    {new Date(s.createdAt).toLocaleString()} · {s.language} ·{" "}
+                    {isCustomRun(s)
+                      ? "Custom input"
+                      : s.mode === "submit"
+                        ? "Submit"
+                        : "Examples"}{" "}
+                    · {submissionVerdict(s)}
+                    {!isCustomRun(s) &&
+                      ` · ${s.results.filter((r) => r.statusId === 3).length}/${s.total} tests passed`}
+                  </button>
                 </li>
               ))}
             </ul>

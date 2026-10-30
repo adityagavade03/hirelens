@@ -261,21 +261,64 @@ const judgeHeaders = (): Record<string, string> => ({
   ...(config.judgeKey ? { [config.judgeHeader]: config.judgeKey } : {}),
   ...(config.rapidHost ? { "X-RapidAPI-Host": config.rapidHost } : {}),
 });
+const judgeVerdicts: Record<number, string> = {
+  1: "In Queue",
+  2: "Processing",
+  3: "Accepted",
+  4: "Wrong Answer",
+  5: "Time Limit Exceeded",
+  6: "Compilation Error",
+  7: "Runtime Error (SIGSEGV)",
+  8: "Output Limit Exceeded",
+  9: "Runtime Error (SIGFPE)",
+  10: "Runtime Error (SIGABRT)",
+  11: "Runtime Error (NZEC)",
+  12: "Runtime Error (Other)",
+};
+async function judgeRequest(
+  url: string,
+  init: RequestInit,
+  timeout = 10000,
+  onResponse?: (response: Response) => void,
+): Promise<any> {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      redirect: "error",
+      signal: AbortSignal.timeout(Math.max(1, timeout)),
+    });
+    if (!response.ok)
+      throw new ApiError(
+        502,
+        `Code runner returned HTTP ${response.status}. Please retry later.`,
+        "PROVIDER_ERROR",
+      );
+    onResponse?.(response);
+    return await readProviderJson(response, 2 * 1024 * 1024);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      502,
+      "Code runner timed out or returned an invalid response. No evaluation was saved.",
+      "PROVIDER_ERROR",
+    );
+  }
+}
 export async function executionLanguages() {
   if (!codeExecutionConfigured())
     throw new ApiError(
       503,
       publicJudge0Configured()
         ? "The public Judge0 demo is limited to local development practice. Configure a private execution service for this deployment."
-        : "Code execution needs a Judge0 service. Set JUDGE0_URL on the server.",
+        : "Private code execution is unavailable. Configure a valid Judge0 endpoint and, in production, its API credentials.",
       "CONFIGURATION_NEEDED",
     );
-  const response = await requestJson(
+  const response = await judgeRequest(
     `${config.judgeUrl.replace(/\/$/, "")}/languages`,
     { headers: judgeHeaders() },
   );
   const all = z
-    .array(z.object({ id: z.number(), name: z.string() }))
+    .array(z.object({ id: z.number().int().positive(), name: z.string() }))
     .safeParse(response);
   if (!all.success)
     throw new ApiError(502, "Judge0 returned an invalid language list.");
@@ -314,13 +357,30 @@ export async function executeCode(
       400,
       "This language is unavailable on your Judge0 service.",
     );
+  if (!tests.length || tests.length > 20)
+    throw new ApiError(
+      400,
+      "Code evaluation needs between one and twenty test cases.",
+    );
   const base = config.judgeUrl.replace(/\/$/, "");
   const output: ExecutionResult[] = [];
+  const deadline = Date.now() + 90000;
   for (const test of tests) {
+    const caseDeadline = Math.min(deadline, Date.now() + 20000);
+    const remaining = () => {
+      const time = caseDeadline - Date.now();
+      if (time <= 0)
+        throw new ApiError(
+          504,
+          "Code evaluation timed out before every case finished. No partial result was saved.",
+          "EXECUTION_TIMEOUT",
+        );
+      return Math.min(10000, time);
+    };
     // Judge0's cloud service routes result polling to the submission's region.
     // Keep affinity local to this submission; never reuse it for another one.
     let submissionRegion: string | null = null;
-    const created = await requestJson(
+    const created = await judgeRequest(
       `${base}/submissions?base64_encoded=true&wait=false`,
       {
         method: "POST",
@@ -339,23 +399,37 @@ export async function executeCode(
           enable_network: false,
         }),
       },
-      30000,
+      remaining(),
       (response) => {
-        submissionRegion = response.headers.get("X-Judge0-Region");
+        const region = response.headers.get("X-Judge0-Region");
+        submissionRegion =
+          region && /^[a-z0-9-]{1,64}$/i.test(region) ? region : null;
       },
     );
-    if (typeof created.token !== "string")
+    if (
+      !created ||
+      typeof created.token !== "string" ||
+      !/^[a-z0-9-]{1,200}$/i.test(created.token)
+    )
       throw new ApiError(502, "Judge0 did not return a submission token.");
     const pollingHeaders = judgeHeaders();
     if (submissionRegion) pollingHeaders["X-Judge0-Region"] = submissionRegion;
     let result: any;
     for (let attempt = 0; attempt < 30; attempt++) {
-      result = await requestJson(
+      result = await judgeRequest(
         `${base}/submissions/${encodeURIComponent(created.token)}?base64_encoded=true`,
         { headers: pollingHeaders },
+        remaining(),
       );
-      if (typeof result.status?.id !== "number")
-        throw new ApiError(502, "Judge0 returned an invalid status.");
+      if (
+        !Number.isInteger(result?.status?.id) ||
+        !Object.hasOwn(judgeVerdicts, result.status.id)
+      )
+        throw new ApiError(
+          502,
+          "The code runner could not judge this submission. No evaluation was saved.",
+          "INVALID_EXECUTION_RESULT",
+        );
       if (result.status.id > 2) break;
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -370,19 +444,33 @@ export async function executeCode(
         : "";
     // Hidden outputs can reproduce hidden inputs; return only verdict and resource usage.
     output.push({
-      status: String(result.status.description),
+      status: judgeVerdicts[result.status.id],
       statusId: result.status.id,
       passed: result.status.id === 3,
       hidden: test.hidden,
       ...(!test.hidden
         ? {
+            input: test.input,
+            ...(test.output !== undefined
+              ? { expectedOutput: test.output }
+              : {}),
             stdout: decode(result.stdout),
             stderr: decode(result.stderr),
             compileOutput: decode(result.compile_output),
           }
         : {}),
-      time: result.time == null ? undefined : String(result.time),
-      memory: typeof result.memory === "number" ? result.memory : undefined,
+      time:
+        result.time != null &&
+        /^(?:\d+\.?\d*|\.\d+)$/.test(String(result.time)) &&
+        Number(result.time) <= 86400
+          ? String(result.time)
+          : undefined,
+      memory:
+        Number.isInteger(result.memory) &&
+        result.memory >= 0 &&
+        result.memory <= 1e9
+          ? result.memory
+          : undefined,
     });
   }
   return output;

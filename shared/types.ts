@@ -260,6 +260,8 @@ export interface Problem {
   starter: Record<string, string>;
 }
 export interface ExecutionResult {
+  input?: string;
+  expectedOutput?: string;
   status: string;
   statusId: number;
   passed: boolean;
@@ -278,6 +280,7 @@ export interface Submission {
   language: string;
   code: string;
   mode: "run" | "submit";
+  runMode?: "custom" | "examples";
   results: ExecutionResult[];
   passed: number;
   total: number;

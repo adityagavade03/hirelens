@@ -21,9 +21,20 @@ request camera/microphone access or start an AI interview. Drafts are saved per
 language in the candidate's account. The practice journal reopens the workspace;
 Finish coding practice closes it while retaining saved code and execution history.
 
-Run uses custom standard input. Submit checks all public/hidden cases. Hidden
-results contain verdicts/resources but not their input, output, compiler text or
-stderr. Execution depends on a functioning configured Judge0 service. Draft
+Run examples checks every visible example against its expected answer. Run
+custom input executes your own standard input without grading correctness.
+Submit solution checks every public and hidden case, including the remaining
+cases after a wrong answer or program error. The results panel shows selectable
+case verdicts, total case runtime and peak case memory; public cases also show
+input, expected output, actual output and compiler/runtime diagnostics. Past
+attempts can be reopened from Submission history. Hidden results contain
+verdicts/resources but not their input, output, compiler text or stderr.
+
+Runner transport failures, invalid responses and deadlines return an error
+without saving a partial or fabricated graded submission. Evaluation is bounded
+to 20 seconds per case and 90 seconds across cases, after language discovery.
+Production private endpoints require HTTPS and API credentials. Execution depends
+on a functioning configured Judge0 service. Draft
 editing and question browsing remain available when no executor is connected;
 results and accepted verdicts are never invented.
 
