@@ -373,6 +373,7 @@ export const InterviewModel = mongoose.model(
       screenRequired: { type: Boolean, default: true },
       entireScreen: { type: Boolean, default: false },
       roomInstruction: Schema.Types.Mixed,
+      practiceMode: { type: String, enum: ["coding"] },
       candidateCameraStatus: Schema.Types.Mixed,
       codingPrompt: String,
       codingSentAt: Date,

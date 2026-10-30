@@ -1,0 +1,29 @@
+{$JUDGE0_DOMAIN} {
+    request_body {
+        max_size 128KB
+    }
+    @languageList {
+        method GET
+        path /languages
+    }
+    @submit {
+        method POST
+        path /submissions
+    }
+    @result {
+        method GET
+        path /submissions/*
+    }
+    handle @languageList {
+        reverse_proxy server:2358
+    }
+    handle @submit {
+        reverse_proxy server:2358
+    }
+    handle @result {
+        reverse_proxy server:2358
+    }
+    handle {
+        respond "Not found" 404
+    }
+}

@@ -62,6 +62,72 @@ export async function interviewProblem(interview: any) {
   );
 }
 export function registerCodingRoutes(app: Express) {
+  app.post("/api/practice/coding", permit("candidate"), async (req, res) => {
+    const { problemId } = z
+      .object({ problemId: z.string().min(1).max(150) })
+      .strict()
+      .parse(req.body);
+    if (!Object.hasOwn(problems, problemId))
+      throw new ApiError(404, "Practice question not found.");
+    const problem = problems[problemId];
+    const session = await InterviewModel.create({
+      candidateId: req.user._id,
+      interviewerId: req.user._id,
+      candidateName: req.user.name,
+      companyName: "Personal practice",
+      jobTitle: problem.title,
+      topics: [problem.topic || "Problem solving"],
+      difficulty:
+        problem.difficulty === "Easy"
+          ? "Beginner"
+          : problem.difficulty === "Hard"
+            ? "Advanced"
+            : "Intermediate",
+      problemId,
+      problemSnapshot: problem,
+      type: "practice",
+      practiceMode: "coding",
+      facilitator: "human",
+      mode: "video",
+      status: "live",
+      startedAt: new Date(),
+      scheduledAt: new Date(),
+      timezone: "Asia/Kolkata",
+      duration: 90,
+      questions: [],
+    });
+    // A newly created Mongoose document still contains select:false fields.
+    // Never return its private snapshot/tests in the creation response.
+    res
+      .status(201)
+      .json({ _id: session.id, practiceMode: "coding", problemId });
+  });
+  app.post(
+    "/api/practice/coding/:id/finish",
+    permit("candidate"),
+    async (req, res) => {
+      const session = await accessibleInterview(
+        req.user,
+        objectId.parse(req.params.id),
+      );
+      if (
+        session.type !== "practice" ||
+        session.practiceMode !== "coding" ||
+        session.candidateId !== req.user._id ||
+        session.companyId ||
+        session.applicationId
+      )
+        throw new ApiError(404, "Coding practice session not found.");
+      if (session.status === "completed") return res.json({ ok: true });
+      const changed = await InterviewModel.updateOne(
+        { _id: session.id, status: "live" },
+        { $set: { status: "completed", endedAt: new Date() } },
+      );
+      if (!changed.modifiedCount)
+        throw new ApiError(409, "This practice session is no longer active.");
+      res.json({ ok: true });
+    },
+  );
   app.get("/api/problems", async (req, res) => {
     const custom =
       req.user.role !== "candidate" && req.user.companyId

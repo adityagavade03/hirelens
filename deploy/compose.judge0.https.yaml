@@ -1,0 +1,23 @@
+# Optional HTTPS entry point for the dedicated private execution host.
+# Combine with compose.judge0.yaml. Judge0 remains token-authenticated.
+services:
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      JUDGE0_DOMAIN: ${JUDGE0_DOMAIN:?Set a real hostname in the private host environment}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Judge0.Caddyfile:/etc/caddy/Caddyfile:ro
+      - judge-caddy-data:/data
+      - judge-caddy-config:/config
+    depends_on:
+      - server
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "2" }
+volumes:
+  judge-caddy-data:
+  judge-caddy-config:

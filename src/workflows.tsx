@@ -24,6 +24,7 @@ import type {
   Interview,
   User,
   Problem,
+  ServiceStatus,
 } from "../shared/types";
 import { useAuth } from "./auth-context";
 import { wallTime, zonedTimeToUtc } from "../shared/time";
@@ -48,6 +49,7 @@ import { InterviewRounds } from "./InterviewRounds";
 import { InterviewInstructions } from "./InterviewInstructions";
 import { ResumeScreening, ScreeningScore } from "./ResumeScreening";
 import { ApplicationForm } from "./ApplicationForm";
+import { PracticeQuestionBank } from "./PracticeQuestionBank";
 
 export function JobsPage({ create = false }: { create?: boolean }) {
   const navigate = useNavigate();
@@ -1622,6 +1624,8 @@ const practiceTracks = [
 ];
 export function PracticePage() {
   const records = useResource<Interview[]>("/interviews", []);
+  const codingProblems = useResource<Problem[]>("/problems", []);
+  const execution = useResource<ServiceStatus | null>("/services", null);
   const [track, setTrack] = useState<(typeof practiceTracks)[number] | null>(
     null,
   );
@@ -1703,6 +1707,12 @@ export function PracticePage() {
           </button>
         ))}
       </div>
+      <PracticeQuestionBank
+        problems={codingProblems.data}
+        loading={codingProblems.loading}
+        error={codingProblems.error}
+        executionAvailable={execution.data?.code}
+      />
       <Panel
         title="Your practice journal"
         description="Small steps are still steps forward."
@@ -1737,13 +1747,22 @@ export function PracticePage() {
                       </td>
                       <td>{s.difficulty}</td>
                       <td>
-                        {s.answers.length} / {s.questions.length}
+                        {s.practiceMode === "coding"
+                          ? "Coding practice"
+                          : `${s.answers.length} / ${s.questions.length}`}
                       </td>
                       <td>
                         <Status value={s.status} />
                       </td>
                       <td>
-                        <Link to={`/room/${s._id}`} className="text-link">
+                        <Link
+                          to={
+                            s.practiceMode === "coding"
+                              ? `/practice/code/${s._id}`
+                              : `/room/${s._id}`
+                          }
+                          className="text-link"
+                        >
                           Open session
                           <ArrowUpRight size={16} />
                         </Link>
@@ -1801,8 +1820,11 @@ export function PracticePage() {
             </div>
             <Field label="Coding exercise">
               <select name="problemId">
-                <option value="sum-pairs">Pair sum · Easy</option>
-                <option value="unique-count">Distinct values · Medium</option>
+                {codingProblems.data.map((problem) => (
+                  <option key={problem.id} value={problem.id}>
+                    {problem.title} · {problem.difficulty}
+                  </option>
+                ))}
               </select>
             </Field>
             <Notice>

@@ -213,6 +213,8 @@ export interface Answer {
   createdAt: string;
 }
 export interface Interview {
+  practiceMode?: "coding";
+  activeLanguage?: string;
   mode?: "video" | "in_person";
   venue?: string;
   facilitator?: "human" | "ai";
@@ -249,6 +251,7 @@ export interface Interview {
 }
 export interface Problem {
   id: string;
+  topic?: string;
   title: string;
   difficulty: string;
   description: string;

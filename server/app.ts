@@ -1119,7 +1119,7 @@ export function createApp() {
         topics: list.min(1),
         difficulty: z.enum(["Beginner", "Intermediate", "Advanced"]),
         duration: z.number().int().min(10).max(90),
-        problemId: z.string().refine((v) => !!problems[v]),
+        problemId: z.string().refine((v) => Object.hasOwn(problems, v)),
         facilitator: z.enum(["human", "ai"]).default("human"),
       })
       .parse(req.body);

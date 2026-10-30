@@ -27,6 +27,7 @@
     "email:setup:gmail": "powershell -NoProfile -File scripts/setup-gmail.ps1",
     "media:check": "tsx scripts/check-media.ts",
     "code:prepare": "tsx scripts/local-code.ts --prepare",
+    "code:prepare:private": "tsx scripts/prepare-private-executor.ts",
     "code:local": "tsx scripts/local-code.ts",
     "code:check": "tsx scripts/check-code.ts",
     "turn:local": "tsx scripts/local-turn.ts",

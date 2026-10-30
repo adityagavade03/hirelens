@@ -99,6 +99,7 @@ import { AuthContext, useAuth } from "./auth-context";
 import { AppErrorBoundary } from "./AppErrorBoundary";
 import { HrAvailabilityPanel } from "./HrWorkload";
 const Room = lazy(() => import("./Room"));
+const CodingPractice = lazy(() => import("./CodingPractice"));
 export default function App() {
   const location = useLocation();
   return (
@@ -673,6 +674,18 @@ function Shell() {
                 element={
                   user.role === "candidate" ? (
                     <PracticePage />
+                  ) : (
+                    <Navigate to="/" />
+                  )
+                }
+              />
+              <Route
+                path="/practice/code/:id"
+                element={
+                  user.role === "candidate" ? (
+                    <Suspense fallback={<Loading />}>
+                      <CodingPractice />
+                    </Suspense>
                   ) : (
                     <Navigate to="/" />
                   )

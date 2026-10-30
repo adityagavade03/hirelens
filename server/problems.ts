@@ -1,6 +1,8 @@
 import type { Problem, Question } from "../shared/types.js";
 import { randomUUID } from "node:crypto";
 import { blankStarters } from "../shared/languages.js";
+import { practiceDefinitions } from "./question-bank/index.js";
+import { publicPracticeProblem } from "./question-bank/types.js";
 export const problems: Record<
   string,
   Problem & { tests: { input: string; output: string; hidden: boolean }[] }
@@ -50,6 +52,21 @@ export const problems: Record<
     ],
   },
 };
+for (const definition of practiceDefinitions) {
+  if (Object.hasOwn(problems, definition.id))
+    throw new Error("Duplicate practice question identifier");
+  problems[definition.id] = {
+    ...publicPracticeProblem(definition, {
+      ...blankStarters,
+      python:
+        "import sys\n\n# Read standard input and print the requested output.\n",
+      javascript:
+        "const fs = require('fs');\nconst input = fs.readFileSync(0, 'utf8');\n// Parse input and print the requested output.\n",
+      java: "import java.util.*;\npublic class Main {\n  public static void main(String[] args) {\n    Scanner input = new Scanner(System.in);\n    // Read input and print the requested output.\n  }\n}\n",
+    }),
+    tests: definition.tests,
+  };
+}
 export const publicProblems = () =>
   Object.values(problems).map(({ tests, ...problem }) => problem);
 export function curatedQuestions(topics: string[]): Question[] {

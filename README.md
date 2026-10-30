@@ -1,5 +1,11 @@
 # HireLens
 
+The Candidate practice bank includes 100 new Easy, 100 Medium and 100 Hard
+questions, plus the two original warm-ups. Coding practice has a separate
+five-language editor without camera setup. See the [practice bank guide](docs/PRACTICE-QUESTION-BANK.md)
+and [private executor setup](docs/PRIVATE-EXECUTION-SETUP.md); hosted Run/Submit
+still needs a connected private execution host.
+
 HR accounts can join multiple companies by invitation and switch between their
 workspaces while retaining separate candidate access and calendar conflict checks.
 See [HR accounts and multiple companies](docs/HR-MULTIPLE-COMPANIES.md).
