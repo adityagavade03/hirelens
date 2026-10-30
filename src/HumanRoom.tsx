@@ -49,6 +49,11 @@ import { useRoomUpdates } from "./room-updates";
 import { MediaVideo, MicrophoneLevel, MonitoringSummary } from "./RoomMedia";
 import { InterviewCapture } from "./InterviewMedia";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
+import {
+  ExecutionResults,
+  isCustomRun,
+  submissionVerdict,
+} from "./ExecutionResults";
 import { RoomConversation } from "./RoomConversation";
 import { RoomDiagnostics } from "./RoomDiagnostics";
 import { CalibratedGaze } from "./CalibratedGaze";
@@ -115,6 +120,8 @@ export default function HumanRoom({ id }: { id: string }) {
   const [language, setLanguage] = useState("java"),
     [code, setCode] = useState(""),
     [stdin, setStdin] = useState("");
+  const [draftReady, setDraftReady] = useState(false);
+  const [selectedExecution, setSelectedExecution] = useState("");
   const [events, setEvents] = useState<MonitoringEvent[]>([]),
     [eventError, setEventError] = useState("");
   const [instruction, setInstruction] = useState(""),
@@ -284,9 +291,20 @@ export default function HumanRoom({ id }: { id: string }) {
       /* Server draft remains available when browser storage is disabled. */
     }
     drafts.current = { ...i.drafts, ...drafts.current };
+    const savedLanguage =
+      codingLanguageKeys.find((key) => key === i.activeLanguage) ||
+      codingLanguageKeys.find((key) => key === room?.activeLanguage) ||
+      "java";
     readyDraft.current = true;
-    setCode(drafts.current.java ?? problem.data.starter.java ?? "");
-  }, [i, problem.data, candidate, id]);
+    setLanguage(savedLanguage);
+    setCode(
+      drafts.current[savedLanguage] ??
+        problem.data.starter[savedLanguage] ??
+        "",
+    );
+    // Enable autosave only after the saved language and its code have rendered together.
+    setDraftReady(true);
+  }, [i, problem.data, candidate, id, room?.activeLanguage]);
   const editorLanguage = candidate ? language : room?.activeLanguage || "java";
   const editorCode = candidate
     ? code
@@ -329,7 +347,7 @@ export default function HumanRoom({ id }: { id: string }) {
     return next;
   }
   const draftStatus = useDraftSync(
-    !!active && candidate && readyDraft.current,
+    !!active && candidate && draftReady,
     code,
     language,
     updates,
@@ -410,11 +428,31 @@ export default function HumanRoom({ id }: { id: string }) {
       }
     });
   }
-  async function execute(mode: "run" | "submit") {
-    await action(mode, async () => {
+  async function execute(
+    mode: "run" | "submit",
+    runMode: "custom" | "examples" = "custom",
+  ) {
+    if (
+      !candidate ||
+      !active ||
+      !!busy ||
+      !code.trim() ||
+      !services.data?.code ||
+      services.data?.codePublicDemo ||
+      !languages.includes(language)
+    )
+      return;
+    await action(mode === "submit" ? "submit" : runMode, async () => {
       await saveDraft(code, language);
-      await send(`/interviews/${id}/code`, { code, language, stdin, mode });
+      const result = await send<Submission>(`/interviews/${id}/code`, {
+        code,
+        language,
+        stdin,
+        mode,
+        ...(mode === "run" ? { runMode } : {}),
+      });
       await history.reload();
+      setSelectedExecution(result._id);
     });
   }
   async function changeFaceConsent(accepted: boolean) {
@@ -789,7 +827,8 @@ export default function HumanRoom({ id }: { id: string }) {
   const clock = `${Math.floor(elapsed / 60)
     .toString()
     .padStart(2, "0")}:${(elapsed % 60).toString().padStart(2, "0")}`;
-  const latest = history.data[0];
+  const latest =
+    history.data.find((s) => s._id === selectedExecution) || history.data[0];
   const staleOutput =
     latest &&
     (latest.code !== editorCode ||
@@ -1322,13 +1361,14 @@ export default function HumanRoom({ id }: { id: string }) {
             </div>
             {candidate && (
               <label className="field">
-                Standard input
+                Custom input
                 <textarea
                   rows={2}
                   value={stdin}
                   onChange={(e) => setStdin(e.target.value)}
                   disabled={!candidate}
-                  placeholder="Input passed to your program when you choose Run"
+                  maxLength={10000}
+                  placeholder="Input passed to your program when you choose Run custom input"
                 />
               </label>
             )}
@@ -1340,39 +1380,77 @@ export default function HumanRoom({ id }: { id: string }) {
             {!services.data?.code && !services.data?.codePublicDemo && (
               <div className="meeting-warning">
                 Code execution is unavailable until the administrator connects
-                and tests Judge0. You can still write and discuss code; no
-                results are simulated.
+                and tests Judge0.{" "}
+                {candidate
+                  ? "You can still write and discuss code"
+                  : "The candidate can still write code while you review it"}
+                ; no results are simulated.
               </div>
             )}
             {candidate && (
-              <div className="meeting-toolbar">
-                <button
-                  className="btn secondary"
-                  disabled={
-                    !!busy ||
-                    !services.data?.code ||
-                    !!services.data?.codePublicDemo ||
-                    !languages.includes(language) ||
-                    !active
-                  }
-                  onClick={() => void execute("run")}
-                >
-                  {busy === "run" ? "Running…" : "Run code"}
-                </button>
-                <button
-                  className="btn primary"
-                  disabled={
-                    !!busy ||
-                    !services.data?.code ||
-                    !!services.data?.codePublicDemo ||
-                    !languages.includes(language) ||
-                    !active
-                  }
-                  onClick={() => void execute("submit")}
-                >
-                  {busy === "submit" ? "Checking…" : "Submit against tests"}
-                </button>
-              </div>
+              <>
+                <div className="meeting-toolbar">
+                  <button
+                    className="btn secondary"
+                    disabled={
+                      !!busy ||
+                      !code.trim() ||
+                      !services.data?.code ||
+                      !!services.data?.codePublicDemo ||
+                      !languages.includes(language) ||
+                      !active
+                    }
+                    onClick={() => void execute("run", "examples")}
+                  >
+                    {busy === "examples"
+                      ? "Checking examples…"
+                      : "Run examples"}
+                  </button>
+                  <button
+                    className="btn secondary"
+                    disabled={
+                      !!busy ||
+                      !code.trim() ||
+                      !services.data?.code ||
+                      !!services.data?.codePublicDemo ||
+                      !languages.includes(language) ||
+                      !active
+                    }
+                    onClick={() => void execute("run", "custom")}
+                  >
+                    {busy === "custom"
+                      ? "Running custom input…"
+                      : "Run custom input"}
+                  </button>
+                  <button
+                    className="btn primary"
+                    disabled={
+                      !!busy ||
+                      !code.trim() ||
+                      !services.data?.code ||
+                      !!services.data?.codePublicDemo ||
+                      !languages.includes(language) ||
+                      !active
+                    }
+                    onClick={() => void execute("submit")}
+                  >
+                    {busy === "submit"
+                      ? "Checking all cases…"
+                      : "Submit solution"}
+                  </button>
+                </div>
+                <p>
+                  Run examples checks the visible cases. Submit solution checks
+                  all public and hidden cases. Custom input runs without
+                  grading.
+                </p>
+                {["custom", "examples", "submit"].includes(busy) && (
+                  <p role="status">
+                    Waiting for the private execution service. Results appear
+                    when this attempt finishes.
+                  </p>
+                )}
+              </>
             )}
             <ErrorBox message={languageError} />
             {services.data?.code &&
@@ -1388,6 +1466,28 @@ export default function HumanRoom({ id }: { id: string }) {
             <section className="meeting-console" aria-label="Execution output">
               <h3>Console</h3>
               {history.error && <ErrorBox message={history.error} />}
+              {history.data.length > 1 && (
+                <label className="field">
+                  Execution attempt
+                  <select
+                    value={latest?._id || ""}
+                    onChange={(e) => setSelectedExecution(e.target.value)}
+                  >
+                    {history.data.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {new Date(s.createdAt).toLocaleTimeString()} ·{" "}
+                        {s.language} ·{" "}
+                        {isCustomRun(s)
+                          ? "Custom input"
+                          : s.mode === "submit"
+                            ? "Submit"
+                            : "Examples"}{" "}
+                        · {submissionVerdict(s)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {!latest ? (
                 <p>No execution results yet.</p>
               ) : (
@@ -1401,32 +1501,13 @@ export default function HumanRoom({ id }: { id: string }) {
                   {staleOutput && (
                     <div className="meeting-warning">
                       This output belongs to an earlier code version or
-                      question. Run the current code to update it.
+                      question.{" "}
+                      {candidate
+                        ? "Run the current code to update it."
+                        : "Ask the candidate to run the current code to update it."}
                     </div>
                   )}
-                  {latest.results.map((r, n) => (
-                    <div key={n}>
-                      <strong>
-                        {r.hidden
-                          ? `Hidden test ${n + 1}`
-                          : `Execution ${n + 1}`}{" "}
-                        · {r.status}
-                      </strong>
-                      {!r.hidden && (
-                        <>
-                          <pre>{r.stdout || "(no standard output)"}</pre>
-                          {r.compileOutput && (
-                            <pre>Compilation: {r.compileOutput}</pre>
-                          )}
-                          {r.stderr && <pre>Runtime: {r.stderr}</pre>}
-                        </>
-                      )}
-                      <small>
-                        {r.time ? `${r.time}s` : ""}{" "}
-                        {r.memory ? `${r.memory} KB` : ""}
-                      </small>
-                    </div>
-                  ))}
+                  <ExecutionResults submission={latest} />
                   <details>
                     <summary>Code used for this execution</summary>
                     <pre>{latest.code}</pre>

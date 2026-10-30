@@ -41,6 +41,21 @@ an actively working detector. Withdrawal clears the relevant metadata.
 Review sustained events in Activity, discuss context, and record human feedback.
 Detector estimates do not identify cheating or automatically decide hiring.
 
+## Coding and execution results
+
+Candidates can use **Run examples** for visible cases, **Run custom input** for
+ungraded input, and **Submit solution** for all public/hidden cases. Source
+code is saved before an execution request. These actions require a connected
+private runner during hiring interviews; no results are simulated when it is
+unavailable. Public practice execution cannot process hiring code.
+
+HR reviews the candidate's saved code, selected execution attempt and public
+input/expected/actual output. HR cannot edit or execute as the candidate. Hidden
+cases reveal verdicts/resources only. Custom input is labelled **Executed**,
+not a correct solution. The same results are available in saved reports and AI
+practice. A stale result remains labelled as belonging to an earlier code or
+question; HR asks the candidate to run again when execution is available.
+
 ## Verification limits
 
 Automated tests cover role separation, camera lifecycle, stale frames, consent,

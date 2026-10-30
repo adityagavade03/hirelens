@@ -1,5 +1,8 @@
 import type { config } from "../server/config.js";
-import { twilioCredentialConfigurationIssues } from "../server/provider-configuration.js";
+import {
+  twilioCredentialConfigurationIssues,
+  validProviderUrl,
+} from "../server/provider-configuration.js";
 import {
   validateJudgeSettings,
   validatePublicTurnSettings,
@@ -31,6 +34,33 @@ export function interviewProviderReadiness(settings: Configuration): {
     JUDGE0_AUTH_HEADER: settings.judgeHeader,
     JUDGE0_RAPIDAPI_HOST: settings.rapidHost,
   });
+  // Setup can stage a local HTTP executor, but a production server cannot use
+  // it. Apply the runtime transport and credential guards to readiness too.
+  const runtimeIssues: string[] = [];
+  if (
+    settings.judgeUrl &&
+    !validProviderUrl(settings.judgeUrl, settings.production)
+  )
+    runtimeIssues.push(
+      "JUDGE0_URL must use HTTPS in production without embedded credentials or a fragment.",
+    );
+  try {
+    if (new URL(settings.judgeUrl).search)
+      runtimeIssues.push("JUDGE0_URL must not contain a query.");
+  } catch {
+    if (settings.judgeUrl)
+      runtimeIssues.push("JUDGE0_URL must be a valid service endpoint.");
+  }
+  if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/.test(settings.judgeHeader))
+    runtimeIssues.push("JUDGE0_AUTH_HEADER must be a valid HTTP header name.");
+  if (
+    settings.judgeKey.length > 4096 ||
+    /[\x00-\x1f\x7f]/.test(settings.judgeKey)
+  )
+    runtimeIssues.push(
+      "JUDGE0_API_KEY must contain at most 4096 characters and no control characters.",
+    );
+  judgeIssues.push(...runtimeIssues);
   const execution = !settings.judgeUrl
     ? {
         mode: "unconfigured",
@@ -41,10 +71,11 @@ export function interviewProviderReadiness(settings: Configuration): {
       }
     : publicDemo
       ? {
-          mode: "public-practice-only",
+          mode: runtimeIssues.length ? "invalid" : "public-practice-only",
           configuredForExternalUse: false,
           issues: [
             "The public Judge0 demo does not enable hiring assessments.",
+            ...runtimeIssues,
           ],
         }
       : {

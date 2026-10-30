@@ -55,16 +55,18 @@ it("keeps benchmark fixtures synthetic and covers distinct required qualificatio
   expect(new Set(resumeQualityCases.map((c) => c.id)).size).toBe(
     resumeQualityCases.length,
   );
+  for (const id of ["unknown-years", "conflicting-years"])
+    expect(resumeQualityCases.find((c) => c.id === id)?.expected).toBe(
+      "needs_review",
+    );
   for (const id of [
     "insufficient-years",
-    "unknown-years",
-    "conflicting-years",
     "unrelated-degree",
     "missing-certification",
     "resume-injection",
   ])
     expect(resumeQualityCases.find((c) => c.id === id)?.expected).toBe(
-      "needs_review",
+      "aggregate_threshold",
     );
   const missingSpring = resumeQualityCases.find(
     (c) => c.id === "missing-spring",

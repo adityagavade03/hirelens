@@ -16,11 +16,13 @@ const fixture = vi.hoisted(() => ({
     type: "technical",
     difficulty: "Beginner",
     status: "live",
+    facilitator: "human",
+    activeLanguage: "java",
     scheduledAt: "2026-10-30T09:00:00Z",
     topics: ["REST APIs"],
     questions: [],
     answers: [],
-    drafts: {},
+    drafts: {} as Record<string, string>,
   },
   room: {
     interviewerName: "Test HR",
@@ -37,6 +39,20 @@ const fixture = vi.hoisted(() => ({
   },
   face: vi.fn(),
   objects: vi.fn(),
+  services: { face: true, objects: true, code: false, codePublicDemo: false },
+  problem: {
+    id: "test-problem",
+    title: "Add two numbers",
+    difficulty: "Beginner",
+    description: "Read two integers and print their sum.",
+    constraints: "Whole numbers.",
+    starter: {
+      java: "// java solution",
+      python: "print(sum(map(int, input().split())))",
+    },
+    examples: [{ input: "4 7", output: "11" }],
+  },
+  submissions: [] as any[],
 }));
 vi.mock("../src/auth-context", () => ({
   useAuth: () => ({
@@ -47,18 +63,53 @@ vi.mock("../src/auth-context", () => ({
   }),
 }));
 vi.mock("../src/api", () => ({
-  api: vi.fn(async () => []),
-  send: vi.fn(async () => fixture.interview),
+  dateLabel: (value: string) => value,
+  api: vi.fn(async (path: string) =>
+    path === "/languages" ? [{ key: "java" }, { key: "python" }] : [],
+  ),
+  send: vi.fn(async (path: string, data?: any) => {
+    if (path.endsWith("/code")) {
+      const result = {
+        _id: `submission-${fixture.submissions.length}`,
+        interviewId: "room-fixture",
+        code: data.code,
+        language: data.language,
+        mode: data.mode,
+        runMode: data.runMode,
+        total: 1,
+        passed: 1,
+        createdAt: "2026-10-30T12:00:00Z",
+        results: [
+          {
+            statusId: 3,
+            status: "Accepted",
+            passed: true,
+            hidden: false,
+            input: "4 7",
+            expectedOutput: data.runMode === "custom" ? undefined : "11",
+            stdout: "11\n",
+          },
+        ],
+      };
+      fixture.submissions.unshift(result);
+      return result;
+    }
+    return fixture.interview;
+  }),
   useResource: (path: string, initial: unknown) => ({
     data: path.endsWith("/room")
       ? fixture.room
       : path === "/services"
-        ? { face: true, objects: true }
-        : path.endsWith("/room/resumes")
-          ? { resumes: [], recommendedId: "submitted-resume-fixture" }
-          : /^\/interviews\/[^/]+$/.test(path)
-            ? fixture.interview
-            : initial,
+        ? fixture.services
+        : path.endsWith("/problem")
+          ? fixture.problem
+          : path.endsWith("/submissions")
+            ? fixture.submissions
+            : path.endsWith("/room/resumes")
+              ? { resumes: [], recommendedId: "submitted-resume-fixture" }
+              : /^\/interviews\/[^/]+$/.test(path)
+                ? fixture.interview
+                : initial,
     loading: false,
     error: "",
     reload: vi.fn(async () => {}),
@@ -125,13 +176,13 @@ vi.mock("../src/ObjectDetectionControls", () => ({
   ObjectDetectionOverlay: () => null,
   ObjectDetectionLabels: () => null,
 }));
-vi.mock("../src/draft-sync", () => ({ useDraftSync: () => "Saved" }));
 vi.mock("../src/room-updates", () => ({ useRoomUpdates: () => "connected" }));
 vi.mock("../src/RoomMedia", () => ({
   MediaVideo: ({ label }: { label: string }) =>
     createElement("div", { "aria-label": label }),
   MicrophoneLevel: () => null,
   MonitoringSummary: () => null,
+  LiveMonitoring: () => null,
 }));
 vi.mock("../src/InterviewMedia", () => ({ InterviewCapture: () => null }));
 vi.mock("../src/RoomConversation", () => ({
@@ -145,18 +196,43 @@ vi.mock("../src/CodeExecutionNotice", () => ({
 }));
 vi.mock("../src/theme", () => ({ ThemeToggle: () => null }));
 vi.mock("../src/CodingEditor", () => ({
-  default: () => createElement("div", null, "Code editor"),
+  default: ({
+    options,
+    value,
+  }: {
+    options?: { readOnly?: boolean };
+    value?: string;
+  }) =>
+    createElement(
+      "div",
+      { "data-read-only": options?.readOnly, "data-code-value": value },
+      "Code editor",
+    ),
 }));
 vi.mock("../src/RoomResume", () => ({
   default: () => createElement("div", null, "Resume document"),
 }));
 
 import HumanRoom from "../src/HumanRoom";
+import Room from "../src/Room";
+import { api, send } from "../src/api";
 let root: Root, host: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   fixture.face.mockClear();
   fixture.objects.mockClear();
+  vi.mocked(send).mockClear();
+  vi.mocked(api).mockClear();
+  sessionStorage.clear();
+  fixture.interview.type = "technical";
+  fixture.interview.facilitator = "human";
+  fixture.interview.activeLanguage = "java";
+  fixture.interview.drafts = {};
+  fixture.room.activeLanguage = "java";
+  fixture.services.code = false;
+  fixture.services.codePublicDemo = false;
+  fixture.submissions = [];
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -165,6 +241,8 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 async function render(role: string) {
   fixture.role = role;
@@ -177,6 +255,15 @@ async function render(role: string) {
       ),
     ),
   );
+}
+async function enterCandidate() {
+  await render("candidate");
+  const consent = [...host.querySelectorAll('input[type="checkbox"]')].find(
+    (node) =>
+      node.parentElement?.textContent?.includes("I understand and consent"),
+  ) as HTMLInputElement;
+  await act(async () => consent.click());
+  await act(async () => button("Enter waiting room").click());
 }
 function button(text: string) {
   return [...host.querySelectorAll("button")].find(
@@ -243,4 +330,181 @@ it("keeps live candidate tasks free of HR private notes and review controls", as
   expect(button("Share screen")).toBeDefined();
   expect(button("Camera checks")).toBeDefined();
   expect(button("End for everyone")).toBeUndefined();
+});
+it("keeps all live coding actions unavailable until a private runner is connected", async () => {
+  await enterCandidate();
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label).disabled).toBe(true);
+  expect(host.textContent).toContain("no results are simulated");
+});
+it("runs examples and custom input separately, submits all cases and reuses detailed results", async () => {
+  fixture.services.code = true;
+  await enterCandidate();
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    await act(async () => button(label).click());
+  const requests = vi
+    .mocked(send)
+    .mock.calls.filter(([path]) => String(path).endsWith("/code"));
+  expect(
+    requests.map(([, data]) => ({
+      mode: (data as any).mode,
+      runMode: (data as any).runMode,
+    })),
+  ).toEqual([
+    { mode: "run", runMode: "examples" },
+    { mode: "run", runMode: "custom" },
+    { mode: "submit", runMode: undefined },
+  ]);
+  expect(
+    host.querySelector('[aria-label="Execution result"]')?.textContent,
+  ).toContain("Full submission");
+  expect(
+    host.querySelector('[aria-label="Execution result"]')?.textContent,
+  ).toContain("Expected output");
+  const select = [...host.querySelectorAll("select")].find((s) =>
+    s.parentElement?.textContent?.includes("Execution attempt"),
+  )!;
+  await act(async () => {
+    select.value = "submission-1";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(
+    host.querySelector('[aria-label="Execution result"]')?.textContent,
+  ).toContain("Custom input run");
+  expect(
+    host.querySelector('[aria-label="Execution result"]')?.textContent,
+  ).toContain("Executed");
+  expect(
+    host.querySelector('[aria-label="Execution result"]')?.textContent,
+  ).not.toContain("tests passed");
+});
+it("does not expose execution actions to HR even when a runner is configured", async () => {
+  fixture.services.code = true;
+  fixture.submissions = [
+    {
+      _id: "older-attempt",
+      mode: "run",
+      runMode: "custom",
+      language: "python",
+      code: "older code",
+      createdAt: "2026-10-30T12:00:00Z",
+      passed: 1,
+      total: 1,
+      results: [
+        { status: "Accepted", statusId: 3, passed: true, hidden: false },
+      ],
+    },
+  ];
+  await render("hr");
+  await act(async () => button("Open interview room").click());
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label)).toBeUndefined();
+  expect(host.querySelector('[data-read-only="true"]')).not.toBeNull();
+  expect(host.textContent).toContain(
+    "Ask the candidate to run the current code",
+  );
+});
+it("does not send a real interview's code to a public practice runner", async () => {
+  fixture.services.code = true;
+  fixture.services.codePublicDemo = true;
+  await enterCandidate();
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label).disabled).toBe(true);
+});
+it("uses the same checked example and full-submit results in AI practice without adding HR controls", async () => {
+  fixture.interview.type = "practice";
+  fixture.services.code = true;
+  fixture.role = "candidate";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () => button("Start my practice").click());
+  await act(async () => button("Coding exercise").click());
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    await act(async () => button(label).click());
+  const requests = vi
+    .mocked(send)
+    .mock.calls.filter(([path]) => String(path).endsWith("/code"));
+  expect(
+    requests.map(([, data]) => ({
+      mode: (data as any).mode,
+      runMode: (data as any).runMode,
+    })),
+  ).toEqual([
+    { mode: "run", runMode: "examples" },
+    { mode: "run", runMode: "custom" },
+    { mode: "submit", runMode: undefined },
+  ]);
+  expect(host.querySelectorAll('[aria-label="Execution result"]')).toHaveLength(
+    3,
+  );
+  expect(host.textContent).toContain("Expected output");
+});
+it("keeps HR's AI-interview editor read only without exposing candidate run controls", async () => {
+  fixture.interview.facilitator = "ai";
+  fixture.services.code = true;
+  fixture.role = "hr";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () => button("Join interview").click());
+  await act(async () => button("Coding exercise").click());
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label)).toBeUndefined();
+  expect(host.querySelector('[data-read-only="true"]')).not.toBeNull();
+  expect(host.querySelector(".run-controls")).toBeNull();
+});
+it("restores the candidate's saved Python draft before autosaving instead of resetting the interview to Java", async () => {
+  vi.useFakeTimers();
+  fixture.interview.activeLanguage = "python";
+  fixture.room.activeLanguage = "python";
+  fixture.interview.drafts = { python: "print(12)", java: "KEEP_JAVA_DRAFT" };
+  await enterCandidate();
+  const language = [...host.querySelectorAll("select")].find((node) =>
+    [...node.options].some((option) => option.value === "python"),
+  )!;
+  expect(language.value).toBe("python");
+  expect(
+    host.querySelector("[data-code-value]")?.getAttribute("data-code-value"),
+  ).toBe("print(12)");
+  await act(async () => vi.advanceTimersByTimeAsync(550));
+  const saved = vi
+    .mocked(api)
+    .mock.calls.filter(([path]) => String(path).endsWith("/draft"))
+    .map(([, options]) => JSON.parse(String(options?.body)));
+  expect(saved).toEqual([{ code: "print(12)", language: "python" }]);
+  // A resource refresh must not replace an initialized candidate's local editor.
+  fixture.interview.drafts.python = "STALE_SERVER_SNAPSHOT";
+  await render("candidate");
+  expect(language.value).toBe("python");
+  expect(
+    host.querySelector("[data-code-value]")?.getAttribute("data-code-value"),
+  ).toBe("print(12)");
+});
+it("keeps the language and its draft paired when switching after restoring a session", async () => {
+  vi.useFakeTimers();
+  fixture.interview.activeLanguage = "python";
+  fixture.room.activeLanguage = "python";
+  fixture.interview.drafts = { python: "print(12)", java: "KEEP_JAVA_DRAFT" };
+  await enterCandidate();
+  const language = [...host.querySelectorAll("select")].find((node) =>
+    [...node.options].some((option) => option.value === "python"),
+  )!;
+  await act(async () => {
+    language.value = "java";
+    language.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await act(async () => vi.advanceTimersByTimeAsync(550));
+  const saved = vi
+    .mocked(api)
+    .mock.calls.filter(([path]) => String(path).endsWith("/draft"))
+    .map(([, options]) => JSON.parse(String(options?.body)));
+  expect(saved).toEqual([{ code: "KEEP_JAVA_DRAFT", language: "java" }]);
+  await act(async () => {
+    language.value = "python";
+    language.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(
+    host.querySelector("[data-code-value]")?.getAttribute("data-code-value"),
+  ).toBe("print(12)");
 });

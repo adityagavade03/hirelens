@@ -1,4 +1,8 @@
-# Company onboarding and recruitment — 2 October 2026
+# Company onboarding and recruitment
+
+Updated 30 October 2026. The original onboarding increment was introduced on
+2 October. Current HR membership supports [multiple companies](HR-MULTIPLE-COMPANIES.md);
+shortlisting and workload allocation follow [the enhanced workflow](WORKFLOW-ENHANCEMENTS.md).
 
 This increment extends the existing User, Company, Job, Application, Interview and Notification models. Existing cookie sessions, company membership, candidate applications, mock interviews, assessments and reports remain in place. No duplicate dashboard or authentication system was added.
 
@@ -50,7 +54,7 @@ No provider configured means the verification endpoint returns HTTP 503 with an 
 
 ### Local development without a verification provider
 
-Set `ALLOW_LOCAL_COMPANY_REGISTRATION=true` explicitly in the development `.env` and restart the API. It is enabled in this local workspace. The option works only outside production, with a loopback `HOST` and a localhost `APP_ORIGIN`; it is unavailable for a public origin or wildcard bind. The example environment defaults to false. No account or company is created automatically.
+Set `ALLOW_LOCAL_COMPANY_REGISTRATION=true` explicitly in the development `.env` and restart the API. The option works only outside production, with a loopback `HOST` and a localhost `APP_ORIGIN`; it is unavailable for a public origin or wildcard bind. The example environment defaults to false. No account or company is created automatically.
 
 Open **Company → Sign up**, enter company details and choose **Continue with local setup**. Then enter your own administrator name, username and confirmed password. The existing registration endpoint accepts `localCompanyDetails` instead of a verification receipt, validates email identity and uniqueness, hashes the password, and creates the company with `localDevelopment=true`, `sample=false` and `verification.status=unverified`. It never fabricates a registry receipt, verification reference or timestamp. Candidate/HR requests cannot use this option.
 
@@ -82,14 +86,14 @@ Jobs add role, department, preferred skills, education, work mode, optional annu
 
 Company → HR & assignments lists only HR accounts that accepted membership in that company. Profiles and self-declared availability come from User; assigned jobs and upcoming/completed interview counts are computed from stored records. There is no invented ranking or rating. HRs can update availability and accept/decline recruitment assignments. Unavailable HRs cannot receive new assignments.
 
-Job stores a required HR count, multiple HR requests and interview instructions. A request starts pending and must be explicitly accepted or rejected by that HR. The company then manually distributes shortlisted applications to accepted HRs. Each application stores one assigned HR; stale or duplicate distributions are rejected. HR can see only their distributed candidates and resumes.
+Job stores a required HR count, multiple HR requests and interview instructions. A request starts pending and must be explicitly accepted or rejected by that HR. New shortlisted applications enter automatic allocation to eligible accepted HRs, respecting company workload, availability and candidate capacity. If none is eligible, the application stays queued with a visible reason. Companies can review/retry allocation or manually reassign unscheduled candidates. Each application stores one assigned HR; stale or duplicate changes are rejected. HR can see only assigned candidates and resumes in the selected company workspace.
 
-Company users create jobs, shortlist, request HRs, distribute candidates and monitor progress/results. Only the assigned, accepted HR can schedule, enter, conduct, assess or finalize a hiring interview. Candidate attendance and private mock practice remain in their existing flows. Notifications reuse the current collection for requests, responses and distribution.
+Company users create jobs, review automatic AI shortlisting, request HRs and monitor allocation/progress/results. Only the assigned, accepted HR can schedule, enter, conduct, assess or finalize a hiring interview. Candidate attendance and private mock practice remain in their existing flows. Notifications reuse the current collection for requests, responses and allocation.
 
-At startup, old single-HR job assignments migrate to request records. Only an explicit legacy accepted status remains accepted; missing or unassigned metadata becomes pending. Existing applications/interviews/results are preserved. Old scheduled interviews must be linked from job details to their original HR after acceptance; no candidate is distributed automatically. Already completed records remain readable. The current process assigns one HR per application; the rounds list supplies instructions and does not create additional simultaneous assignees.
+At startup, old single-HR job assignments migrate to request records. Only an explicit legacy accepted status remains accepted; missing or unassigned metadata becomes pending. Existing assignments, applications, interviews and results are preserved rather than silently moved. Old scheduled interviews must retain or be linked to their original accepted HR. New eligible shortlisted candidates use automatic allocation; completed records remain readable. One HR is assigned per application at a time. Separate ordered rounds support later scheduling without creating simultaneous assignees.
 
-Company: Manage jobs → Job details & HR requests → View applications → Shortlist → Set HR count → Send requests → Wait for acceptance → Save candidate distribution. HR: My assignments → View job & instructions → Accept request → View assigned candidates → Schedule/conduct interview → Submit feedback. Existing styles, layout, navigation and components are retained.
+Company: Manage jobs → Set HR count and send requests → HR acceptance → Review AI-screened applications and automatic allocation → Monitor schedules/results. HR: Accept company invitation → Select company → Accept job request → View assigned candidates → Schedule/conduct interview → Submit feedback.
 
 ## Provider verification status
 
-Automated tests use clearly labeled verification and email contract fixtures with isolated real MongoDB. These test receipt/OTP handling, security, and workflow persistence; they do not certify registry checks or deliver real email. Connect real adapters, then test registration → official verification → password → received email code → company overview before onboarding actual businesses. HR and candidate signups continue using the existing session flow without company OTP. Password recovery, HR/candidate email verification and SMS remain outside this increment.
+Automated tests use clearly labeled verification and email contract fixtures with isolated real MongoDB. These test receipt/OTP handling, security and workflow persistence; they do not certify registry checks or prove live delivery. Hosted Brevo email is configured and an earlier delivery test reached the user's inbox. Company verification and SMS still require provider activation. Password recovery and HR/candidate email verification are implemented; HR/candidate email possession must be verified before sign-in, while company sign-in additionally requires its email OTP. See [remaining work](REMAINING-WORK.md) before onboarding actual businesses.

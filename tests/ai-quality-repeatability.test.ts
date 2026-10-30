@@ -1,8 +1,71 @@
 import { expect, it } from "vitest";
 import {
   qualityOptions,
+  qualityExpectedOutcome,
   qualityStability,
 } from "../scripts/ai-quality-evaluation";
+
+it.each([
+  {
+    score: 86,
+    threshold: 80,
+    uncertain: false,
+    truncated: false,
+    expected: "shortlisted",
+  },
+  {
+    score: 80,
+    threshold: 80,
+    uncertain: false,
+    truncated: false,
+    expected: "shortlisted",
+  },
+  {
+    score: 79,
+    threshold: 80,
+    uncertain: false,
+    truncated: false,
+    expected: "not_shortlisted",
+  },
+  {
+    score: 100,
+    threshold: 80,
+    uncertain: true,
+    truncated: false,
+    expected: "needs_review",
+  },
+  {
+    score: 100,
+    threshold: 80,
+    uncertain: false,
+    truncated: true,
+    expected: "needs_review",
+  },
+  {
+    score: null,
+    threshold: 80,
+    uncertain: false,
+    truncated: false,
+    expected: "needs_review",
+  },
+  {
+    score: NaN,
+    threshold: 80,
+    uncertain: false,
+    truncated: false,
+    expected: "needs_review",
+  },
+])(
+  "keeps aggregate policy and evidence uncertainty separate ($expected)",
+  ({ expected, ...context }) => {
+    expect(qualityExpectedOutcome("aggregate_threshold", context)).toBe(
+      expected,
+    );
+    expect(qualityExpectedOutcome("needs_review", context)).toBe(
+      "needs_review",
+    );
+  },
+);
 
 it("rejects mistyped, duplicate or empty selected cases before a live model request", () => {
   for (const args of [

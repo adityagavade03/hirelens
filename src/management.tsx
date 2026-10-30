@@ -56,6 +56,11 @@ import { HrAvailabilityPanel } from "./HrWorkload";
 import { ProctoringSummary } from "./ProctoringSummary";
 import { EventReviewControls } from "./MonitoringReview";
 import { HrCompanySwitcher } from "./HrCompanySwitcher";
+import {
+  ExecutionResults,
+  isCustomRun,
+  submissionVerdict,
+} from "./ExecutionResults";
 export function ProfilePage() {
   const { user } = useAuth();
   return user.role === "candidate" ? (
@@ -833,25 +838,16 @@ export function ReportPage() {
                     <details className="submission-detail" key={s._id}>
                       <summary>
                         {s.language} ·{" "}
-                        {s.mode === "submit"
-                          ? `${s.passed}/${s.total} tests passed`
-                          : "Custom input run"}{" "}
-                        · {dateLabel(s.createdAt)}
+                        {isCustomRun(s)
+                          ? "Custom input"
+                          : s.mode === "submit"
+                            ? "Submit"
+                            : "Examples"}
+                        {" · "}
+                        {submissionVerdict(s)} · {dateLabel(s.createdAt)}
                       </summary>
                       <pre>{s.code}</pre>
-                      {s.results.map((r, i) => (
-                        <div className="execution-line" key={i}>
-                          <Status value={r.status} />
-                          <span>
-                            {r.hidden ? "Hidden test" : "Public / custom test"}{" "}
-                            · {r.time ?? "—"} s · {r.memory ?? "—"} KB
-                          </span>
-                          {r.stdout && <pre>{r.stdout}</pre>}
-                          {(r.stderr || r.compileOutput) && (
-                            <pre>{r.stderr || r.compileOutput}</pre>
-                          )}
-                        </div>
-                      ))}
+                      <ExecutionResults submission={s} />
                     </details>
                   ))
                 ) : (

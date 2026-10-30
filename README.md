@@ -14,17 +14,24 @@ The human interview room separates Candidate tasks from HR controls and displays
 consented candidate camera status to the assigned interviewer. See the
 [live interview role guide](docs/LIVE-INTERVIEW-ROLES.md) for setup and model details.
 
-## Current status — 21 October 2026
+## Current status — 30 October 2026
 
-The latest `npm run check` passes **501 automated tests in 48 files**, client/server builds and TypeScript checks. Another **28 Python decoder/evaluator tests** passed. The project includes recruitment, automatic resume screening, HR assignment, interview rooms, coding editors, recordings and optional proctoring. These checks do not establish hiring accuracy or physical-device reliability.
+The app is live at [HireLens](https://hirelens-adityagavade03.onrender.com),
+independent of the laptop, using Render Free, MongoDB Atlas, Brevo email and Groq
+AI/transcription. The existing cloud test workspace ends **21 November 2026,
+5:52 pm IST**. The latest broad check passed **984 automated tests in 68 files**.
+Two additional saved-language/autosave regressions passed in a final 58-test
+targeted run, with a fresh client/server build and TypeScript checks.
 
-- Optional object detection adds a local **More detail** model and image-quality guidance. The fresh physical check is inconclusive: the active test page/model could not be confirmed, and the user later reported Chrome's New Tab page. Earlier failed checks are preserved. See [object detection](docs/OBJECT-DETECTION.md).
-- Pinned multilingual `small` speech recognition is installed and connected locally. Generated Candidate and HR recordings passed authenticated storage, decoding, playback and transcription checks. Fresh physical speech, both microphones and cross-network audio remain unverified. See [recording evidence](docs/MEDIA-TRACKS-VERIFICATION.md) and [speech quality](docs/SPEECH-QUALITY.md).
-- The AI quality corpus contains **26 resume/JD and four report cases**, with repeated-run diagnostics. The 21 October local subsets covered 12 new resume and two report cases in **28 passing attempts**, with varying scores; the full corpus was not rerun. On 22 October the owner reconfirmed aggregate-threshold shortlisting, which allows confirmed skill gaps when the score passes. Two older fixture outcome expectations were aligned with that policy while retaining their missing-skill and grounding checks; earlier failures remain recorded. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
-- Real hiring execution, cross-network video, SMS, company verification and permanent hosting still require owner-controlled services/accounts. Public Judge0 is limited to local practice. Production configuration and health checks are prepared in the [Linux deployment guide](docs/PRODUCTION-DEPLOYMENT.md).
+- Optional object detection has a local **More detail** model and image-quality guidance. The 21 October physical check was inconclusive: the active test page/model could not be confirmed. Earlier failed checks are preserved. See [object detection](docs/OBJECT-DETECTION.md).
+- Generated Candidate/HR recordings previously passed storage, decoding, playback and local transcription checks. Hosted transcription is now configured through Groq; fresh physical speech, both microphones and cross-network audio remain unverified. See [recording evidence](docs/MEDIA-TRACKS-VERIFICATION.md) and [speech quality](docs/SPEECH-QUALITY.md).
+- The full **26 resume/JD and four report cases** ran on cloud AI on 30 October. Original results were 26 passes and four stale policy expectations; replaying the retained outputs offline passed the corrected threshold-policy checks. Three qualitative report-narrative concerns remain. This is synthetic regression evidence, not hiring accuracy. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
+- Private Judge0, public TURN, SMS and real company verification still need owner-controlled services/accounts. Their adapters and setup are implemented, but no live execution, public relay, handset delivery or registry result is claimed. See the [remaining work and activation order](docs/REMAINING-WORK.md).
 - Gaze/face/speaker accuracy, a consented trained integrity model, exact theme matching and remaining physical mobile/browser checks are unfinished. See [current project status](docs/PROJECT-STATUS.md).
 
-The implementation was validated locally. Production activation still requires the owner-controlled services and live checks documented below.
+Automated tests and deployment health do not establish physical-device accuracy,
+AI hiring accuracy or readiness of the four absent services. Current limitations
+and dated evidence are recorded in [project status](docs/PROJECT-STATUS.md).
 
 This repository contains application source, setup scripts and synthetic tests. Credentials, database records, private resumes, recordings and local runtime files are excluded. After downloading, follow the setup steps below and create your own accounts; integrations need your own configuration. Making the source available does not host the application or include a working production service.
 
@@ -38,11 +45,11 @@ The dated notes below describe earlier milestones; the current status and linked
 
 A full-stack student project for **company hiring and personal mock-interview practice**, with an original interface inspired by modern interview platforms.
 
-Company → job → HR request and acceptance → automatic LLM resume screening and shortlisting → individual or batch scheduling → human or AI-assisted interview → evidence report → company/HR decision. Candidates apply to published jobs and also have a private practice studio. Company allocation between accepted HRs is optional.
+Company → job → HR request and acceptance → automatic LLM resume screening and shortlisting → load-balanced HR allocation → individual or batch scheduling → human or AI-assisted interview → evidence report → company/HR decision. Candidates apply using reviewed application details and also have a private practice studio. Companies can review or manually reassign unscheduled candidates; existing assignments are not silently moved.
 
 The current requirements and precise limitations are recorded in [Project status](docs/PROJECT-STATUS.md). AI, code execution, speech, outbound delivery and cross-network media require configured services; the local application does not manufacture their results.
 
-The remaining local features now include password recovery, contact verification, email/SMS previews, scanned-resume OCR, a coding-question editor, separate interview rounds, audit/retention controls and optional Redis scaling. Start with [the local testing and provider setup guide](docs/SETUP-REMAINING.md).
+Implemented local features include password recovery, contact verification, email/SMS previews, scanned-resume OCR, a coding-question editor, separate interview rounds, audit/retention controls and optional Redis scaling. Start with [the local testing and provider setup guide](docs/SETUP-REMAINING.md).
 
 ## Start on Windows / VS Code
 
@@ -80,11 +87,11 @@ The local demo workspace was removed on 5 October 2026. Demo login and seeding a
 
 Only if you deliberately want fictional records again, point `MONGODB_URI` at a separate demonstration database, set `ALLOW_DEMO_LOGIN=true`, and run `npm run seed`. The seed refuses to run with demo mode disabled.
 
-| Role | Email |
-| --- | --- |
-| Company | `company@demo.hirelens.local` |
-| HR / interviewer | `hr@demo.hirelens.local` |
-| Candidate | `candidate@demo.hirelens.local` |
+| Role             | Email                           |
+| ---------------- | ------------------------------- |
+| Company          | `company@demo.hirelens.local`   |
+| HR / interviewer | `hr@demo.hirelens.local`        |
+| Candidate        | `candidate@demo.hirelens.local` |
 
 The optional seed uses password **`HireLensDemo!2026`** unless `DEMO_PASSWORD` is set. These accounts do not exist in the cleaned local database. The “Explore the demo” shortcut is hidden while demo mode is disabled.
 
@@ -213,15 +220,15 @@ For a fixed free test address while the laptop stays on, [Render gateway setup](
 
 ## Source guide
 
-| Folder | What it does |
-| --- | --- |
-| `src` | React pages, forms, interview room, browser monitoring, styles |
-| `server` | API, MongoDB schemas, permissions, providers, real-time signaling, seed |
-| `shared` | Shared TypeScript models |
-| `tests` | API, persistence, security, signaling, and provider-contract tests |
-| `scripts` | Local development database helper |
-| `deploy` | HTTPS reverse proxy and TURN examples |
-| `docs` | Architecture, API reference, testing notes, presentation guide |
+| Folder    | What it does                                                            |
+| --------- | ----------------------------------------------------------------------- |
+| `src`     | React pages, forms, interview room, browser monitoring, styles          |
+| `server`  | API, MongoDB schemas, permissions, providers, real-time signaling, seed |
+| `shared`  | Shared TypeScript models                                                |
+| `tests`   | API, persistence, security, signaling, and provider-contract tests      |
+| `scripts` | Local development database helper                                       |
+| `deploy`  | HTTPS reverse proxy and TURN examples                                   |
+| `docs`    | Architecture, API reference, testing notes, presentation guide          |
 
 See [API reference](docs/API.md), [architecture](docs/ARCHITECTURE.md), [presentation and demo](docs/DEMO.md), and [progress](PROGRESS.md).
 

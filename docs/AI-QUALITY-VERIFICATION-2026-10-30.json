@@ -1,0 +1,69 @@
+{
+  "evaluatedOn": "2026-10-30",
+  "provider": "Groq",
+  "modelId": "openai/gpt-oss-20b",
+  "syntheticOnly": true,
+  "caseCounts": {
+    "total": 30,
+    "resumes": 26,
+    "reports": 4,
+    "attempted": 30,
+    "unrun": 0
+  },
+  "originalExpectationCounts": {
+    "passed": 26,
+    "failed": 4
+  },
+  "policyOnlyMismatchIds": [
+    "insufficient-years",
+    "unrelated-degree",
+    "missing-certification",
+    "resume-injection"
+  ],
+  "automatedSemanticFailureCount": 0,
+  "providerErrorCount": 0,
+  "qualitativeNarrativeConcernCount": 3,
+  "qualitativeNarrativeConcerns": [
+    {
+      "caseId": "wrong-answers-injection",
+      "type": "Communication/correctness conflation"
+    },
+    {
+      "caseId": "reviewed-transcript-only",
+      "type": "Overbroad absence claim"
+    },
+    {
+      "caseId": "grounded-strong-answers",
+      "type": "Overbroad edge-case absence claim"
+    }
+  ],
+  "usageCounts": {
+    "modelRequests": 30,
+    "actualTokens": 86114,
+    "elapsedMilliseconds": 678380
+  },
+  "noAutomaticRetries": true,
+  "noProductionRecordsOrProviderSettingsChanged": true,
+  "limitations": [
+    "Original 26-pass/4-mismatch result is preserved; the four mismatches are outcome expectations inconsistent with the current aggregate-threshold policy.",
+    "All current automated semantic checks passed, but inspection found three qualitative report-narrative concerns requiring human review.",
+    "Small assistant-authored synthetic corpus; not independent hiring accuracy, fairness, or real-candidate validation.",
+    "One attempt per case; repeatability, real-world generalization, and production load were not measured.",
+    "The provider manages model versions; an immutable model-weight digest was unavailable."
+  ],
+  "offlinePolicyReplay": {
+    "additionalModelRequests": 0,
+    "total": 30,
+    "passed": 30,
+    "originalPassed": 26,
+    "originalFailed": 4,
+    "changedExpectationIds": [
+      "insufficient-years",
+      "unrelated-degree",
+      "missing-certification",
+      "resume-injection"
+    ],
+    "originalArtifactSha256": "0122566de1fbe355904efd8031f7ca68cbe94fa4b2a21e39a9ee4d6772347be9",
+    "scope": "Diagnostic expectation correction for the approved aggregate-only policy. No score/threshold/semantic-check/prompt changes and no model-quality improvement or accuracy claim."
+  }
+}

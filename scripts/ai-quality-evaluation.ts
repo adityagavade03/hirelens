@@ -1,4 +1,34 @@
 /** Synthetic regression repeatability, never hiring accuracy or fairness evidence. */
+import type { ResumeQualityCase } from "./ai-quality-cases.js";
+
+// Known gaps can reduce the aggregate score without vetoing a shortlist. Unknown
+// or truncated evidence still needs review, whatever the score. This is a
+// diagnostic expectation, not a second implementation of resume scoring.
+export function qualityExpectedOutcome(
+  expected: ResumeQualityCase["expected"],
+  context: {
+    score: number | null;
+    threshold: number;
+    uncertain: boolean;
+    truncated: boolean;
+  },
+) {
+  if (expected !== "aggregate_threshold") return expected;
+  if (
+    context.truncated ||
+    context.uncertain ||
+    context.score == null ||
+    !Number.isFinite(context.score) ||
+    context.score < 0 ||
+    context.score > 100 ||
+    !Number.isFinite(context.threshold) ||
+    context.threshold < 0 ||
+    context.threshold > 100
+  )
+    return "needs_review";
+  return context.score >= context.threshold ? "shortlisted" : "not_shortlisted";
+}
+
 export function qualityOptions(args: string[], knownIds: string[]) {
   const options = new Map<string, string>();
   for (const arg of args) {

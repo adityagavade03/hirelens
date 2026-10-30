@@ -2,7 +2,7 @@
 
 ## Current status
 
-The optional face model and speaker service run, but running a model is not an accuracy validation. Earlier physical gaze attempts could not gather enough eye images; the earlier public four-speaker audio example produced seven raw cluster labels. No calibrated gaze, face-detection or speaker-count accuracy claim follows from those results.
+The optional face model and speaker service run, but running a model is not an accuracy validation. Early physical gaze attempts could not gather enough eye images; the later 19 October attempt collected all 14 targets but failed the independent accuracy gate. The earlier public four-speaker audio example produced seven raw cluster labels. No calibrated gaze, face-detection or speaker-count accuracy claim follows from those results.
 
 The 19 October code changes improve the gaze test itself:
 
@@ -27,13 +27,13 @@ These are reliability and usability changes. They do not establish that gaze est
 
 Use a separate consenting test participant and an observer with a clock, or label consented test video independently. The observer records the actual transitions; do not infer ground truth from the model's own status. Face monitoring requires its own consent and a successful one-face preflight. Actual interview observations begin only after admission.
 
-| Controlled condition | Expected application behavior | What to record |
-| --- | --- | --- |
-| One visible face, good light | Working local processing; no sustained absence event | False absence/multiple-face events and elapsed time |
-| Face leaves frame longer than configured threshold | A sustained no-face observation may be recorded after the threshold | Misses, event delay, actual start/end and model result |
-| Two consenting people visible longer than threshold | A sustained multiple-face observation may be recorded | Misses, delay, and false positives after the second person leaves |
-| Camera disabled, disconnected, frozen or page hidden | Unavailable/paused coverage, not fabricated absence evidence | Recovery behavior and whether unavailable coverage is visible |
-| Return to a single visible face | Fresh frame processing resumes | Recovery delay and any stale observations |
+| Controlled condition                                 | Expected application behavior                                       | What to record                                                    |
+| ---------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| One visible face, good light                         | Working local processing; no sustained absence event                | False absence/multiple-face events and elapsed time               |
+| Face leaves frame longer than configured threshold   | A sustained no-face observation may be recorded after the threshold | Misses, event delay, actual start/end and model result            |
+| Two consenting people visible longer than threshold  | A sustained multiple-face observation may be recorded               | Misses, delay, and false positives after the second person leaves |
+| Camera disabled, disconnected, frozen or page hidden | Unavailable/paused coverage, not fabricated absence evidence        | Recovery behavior and whether unavailable coverage is visible     |
+| Return to a single visible face                      | Fresh frame processing resumes                                      | Recovery delay and any stale observations                         |
 
 Repeat under different lighting, cameras, camera positions, glasses where applicable and browser/device combinations. A single successful demonstration does not establish sensitivity or false-positive rates. Report counts, denominators, failures and conditions, not just a pass label. Do not collect demographic traits or make unsupported demographic accuracy claims.
 

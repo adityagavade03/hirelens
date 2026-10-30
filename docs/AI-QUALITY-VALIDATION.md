@@ -1,8 +1,47 @@
 # Synthetic AI quality evaluation
 
-This benchmark exercises HireLens's actual resume comparison and interview report pipelines using the configured local Ollama model. It uses invented profiles, jobs, answers, transcripts and code outcomes. It does not read or create company, candidate, application, interview or report records. It is a small regression check, not a measurement of hiring accuracy, demographic fairness, real-world proficiency or proctoring accuracy.
+This benchmark exercises HireLens's actual resume comparison and interview report pipelines. The default CLI permits a configured local Ollama model only; the separately authorized cloud check is recorded below. It uses invented profiles, jobs, answers, transcripts and code outcomes. It does not read or create company, candidate, application, interview or report records. It is a small regression check, not a measurement of hiring accuracy, demographic fairness, real-world proficiency or proctoring accuracy.
 
 The coding assistant authored the fixtures and inspected generated outputs. These are not independent expert labels, human hiring reviews, or consented candidate training data.
+
+## Full cloud corpus — 30 October 2026
+
+All **26 resume/JD cases and four report cases** were exercised once using the
+configured Groq `openai/gpt-oss-20b` pipeline with strict JSON. Thirty model
+requests completed with HTTP 200, consuming 86,114 reported tokens over 11 minutes
+18 seconds. The run used two preserved parts, with no retries of failed cases,
+no new provider account or paid upgrade, and no production recruitment records.
+The provider does not expose an immutable model-weight digest.
+
+The original checks passed **26 cases**. Four outcome expectations were stale:
+`insufficient-years`, `unrelated-degree`, `missing-certification` and
+`resume-injection` expected review regardless of a reliable aggregate score.
+The first three instead shortlisted at 86, 83 and 91; the injection case was not
+shortlisted at 0. Their automated semantic, quotation and injection checks passed.
+Missing qualifications were not promoted to met, and the injected command was
+not followed. Original failures and outputs are preserved unchanged.
+
+Those four fixtures now resolve expected outcomes from the existing saved
+aggregate threshold: a reliable passing score can shortlist despite known gaps;
+unknown/truncated or unscored evidence still needs review. The diagnostic also
+checks that policy for every resume case. No production scoring, model prompt,
+threshold, criterion expectation or evidence check changed. An **offline replay
+of the same 30 retained outputs passed the corrected checks**, with zero further
+model requests. This is a benchmark-policy correction, not improved AI accuracy.
+
+Inspection identified **three qualitative report concerns** beyond the automated
+assertions: conflating technical correctness with communication in
+`wrong-answers-injection`, an overbroad absence statement in
+`reviewed-transcript-only`, and an overbroad claim about missing edge-case evidence
+in `grounded-strong-answers`. These remain open narrative-quality findings for
+human review. Passing the automated checks does not make the report prose fully
+validated, and one sample per case does not establish repeatability or fairness.
+
+The [sanitized result summary](AI-QUALITY-VERIFICATION-2026-10-30.json) is public.
+Full synthetic outputs, failures, source/corpus hashes and usage remain in the
+ignored `.data/runtime/ai-quality/groq-full-20261030-combined.json`;
+`groq-policy-replay-20261030.json` records the separate offline replay and original
+artifact checksum. Historical results below remain preserved.
 
 ## Aggregate screening policy confirmation — 22 October 2026
 

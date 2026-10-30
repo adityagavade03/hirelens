@@ -47,19 +47,15 @@ import type {
 } from "../shared/types";
 import { useAuth } from "./auth-context";
 import { api, send, useResource, dateLabel } from "./api";
-import {
-  Badge,
-  Status,
-  ErrorBox,
-  Loading,
-  Notice,
-  Field,
-  Avatar,
-  Modal,
-} from "./ui";
+import { Badge, ErrorBox, Loading, Notice, Field, Avatar, Modal } from "./ui";
 import { useMonitoring } from "./monitoring";
 import { InterviewCapture } from "./InterviewMedia";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
+import {
+  ExecutionResults,
+  isCustomRun,
+  submissionVerdict,
+} from "./ExecutionResults";
 import { useObjectDetection } from "./object-detection";
 import {
   useObjectConsent,
@@ -285,6 +281,32 @@ function LegacyRoom() {
     } finally {
       setBusy("");
     }
+  }
+  async function execute(
+    mode: "run" | "submit",
+    runMode: "custom" | "examples" = "custom",
+  ) {
+    if (
+      !candidate ||
+      !active ||
+      !!busy ||
+      !code.trim() ||
+      !service.data?.code ||
+      publicDemoBlocked ||
+      !executionLanguages.includes(language)
+    )
+      return;
+    await action(mode === "submit" ? "submit" : runMode, async () => {
+      await send(`/interviews/${id}/draft`, { language, code }, "PATCH");
+      await send(`/interviews/${id}/code`, {
+        language,
+        code,
+        stdin,
+        mode,
+        ...(mode === "run" ? { runMode } : {}),
+      });
+      await history.reload();
+    });
   }
   async function join() {
     await action("join", async () => {
@@ -1330,69 +1352,90 @@ function LegacyRoom() {
                 practice={practice}
                 available={service.data?.code}
               />
-              <div className="run-controls">
-                <Field label="Custom standard input">
-                  <textarea
-                    value={stdin}
-                    onChange={(e) => setStdin(e.target.value)}
-                    rows={2}
-                  />
-                </Field>
-                <div className="form-actions">
-                  <button
-                    disabled={
-                      !candidate ||
-                      !active ||
-                      publicDemoBlocked ||
-                      !!busy ||
-                      !executionLanguages.includes(language)
-                    }
-                    className="btn secondary"
-                    onClick={() =>
-                      action("run", async () => {
-                        await send(`/interviews/${id}/code`, {
-                          language,
-                          code,
-                          stdin,
-                          mode: "run",
-                        });
-                        await history.reload();
-                      })
-                    }
-                  >
-                    <Play size={15} />
-                    {busy === "run" ? "Running…" : "Run code"}
-                  </button>
-                  <button
-                    disabled={
-                      !candidate ||
-                      !active ||
-                      publicDemoBlocked ||
-                      !!busy ||
-                      !executionLanguages.includes(language)
-                    }
-                    className="btn primary"
-                    onClick={() =>
-                      action("submit", async () => {
-                        await send(`/interviews/${id}/code`, {
-                          language,
-                          code,
-                          stdin,
-                          mode: "submit",
-                        });
-                        await history.reload();
-                      })
-                    }
-                  >
-                    <Send size={15} />
-                    {busy === "submit" ? "Testing…" : "Submit solution"}
-                  </button>
+              {candidate && (
+                <div className="run-controls">
+                  <Field label="Custom standard input">
+                    <textarea
+                      value={stdin}
+                      onChange={(e) => setStdin(e.target.value)}
+                      rows={2}
+                      maxLength={10000}
+                    />
+                  </Field>
+                  <div className="form-actions">
+                    <button
+                      disabled={
+                        !active ||
+                        !service.data?.code ||
+                        !code.trim() ||
+                        publicDemoBlocked ||
+                        !!busy ||
+                        !executionLanguages.includes(language)
+                      }
+                      className="btn secondary"
+                      onClick={() => void execute("run", "examples")}
+                    >
+                      <Play size={15} />
+                      {busy === "examples"
+                        ? "Checking examples…"
+                        : "Run examples"}
+                    </button>
+                    <button
+                      disabled={
+                        !candidate ||
+                        !active ||
+                        !service.data?.code ||
+                        !code.trim() ||
+                        publicDemoBlocked ||
+                        !!busy ||
+                        !executionLanguages.includes(language)
+                      }
+                      className="btn secondary"
+                      onClick={() => void execute("run", "custom")}
+                    >
+                      <Play size={15} />
+                      {busy === "custom"
+                        ? "Running custom input…"
+                        : "Run custom input"}
+                    </button>
+                    <button
+                      disabled={
+                        !candidate ||
+                        !active ||
+                        !service.data?.code ||
+                        !code.trim() ||
+                        publicDemoBlocked ||
+                        !!busy ||
+                        !executionLanguages.includes(language)
+                      }
+                      className="btn primary"
+                      onClick={() => void execute("submit")}
+                    >
+                      <Send size={15} />
+                      {busy === "submit"
+                        ? "Checking all cases…"
+                        : "Submit solution"}
+                    </button>
+                  </div>
+                  <p>
+                    Run examples checks the visible cases. Submit solution
+                    checks all public and hidden cases. Custom input runs
+                    without grading.
+                  </p>
+                  {["custom", "examples", "submit"].includes(busy) && (
+                    <p role="status">
+                      Waiting for the execution service. Results appear when
+                      this attempt finishes.
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
               {!service.data?.code && !service.data?.codePublicDemo && (
                 <Notice>
-                  Judge0 is not configured. Your code can be saved, but it
-                  cannot be executed until the service is connected.
+                  Judge0 is not configured.{" "}
+                  {candidate
+                    ? "Your code can be saved, but it cannot be executed until the service is connected."
+                    : "The candidate can save code for your review; execution requires a connected private service."}
                 </Notice>
               )}
               <ErrorBox message={languageError} />
@@ -1402,7 +1445,9 @@ function LegacyRoom() {
                 !executionLanguages.includes(language) && (
                   <Notice>
                     The connected runner has not made this language available.
-                    You can still save your draft.
+                    {candidate
+                      ? "You can still save your draft."
+                      : "The candidate can still save code for your review."}
                   </Notice>
                 )}
               <h3>Execution history</h3>
@@ -1416,29 +1461,15 @@ function LegacyRoom() {
                   >
                     <summary>
                       {s.language} ·{" "}
-                      {s.mode === "submit"
-                        ? `${s.passed}/${s.total} tests passed`
-                        : "Custom run"}{" "}
-                      · {dateLabel(s.createdAt)}
+                      {isCustomRun(s)
+                        ? "Custom input"
+                        : s.mode === "submit"
+                          ? "Submit"
+                          : "Examples"}{" "}
+                      · {submissionVerdict(s)} · {dateLabel(s.createdAt)}
                     </summary>
                     <pre>{s.code}</pre>
-                    {s.results.map((r, i) => (
-                      <div className="execution-line" key={i}>
-                        <Status value={r.status} />
-                        <span>
-                          {r.hidden ? "Hidden test" : "Public / custom test"} ·{" "}
-                          {r.time ?? "—"} seconds · {r.memory ?? "—"} KB
-                        </span>
-                        {!r.hidden && (
-                          <pre>
-                            {r.stdout ||
-                              r.compileOutput ||
-                              r.stderr ||
-                              "(No output)"}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
+                    <ExecutionResults submission={s} />
                   </details>
                 ))
               ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ExecutionResult, Submission } from "../shared/types";
+import "./execution-results.css";
 
 export const isCustomRun = (submission: Submission) =>
   submission.mode === "run" && submission.runMode !== "examples";
@@ -90,8 +91,8 @@ export function ExecutionResults({ submission }: { submission: Submission }) {
       </header>
       {custom && (
         <p>
-          Custom input checks execution only. Use Run examples or Submit
-          solution to compare your output with expected answers.
+          Custom input checks execution only. Example runs and full submissions
+          compare output with expected answers.
         </p>
       )}
       {submissionVerdict(submission) === "Incomplete results" && (

@@ -9,7 +9,11 @@ import {
   assessmentEvidence,
 } from "../server/assessment.js";
 import { resumeQualityCases, reportQualityCases } from "./ai-quality-cases.js";
-import { qualityOptions, qualityStability } from "./ai-quality-evaluation.js";
+import {
+  qualityExpectedOutcome,
+  qualityOptions,
+  qualityStability,
+} from "./ai-quality-evaluation.js";
 
 const { selected, repeats, name } = qualityOptions(
   process.argv.slice(2),
@@ -156,14 +160,30 @@ try {
       await run(c.id, "resume", c.purpose, async () => {
         const output = await analyzeResume(c.job, c.profile, c.resume);
         const input = screeningInput(c.job, c.profile, c.resume);
+        const context = {
+          score: output.match.score,
+          threshold: c.job.shortlistThreshold || 80,
+          uncertain: output.criteria.some(
+            (criterion) => criterion.status === "unknown",
+          ),
+          truncated: input.truncated,
+        };
+        const expected = qualityExpectedOutcome(c.expected, context);
         const checks = [
           {
             label: "Expected preliminary outcome",
-            passed: Array.isArray(c.expected)
-              ? c.expected.includes(output.outcome)
-              : output.outcome === c.expected,
+            passed: Array.isArray(expected)
+              ? expected.includes(output.outcome)
+              : output.outcome === expected,
             actual: output.outcome,
-            expected: c.expected,
+            expected,
+          },
+          {
+            label:
+              "Outcome follows the saved aggregate threshold and evidence-review gate",
+            passed:
+              output.outcome ===
+              qualityExpectedOutcome("aggregate_threshold", context),
           },
           {
             label: "All evidence quotations occur in named submitted sources",

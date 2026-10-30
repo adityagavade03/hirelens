@@ -2,9 +2,17 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { Submission } from "../shared/types";
 
-const state = vi.hoisted(() => ({ mode: "in_person", role: "hr" }));
+const state = vi.hoisted(() => ({
+  mode: "in_person",
+  role: "hr",
+  submissions: [] as Submission[],
+}));
+beforeEach(() => {
+  state.submissions = [];
+});
 vi.mock("../src/auth-context", () => ({
   useAuth: () => ({ user: { _id: "hr", role: state.role } }),
 }));
@@ -76,7 +84,7 @@ vi.mock("../src/api", async (original) => ({
                 evidence: [],
               },
             },
-            submissions: [],
+            submissions: state.submissions,
             events: [],
             coding: null,
             integrity: null,
@@ -178,4 +186,97 @@ it("preserves AI percentages in video performance history", () => {
     expect(html).toContain(value);
   expect(html).not.toContain("Human:");
   expect(html).not.toContain("Not applicable");
+});
+
+function codingEvidence(overrides: Partial<Submission> = {}): Submission {
+  return {
+    _id: "submission",
+    interviewId: "interview",
+    language: "python",
+    code: "print(11)",
+    mode: "run",
+    runMode: "custom",
+    passed: 1,
+    total: 1,
+    createdAt: "2026-10-30T12:00:00Z",
+    results: [
+      {
+        status: "Accepted",
+        statusId: 3,
+        passed: true,
+        hidden: false,
+        input: "4 7",
+        stdout: "11",
+        time: "0.001",
+        memory: 1024,
+      },
+    ],
+    ...overrides,
+  };
+}
+it.each(["candidate", "hr", "company"])(
+  "keeps custom execution ungraded in %s reports",
+  (role) => {
+    state.mode = "video";
+    state.role = role;
+    state.submissions = [codingEvidence()];
+    const html = render();
+    expect(html).toContain("Custom input");
+    expect(html).toContain("Executed");
+    expect(html).not.toContain("tests passed");
+    expect(html).toContain("Custom input checks execution only");
+  },
+);
+it("distinguishes example grading and protects hidden details in saved reports", () => {
+  state.mode = "video";
+  state.role = "hr";
+  state.submissions = [
+    codingEvidence({
+      runMode: "examples",
+      results: [
+        {
+          status: "Wrong Answer",
+          statusId: 4,
+          passed: false,
+          hidden: false,
+          input: "4 7",
+          expectedOutput: "11",
+          stdout: "12",
+        },
+      ],
+      passed: 0,
+    }),
+    codingEvidence({
+      _id: "private-case",
+      mode: "submit",
+      results: [
+        {
+          status: "Wrong Answer",
+          statusId: 4,
+          passed: false,
+          hidden: true,
+          input: "PRIVATE_INPUT",
+          expectedOutput: "PRIVATE_EXPECTED",
+          stdout: "PRIVATE_OUTPUT",
+          compileOutput: "PRIVATE_COMPILER",
+          stderr: "PRIVATE_STDERR",
+        },
+      ],
+      passed: 0,
+    }),
+  ];
+  const html = render();
+  expect(html).toContain("Examples");
+  expect(html).toContain("Visible example run");
+  expect(html).toContain("Expected output");
+  expect(html).toContain("Your output");
+  expect(html).toContain("Hidden test 1");
+  for (const secret of [
+    "PRIVATE_INPUT",
+    "PRIVATE_EXPECTED",
+    "PRIVATE_OUTPUT",
+    "PRIVATE_COMPILER",
+    "PRIVATE_STDERR",
+  ])
+    expect(html).not.toContain(secret);
 });
