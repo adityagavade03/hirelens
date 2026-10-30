@@ -4,12 +4,18 @@ import { config } from "../dist-server/server/config.js";
 import { llm } from "../dist-server/server/providers.js";
 import { brevoSender } from "../dist-server/server/provider-configuration.js";
 import { readProviderJson } from "../dist-server/server/provider-response.js";
+import { strictCloudAiProbe } from "./cloud-connectivity-probe.mjs";
 
 let stage = "configuration";
 let providerStatus = null;
 let category = "unspecified";
+let providerCode;
+const aiAttempts = [];
 try {
-  if (process.env.NODE_ENV !== "production" || !process.argv.includes("--synthetic"))
+  if (
+    process.env.NODE_ENV !== "production" ||
+    !process.argv.includes("--synthetic")
+  )
     throw new Error("Use production configuration and --synthetic explicitly.");
   const result = {
     check: "cloud-connectivity",
@@ -18,6 +24,7 @@ try {
     hostedAi: "unconfigured",
     realDataSent: false,
     emailsSent: 0,
+    aiAttempts,
   };
   if (config.emailProvider === "brevo") {
     stage = "email-sender-request";
@@ -32,39 +39,85 @@ try {
     providerStatus = response.status;
     if (!response.ok) {
       const failure = await readProviderJson(response).catch(() => null);
-      category = /unrecogni[sz]ed ip|ip.*not.*allow|unauthorized.*ip/i.test(String(failure?.message || ""))
-        ? "provider-ip-restriction" : "provider-http-error";
+      category = /unrecogni[sz]ed ip|ip.*not.*allow|unauthorized.*ip/i.test(
+        String(failure?.message || ""),
+      )
+        ? "provider-ip-restriction"
+        : "provider-http-error";
       throw new Error("Brevo did not accept the sender check.");
     }
     stage = "email-active-sender";
     const data = await readProviderJson(response);
-    if (!Array.isArray(data.senders) || !data.senders.some((item) =>
-      item?.email?.toLowerCase() === sender.email.toLowerCase() && item.active === true,
-    )) throw new Error("Brevo sender is not active.");
+    if (
+      !Array.isArray(data.senders) ||
+      !data.senders.some(
+        (item) =>
+          item?.email?.toLowerCase() === sender.email.toLowerCase() &&
+          item.active === true,
+      )
+    )
+      throw new Error("Brevo sender is not active.");
     result.emailSender = "verified-active";
   }
   if (config.llmUrl || config.llmKey || config.llmModel) {
     stage = "ai-strict-schema";
     providerStatus = null;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (...args) => {
-      const response = await originalFetch(...args);
+    let attemptTimeout = 30000;
+    globalThis.fetch = async (input, init) => {
+      const signals = [
+        AbortSignal.timeout(attemptTimeout),
+        ...(init?.signal ? [init.signal] : []),
+      ];
+      const response = await originalFetch(input, {
+        ...init,
+        signal: AbortSignal.any(signals),
+      });
       providerStatus = response.status;
+      if (!response.ok) {
+        const failure = await readProviderJson(response.clone()).catch(
+          () => null,
+        );
+        providerCode = failure?.error?.code;
+        category =
+          providerCode === "json_validate_failed"
+            ? "json_validate_failed"
+            : "provider-http-error";
+      }
       return response;
     };
     let value;
-    try { value = await llm(
-      'This is synthetic deployment connectivity data. Return only {"status":"ok"}. Do not produce an assessment.',
-      { deploymentConnectivityCheck: true },
-      z.object({ status: z.literal("ok") }),
-    ); } finally { globalThis.fetch = originalFetch; }
+    try {
+      value = await strictCloudAiProbe({
+        strict: config.llmSchema,
+        latestFailure: () => ({ status: providerStatus, code: providerCode }),
+        onAttempt: (entry) => aiAttempts.push(entry),
+        call: (timeoutMilliseconds) => {
+          attemptTimeout = timeoutMilliseconds;
+          providerStatus = null;
+          providerCode = undefined;
+          category = "unspecified";
+          return llm(
+            'This is synthetic deployment connectivity data. Return only {"status":"ok"}. Do not produce an assessment.',
+            { deploymentConnectivityCheck: true },
+            z.object({ status: z.enum(["ok"]) }),
+          );
+        },
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
     if (value.status !== "ok") throw new Error("AI schema check failed.");
     result.hostedAi = "strict-schema-passed";
   }
   console.log(JSON.stringify(result));
 } catch {
   // Provider responses can include private details. Never dump credentials or bodies.
-  console.error("Cloud connectivity check failed. Check provider settings, active sender and usage limits; no real data or email was sent.");
-  console.error(JSON.stringify({stage,providerStatus,category}));
+  console.error(
+    "Cloud connectivity check failed. Check provider settings, active sender and usage limits; no real data or email was sent.",
+  );
+  console.error(
+    JSON.stringify({ stage, providerStatus, category, aiAttempts }),
+  );
   process.exitCode = 1;
 }
