@@ -5,6 +5,9 @@ import { llm } from "../dist-server/server/providers.js";
 import { brevoSender } from "../dist-server/server/provider-configuration.js";
 import { readProviderJson } from "../dist-server/server/provider-response.js";
 
+let stage = "configuration";
+let providerStatus = null;
+let category = "unspecified";
 try {
   if (process.env.NODE_ENV !== "production" || !process.argv.includes("--synthetic"))
     throw new Error("Use production configuration and --synthetic explicitly.");
@@ -17,6 +20,7 @@ try {
     emailsSent: 0,
   };
   if (config.emailProvider === "brevo") {
+    stage = "email-sender-request";
     if (!config.brevoApiKey) throw new Error("Brevo key is missing.");
     const sender = brevoSender(config.emailFrom);
     if (!sender) throw new Error("Brevo sender is invalid.");
@@ -25,7 +29,14 @@ try {
       redirect: "error",
       signal: AbortSignal.timeout(20000),
     });
-    if (!response.ok) throw new Error("Brevo did not accept the sender check.");
+    providerStatus = response.status;
+    if (!response.ok) {
+      const failure = await readProviderJson(response).catch(() => null);
+      category = /unrecogni[sz]ed ip|ip.*not.*allow|unauthorized.*ip/i.test(String(failure?.message || ""))
+        ? "provider-ip-restriction" : "provider-http-error";
+      throw new Error("Brevo did not accept the sender check.");
+    }
+    stage = "email-active-sender";
     const data = await readProviderJson(response);
     if (!Array.isArray(data.senders) || !data.senders.some((item) =>
       item?.email?.toLowerCase() === sender.email.toLowerCase() && item.active === true,
@@ -33,11 +44,20 @@ try {
     result.emailSender = "verified-active";
   }
   if (config.llmUrl || config.llmKey || config.llmModel) {
-    const value = await llm(
+    stage = "ai-strict-schema";
+    providerStatus = null;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      providerStatus = response.status;
+      return response;
+    };
+    let value;
+    try { value = await llm(
       'This is synthetic deployment connectivity data. Return only {"status":"ok"}. Do not produce an assessment.',
       { deploymentConnectivityCheck: true },
       z.object({ status: z.literal("ok") }),
-    );
+    ); } finally { globalThis.fetch = originalFetch; }
     if (value.status !== "ok") throw new Error("AI schema check failed.");
     result.hostedAi = "strict-schema-passed";
   }
@@ -45,5 +65,6 @@ try {
 } catch {
   // Provider responses can include private details. Never dump credentials or bodies.
   console.error("Cloud connectivity check failed. Check provider settings, active sender and usage limits; no real data or email was sent.");
+  console.error(JSON.stringify({stage,providerStatus,category}));
   process.exitCode = 1;
 }
