@@ -3,7 +3,7 @@ import { isIP } from "node:net";
 import type { Express } from "express";
 
 const keys = ["CLOUD_TEST_COMPANY_IDS", "CLOUD_TEST_EXPIRES_AT"] as const;
-const maximumDuration = 31 * 24 * 60 * 60 * 1000;
+const maximumDuration = 120 * 24 * 60 * 60 * 1000;
 type CloudTestConfiguration = {
   companyIds: ReadonlySet<string>;
   expiresAt: number;
@@ -23,7 +23,7 @@ export function parseCloudTestEnvironment(
   if (!keys.some((key) => environment[key] !== undefined)) return null;
   const invalid = (): never => {
     throw new Error(
-      "Cloud company testing requires production mode, an exact public HTTPS APP_ORIGIN, one or two distinct company IDs, and an explicit future ISO expiry within 31 days. It cannot be combined with PRIVATE_PREVIEW_ settings.",
+      "Cloud company testing requires production mode, an exact public HTTPS APP_ORIGIN, one or two distinct company IDs, and an explicit future ISO expiry within 120 days. It cannot be combined with PRIVATE_PREVIEW_ settings.",
     );
   };
   if (
@@ -92,7 +92,7 @@ export function createCloudTestAccess(
     if (ended) expire();
     return ended;
   };
-  // A month exceeds Node's maximum timer delay. Recheck the original deadline
+  // Test windows can exceed Node's maximum timer delay. Recheck the approved deadline
   // in short chunks; connected candidates cannot outlive the workspace window.
   const scheduleExpiry = () => {
     if (!configuration) return;

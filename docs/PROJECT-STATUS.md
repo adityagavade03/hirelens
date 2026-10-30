@@ -5,7 +5,8 @@
 HireLens is deployed independently of this laptop at
 [hirelens-adityagavade03.onrender.com](https://hirelens-adityagavade03.onrender.com),
 using Render Free, MongoDB Atlas, Brevo email and Groq AI/transcription.
-The existing cloud test workspace expires **21 November 2026, 5:52 pm IST**.
+The owner extended the cloud test workspace to **1 February 2027, 11:59 pm IST**
+on 30 October 2026; this supersedes the original 21 November deadline.
 Free hosting can sleep when idle. Hosting is active; the four services below
 are still absent from the hosted configuration, checked read-only on 30 October.
 

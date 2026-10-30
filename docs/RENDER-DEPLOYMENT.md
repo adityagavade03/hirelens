@@ -34,13 +34,13 @@ available. Free-provider rate limits can therefore require a later deploy retry.
 
 ## Required private configuration
 
-| Settings | Required preparation |
-| --- | --- |
-| `MONGODB_URI` | A durable MongoDB Atlas Free cluster, restricted app database user and Render outbound IP allowlist. Set the URI in Render's secret environment. |
-| `OTP_HASH_SECRET` | Independently generated secret, at least 32 characters; the Blueprint generates a value for a new deployment. Preserve it across ordinary redeploys. |
-| `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM` | Active Brevo transactional account, private API key and a sender authorized by that account. HireLens uses its direct HTTPS adapter. |
-| `STORAGE_BUDGET_MB=400`, `STORAGE_BUDGET_SCOPE=atlas-cluster` | Shared binary-upload guard below Atlas Free's 0.5 GB total quota; verify Atlas cluster-size statistics work with the app user. |
-| `REDIS_URL` | Empty for this single-instance deployment. Multiple instances require separate scaling configuration. |
+| Settings                                                      | Required preparation                                                                                                                                 |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`                                                 | A durable MongoDB Atlas Free cluster, restricted app database user and Render outbound IP allowlist. Set the URI in Render's secret environment.     |
+| `OTP_HASH_SECRET`                                             | Independently generated secret, at least 32 characters; the Blueprint generates a value for a new deployment. Preserve it across ordinary redeploys. |
+| `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`         | Active Brevo transactional account, private API key and a sender authorized by that account. HireLens uses its direct HTTPS adapter.                 |
+| `STORAGE_BUDGET_MB=400`, `STORAGE_BUDGET_SCOPE=atlas-cluster` | Shared binary-upload guard below Atlas Free's 0.5 GB total quota; verify Atlas cluster-size statistics work with the app user.                       |
+| `REDIS_URL`                                                   | Empty for this single-instance deployment. Multiple instances require separate scaling configuration.                                                |
 
 Keep `MESSAGE_PREVIEW`, `ALLOW_DEMO_LOGIN`, `ALLOW_LOCAL_COMPANY_REGISTRATION`
 and `TURN_LOCAL_DEV` false. Production keeps email verification and company-login
@@ -74,7 +74,9 @@ until migration counts and application behavior have been checked.
 Unverified development companies remain unverified. For an owner-approved cloud
 test only, set both `CLOUD_TEST_COMPANY_IDS` and `CLOUD_TEST_EXPIRES_AT` privately.
 The policy permits one or two exact company IDs and an original absolute UTC
-deadline within 31 days. Do not publish the IDs or automatically renew the date.
+deadline within 120 days. The owner extended this workspace on 30 October 2026
+to **1 February 2027, 11:59 pm IST** (`2027-02-01T18:29:59.000Z`). Do not publish
+the IDs or automatically renew the date. Later changes need explicit owner authorization.
 The service requires an exact public HTTPS `APP_ORIGIN`; all `PRIVATE_PREVIEW_`
 keys must be absent, including blank keys. Partial, invalid or already-expired
 settings fail closed at startup. At the original deadline, the entire test

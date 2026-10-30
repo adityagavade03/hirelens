@@ -39,6 +39,9 @@ const companyId = "1234567890abcdef12345678";
 const secondCompanyId = "1234567890abcdef12345679";
 const outsideId = "1234567890abcdef12345670";
 const origin = "https://hirelens-cloud-test.example.test";
+const requestedExtensionStart = Date.UTC(2026, 9, 30, 0, 0, 0);
+const requestedExpiryIso = "2027-02-01T18:29:59.000Z";
+const requestedExpiry = Date.parse(requestedExpiryIso);
 const environment = (overrides: NodeJS.ProcessEnv = {}, now = Date.now()) => ({
   NODE_ENV: "production",
   APP_ORIGIN: origin,
@@ -128,9 +131,9 @@ describe("Bounded cloud company testing policy", () => {
       ).toThrow("Cloud company testing requires");
   });
 
-  it("accepts an absolute expiry up to 31 days and rejects expired, rolled or longer dates", () => {
-    const now = Date.UTC(2026, 9, 22, 0, 0, 0);
-    const boundary = new Date(now + 31 * 86400000).toISOString();
+  it("accepts an absolute expiry up to 120 days and rejects expired, rolled or longer dates", () => {
+    const now = requestedExtensionStart;
+    const boundary = new Date(now + 120 * 86400000).toISOString();
     expect(
       cloudTests.parseCloudTestEnvironment(
         environment({ CLOUD_TEST_EXPIRES_AT: boundary }, now),
@@ -140,7 +143,7 @@ describe("Bounded cloud company testing policy", () => {
     for (const expiry of [
       new Date(now).toISOString(),
       new Date(now - 1).toISOString(),
-      new Date(now + 31 * 86400000 + 1).toISOString(),
+      new Date(now + 120 * 86400000 + 1).toISOString(),
       "2026-11-01",
       "invalid",
       "2026-02-30T00:00:00.000Z",
@@ -153,9 +156,28 @@ describe("Bounded cloud company testing policy", () => {
       ).toThrow("Cloud company testing requires");
   });
 
-  it("revokes the selected IDs at the original absolute deadline without sliding the expiry", () => {
-    let now = Date.UTC(2026, 9, 22, 0, 0, 0);
-    const expiresAt = now + 31 * 86400000;
+  it("accepts the requested February deadline from October without expanding company access or renewing on restart", () => {
+    const values = environment(
+      { CLOUD_TEST_EXPIRES_AT: requestedExpiryIso },
+      requestedExtensionStart,
+    );
+    for (const now of [
+      requestedExtensionStart,
+      requestedExtensionStart + 60 * 86400000,
+    ]) {
+      const parsed = cloudTests.parseCloudTestEnvironment(values, now);
+      expect(parsed?.expiresAt).toBe(requestedExpiry);
+      expect([...parsed!.companyIds]).toEqual([companyId, secondCompanyId]);
+      const guard = access(parsed, () => now);
+      expect(guard.allowsCompany(companyId)).toBe(true);
+      expect(guard.allowsCompany(secondCompanyId)).toBe(true);
+      expect(guard.allowsCompany(outsideId)).toBe(false);
+    }
+  });
+
+  it("revokes the selected IDs at the requested absolute deadline without sliding the expiry", () => {
+    let now = requestedExtensionStart;
+    const expiresAt = requestedExpiry;
     const guard = access(
       cloudTests.parseCloudTestEnvironment(
         environment(
@@ -197,9 +219,9 @@ describe("Bounded cloud company testing policy", () => {
     expect(access(null).decorateHtml(html)).toBe(html);
   });
 
-  it("blocks every public, candidate and API request at expiry before downstream data or cookies", async () => {
-    let now = Date.now();
-    const expiry = now + 3600000;
+  it("blocks every public, candidate and API request exactly at the requested expiry before downstream data or cookies", async () => {
+    let now = requestedExtensionStart;
+    const expiry = requestedExpiry;
     const guard = access(
       cloudTests.parseCloudTestEnvironment(
         environment(
@@ -216,6 +238,7 @@ describe("Bounded cloud company testing policy", () => {
     );
     guard.install(app);
     app.use(downstream);
+    now = expiry - 1;
     expect((await request(app).get("/candidate")).status).toBe(200);
     downstream.mockClear();
     now = expiry;
@@ -265,11 +288,11 @@ describe("Bounded cloud company testing policy", () => {
     expect(socket.disconnect).not.toHaveBeenCalled();
   });
 
-  it("keeps a 31-day workspace live without timer overflow, then disconnects existing candidate sockets at its deadline", async () => {
+  it("keeps a 120-day workspace live without timer overflow, then disconnects existing candidate sockets at its deadline", async () => {
     vi.useFakeTimers();
-    const start = Date.UTC(2026, 9, 22, 0, 0, 0);
+    const start = requestedExtensionStart;
     vi.setSystemTime(start);
-    const expiry = start + 31 * 86400000;
+    const expiry = start + 120 * 86400000;
     const timeout = vi.spyOn(globalThis, "setTimeout");
     const guard = access(
       cloudTests.parseCloudTestEnvironment(
@@ -315,8 +338,8 @@ describe("Cloud company access integration", () => {
     await database?.stop();
   });
   beforeEach(async () => {
-    now = Date.now();
-    expiry = now + 3600000;
+    now = requestedExtensionStart;
+    expiry = requestedExpiry;
     const guard = access(
       cloudTests.parseCloudTestEnvironment(
         environment(
@@ -567,7 +590,7 @@ describe("Cloud company access integration", () => {
     );
   });
 
-  it("rejects expired Engine.IO requests and disconnects an authenticated candidate before another socket event", async () => {
+  it("rejects Engine.IO requests exactly at the requested expiry and disconnects an authenticated candidate before another socket event", async () => {
     const candidate = await cookieFor("candidate");
     const server = createServer(app);
     const io = attachRealtime(server);
@@ -587,6 +610,9 @@ describe("Cloud company access integration", () => {
         socket.once("connect", resolve);
         socket.once("connect_error", reject);
       });
+      now = expiry - 1;
+      expect(cloudTests.cloudTestSocketAllowed()).toBe(true);
+      expect(socket.connected).toBe(true);
       now = expiry;
       const disconnected = new Promise<void>((resolve) =>
         socket.once("disconnect", () => resolve()),

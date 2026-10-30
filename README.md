@@ -18,8 +18,8 @@ consented candidate camera status to the assigned interviewer. See the
 
 The app is live at [HireLens](https://hirelens-adityagavade03.onrender.com),
 independent of the laptop, using Render Free, MongoDB Atlas, Brevo email and Groq
-AI/transcription. The existing cloud test workspace ends **21 November 2026,
-5:52 pm IST**. The latest broad check passed **984 automated tests in 68 files**.
+AI/transcription. The owner extended the cloud test workspace through
+**1 February 2027, 11:59 pm IST**. The latest broad check passed **984 automated tests in 68 files**.
 Two additional saved-language/autosave regressions passed in a final 58-test
 targeted run, with a fresh client/server build and TypeScript checks.
 

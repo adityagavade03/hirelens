@@ -71,5 +71,5 @@ services:
       # Set hosted LLM_BASE_URL/LLM_API_KEY/LLM_MODEL and
       # STT_BASE_URL/STT_API_KEY/STT_MODEL privately after provider setup.
       # Optional CLOUD_TEST_COMPANY_IDS and CLOUD_TEST_EXPIRES_AT must contain
-      # only the owner-approved company scope and its original absolute expiry.
+      # only the owner-approved company scope and its approved absolute expiry.
       # Never add PRIVATE_PREVIEW_ settings or laptop service URLs here.
