@@ -3,8 +3,10 @@
 The Candidate practice bank includes 100 new Easy, 100 Medium and 100 Hard
 questions, plus the two original warm-ups. Coding practice has a separate
 five-language editor without camera setup. See the [practice bank guide](docs/PRACTICE-QUESTION-BANK.md)
-and [private executor setup](docs/PRIVATE-EXECUTION-SETUP.md); hosted Run/Submit
-still needs a connected private execution host.
+and [execution setup](docs/CODE-EXECUTION.md). The owner approved public Judge0
+for personal practice on 1 November 2026; hiring Run/Submit still requires a
+private execution host. The practice page explains that submitted code and test
+inputs go to the public service and may be stored.
 
 HR accounts can join multiple companies by invitation and switch between their
 workspaces while retaining separate candidate access and calendar conflict checks.
@@ -27,7 +29,7 @@ speech-capture cleanup and evidence-grounded AI reports.
 - Optional object detection has a local **More detail** model and image-quality guidance. The 21 October physical check was inconclusive: the active test page/model could not be confirmed. Earlier failed checks are preserved. See [object detection](docs/OBJECT-DETECTION.md).
 - Generated Candidate/HR recordings previously passed storage, decoding, playback and local transcription checks. Hosted transcription is now configured through Groq; fresh physical speech, both microphones and cross-network audio remain unverified. See [recording evidence](docs/MEDIA-TRACKS-VERIFICATION.md) and [speech quality](docs/SPEECH-QUALITY.md).
 - The full **26 resume/JD and four report cases** ran on cloud AI on 30 October. Original results were 26 passes and four stale policy expectations; offline policy replay is recorded separately. New reports separate clarity from correctness, require verified candidate quotations for weaknesses and reject unsupported absence claims. Targeted follow-up requests and an exact retained-output replay cover the report regressions; broader independent review remains. This is synthetic regression evidence, not hiring accuracy. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
-- Private Judge0, public TURN, SMS and real company verification still need owner-controlled services/accounts. Their adapters and setup are implemented, but no live execution, public relay, handset delivery or registry result is claimed. See the [remaining work and activation order](docs/REMAINING-WORK.md).
+- Public Judge0 passed live personal-practice diagnostics in all five languages. Private Judge0 for hiring, public TURN, SMS and real company verification still need owner-controlled services/accounts. Public practice does not establish a private hiring executor. See the [remaining work and activation order](docs/REMAINING-WORK.md).
 - Gaze/face/speaker accuracy, a consented trained integrity model, exact theme matching and remaining physical mobile/browser checks are unfinished. See [current project status](docs/PROJECT-STATUS.md).
 
 Automated tests and deployment health do not establish physical-device accuracy,

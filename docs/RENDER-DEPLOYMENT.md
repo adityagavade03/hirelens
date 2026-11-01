@@ -130,8 +130,11 @@ pause during sleep. Independent hosting removes the laptop dependency; it does
 not provide guaranteed uninterrupted hiring availability. [Render Free limits](https://render.com/docs/free)
 
 Public TURN and two-device, different-network media verification remain pending.
-Private Judge0 is required for hiring code execution; the public demo remains
-local-practice-only. SMS and real business verification require their own active
+Private Judge0 is required for hiring code execution. Explicitly approved public
+personal practice uses `ALLOW_PUBLIC_JUDGE0_PRACTICE=true` with the official
+HTTPS endpoint; company/application/batch sessions cannot use it. The synthetic
+build preflight runs a fixed sample only when this mode is enabled.
+SMS and real business verification require their own active
 providers. Hosted transcription and proctoring accuracy require separate live
 checks. None are marked complete by deploying the website.
 

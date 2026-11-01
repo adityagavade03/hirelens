@@ -2,7 +2,36 @@
 
 `Code execution needs a Judge0 service` means `JUDGE0_URL` is empty. The editor and code drafts can work independently, but compiling/running code requires a real isolated executor. An arbitrary URL does not enable execution.
 
-## Status on this computer, reviewed 13 October 2026
+## Hosted personal practice — 1 November 2026
+
+The owner explicitly approved using the official public Judge0 service for
+personal practice. This supersedes the earlier private-only choice for that
+scope. Hiring assessments still require a private service.
+
+Hosted public practice requires both `JUDGE0_URL=https://ce.judge0.com` and
+`ALLOW_PUBLIC_JUDGE0_PRACTICE=true`. The flag defaults to false. Production also
+requires an exact HTTPS `APP_ORIGIN`; private credentials are not sent to the
+official public endpoint. Existing approved localhost practice remains supported.
+
+Only a signed-in candidate's own live personal practice, with the same candidate
+as interviewer and no company, application or interview-batch association, may
+execute publicly. Staff, foreign candidates, company-linked sessions and forged
+client context cannot enable it. Human and AI hiring code remains blocked before
+any external execution request.
+
+The practice screen explains that Run examples, Run custom input and Submit
+solution send source, stdin and test inputs to the public service, where they
+may be stored. Use sample code without secrets or personal information. The
+service has no availability guarantee; provider failures remain errors rather
+than fabricated passes. Hidden tests stay on the server/provider side and are
+redacted from candidate results.
+
+With the explicit flag and public endpoint configured, the existing synthetic
+cloud-deployment preflight additionally runs one fixed Python sample through the
+real execution adapter. It sends no recruitment records or candidate source and
+does not run for a private executor or when public practice is off.
+
+## Historical local status — 13 October 2026
 
 The approved public runner is now enabled in the local `.env`, and the API has been restarted. An isolated browser check ran a synthetic Python program successfully and then passed all four Pair sum tests through **Submit solution**. The upload notice and saved results were visually checked; normal recruitment records were untouched. This activation is for personal practice only.
 

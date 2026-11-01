@@ -1,5 +1,76 @@
 import { expect, it, vi } from "vitest";
-import { strictCloudAiProbe } from "../scripts/cloud-connectivity-probe.mjs";
+import {
+  strictCloudAiProbe,
+  publicPracticeCloudProbe,
+} from "../scripts/cloud-connectivity-probe.mjs";
+
+it.each([
+  { enabled: false, publicDemo: true, configured: true },
+  { enabled: true, publicDemo: false, configured: true },
+])(
+  "does not submit a deployment sample outside opted-in public practice: %j",
+  async (settings) => {
+    const call = vi.fn();
+    expect(await publicPracticeCloudProbe({ ...settings, call })).toEqual({
+      status: "not-requested",
+    });
+    expect(call).not.toHaveBeenCalled();
+  },
+);
+it("fails before a public call when the production configuration is unsafe", async () => {
+  const call = vi.fn();
+  await expect(
+    publicPracticeCloudProbe({
+      enabled: true,
+      publicDemo: true,
+      configured: false,
+      call,
+    }),
+  ).rejects.toThrow("safely");
+  expect(call).not.toHaveBeenCalled();
+});
+it("sends only one fixed diagnostic and requires its actual judged output", async () => {
+  const call = vi.fn(async () => [
+    { statusId: 3, passed: true, stdout: "HIRELENS_PUBLIC_PRACTICE_OK\n" },
+  ]);
+  expect(
+    await publicPracticeCloudProbe({
+      enabled: true,
+      publicDemo: true,
+      configured: true,
+      call,
+    }),
+  ).toMatchObject({ status: "executed", syntheticOnly: true });
+  expect(call).toHaveBeenCalledExactlyOnceWith(
+    "python",
+    'print("HIRELENS_PUBLIC_PRACTICE_OK")',
+    [{ input: "", output: "HIRELENS_PUBLIC_PRACTICE_OK", hidden: false }],
+    "diagnostic",
+  );
+});
+it.each([
+  { rows: [] },
+  { rows: [{ statusId: 3, passed: true, stdout: "unrelated output" }] },
+  {
+    rows: [
+      { statusId: 4, passed: false, stdout: "HIRELENS_PUBLIC_PRACTICE_OK" },
+    ],
+  },
+])(
+  "does not accept an absent, wrong or unjudged public execution result: %j",
+  async ({ rows }) => {
+    const call = vi.fn(async () => rows);
+    await expect(
+      publicPracticeCloudProbe({
+        enabled: true,
+        publicDemo: true,
+        configured: true,
+        call,
+      }),
+    ).rejects.toThrow("fixed sample");
+    expect(call).toHaveBeenCalledOnce();
+  },
+);
 
 it("requires strict schema mode before any provider call", async () => {
   const call = vi.fn();

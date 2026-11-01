@@ -15,9 +15,10 @@ The app's configuration is separate from proof that every integration works.
 | 3     | SMS                   | Twilio/HTTP adapters, outbox and contact verification                                                               | Account/sender activation and an explicitly authorized successful handset delivery. [Setup](SMS-COMPANY-PROVIDERS.md).                                                    |
 | 4     | Business verification | Cashfree/HTTP adapters and matching receipt checks                                                                  | Live provider account and eligible genuine business identity. Local test access does not verify a business. [Setup](SMS-COMPANY-PROVIDERS.md).                            |
 
-The owner currently has no accounts/server for these four services and selected
-private execution. No public Judge0 fallback, paid plan, invented endpoint or
-provider credential is enabled to bypass the missing setup. Store actual keys in
+The owner currently has no accounts/server for these four hiring services. On
+1 November, public Judge0 was separately approved for personal practice only;
+it does not enable hiring code execution. No paid plan, invented endpoint or
+provider credential is enabled to bypass private hiring setup. Store actual keys in
 private provider/Render configuration, never in chat or Git.
 
 `npm run providers:check -- --require-external` reports setup gaps without sending
@@ -59,7 +60,7 @@ missing. A configured endpoint still needs its corresponding live check.
 
 ## Reliability fixes verified on 1 November
 
-The complete software check passed **1,055 tests in 72 files** and the production
+The complete software check passed **1,091 tests in 73 files** and the production
 build. These checks establish software behavior, not real-device accuracy or
 provider activation.
 

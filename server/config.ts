@@ -84,6 +84,8 @@ export const config = {
   judgeKey: process.env.JUDGE0_API_KEY || "",
   judgeHeader: process.env.JUDGE0_AUTH_HEADER || "X-Auth-Token",
   rapidHost: process.env.JUDGE0_RAPIDAPI_HOST || "",
+  allowPublicJudge0Practice:
+    process.env.ALLOW_PUBLIC_JUDGE0_PRACTICE === "true",
   stunUrl: process.env.STUN_URL || "stun:stun.l.google.com:19302",
   turnUrl: process.env.TURN_URL || "",
   turnProvider: process.env.TURN_PROVIDER || "hmac",
@@ -131,11 +133,22 @@ export function codeExecutionConfigured() {
   if (!publicJudge0Configured()) {
     return !config.production || !!config.judgeKey.trim();
   }
-  if (config.production) return false;
   const loopback = (host: string) =>
     ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host.toLowerCase());
   try {
     const origin = new URL(config.origin);
+    if (config.production)
+      return (
+        config.allowPublicJudge0Practice &&
+        new URL(config.judgeUrl).protocol === "https:" &&
+        origin.protocol === "https:" &&
+        origin.origin === config.origin &&
+        !origin.username &&
+        !origin.password &&
+        !origin.search &&
+        !origin.hash &&
+        origin.pathname === "/"
+      );
     return (
       new URL(config.judgeUrl).protocol === "https:" &&
       loopback(config.host) &&

@@ -1,4 +1,30 @@
 // A synthetic connectivity check, never an assessment-quality benchmark.
+export async function publicPracticeCloudProbe({
+  enabled,
+  publicDemo,
+  configured,
+  call,
+}) {
+  if (!enabled || !publicDemo) return { status: "not-requested" };
+  if (!configured)
+    throw new Error("Public practice execution is not configured safely.");
+  const rows = await call(
+    "python",
+    'print("HIRELENS_PUBLIC_PRACTICE_OK")',
+    [{ input: "", output: "HIRELENS_PUBLIC_PRACTICE_OK", hidden: false }],
+    "diagnostic",
+  );
+  if (
+    !Array.isArray(rows) ||
+    rows.length !== 1 ||
+    rows[0]?.statusId !== 3 ||
+    rows[0]?.passed !== true ||
+    rows[0]?.stdout?.trim() !== "HIRELENS_PUBLIC_PRACTICE_OK"
+  )
+    throw new Error("Public practice execution did not pass its fixed sample.");
+  return { status: "executed", language: "python", syntheticOnly: true };
+}
+
 export async function strictCloudAiProbe({
   strict,
   call,

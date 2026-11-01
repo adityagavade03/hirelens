@@ -32,6 +32,30 @@ function fields() {
     OTP_HASH_SECRET: secret("otp"),
   };
 }
+it("accepts an explicitly approved public-practice runner without pretending it has private credentials", () => {
+  const settings = {
+    ...fields(),
+    JUDGE0_URL: "https://ce.judge0.com",
+    ALLOW_PUBLIC_JUDGE0_PRACTICE: "true",
+  };
+  expect(productionDeploymentIssues(settings)).toEqual([]);
+  expect(
+    productionDeploymentIssues({
+      ...settings,
+      ALLOW_PUBLIC_JUDGE0_PRACTICE: "false",
+    }),
+  ).toEqual(
+    expect.arrayContaining([expect.stringContaining("JUDGE0_API_KEY")]),
+  );
+  expect(
+    productionDeploymentIssues({
+      ...settings,
+      JUDGE0_URL: "https://ce.judge0.com.attacker.invalid",
+    }),
+  ).toEqual(
+    expect.arrayContaining([expect.stringContaining("JUDGE0_API_KEY")]),
+  );
+});
 
 it("accepts independent deployment secrets while rejecting missing, repeated and unsafe URI passwords without echoing values", () => {
   expect(productionDeploymentIssues(fields())).toEqual([]);

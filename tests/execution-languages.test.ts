@@ -8,6 +8,7 @@ import { executeCode, executionLanguages } from "../server/providers";
 import { safeProblem } from "../server/coding";
 import { codeTokens } from "../server/similarity";
 import { problems } from "../server/problems";
+import { interviewProviderReadiness } from "../scripts/provider-readiness";
 
 const original = { ...config };
 afterEach(() => {
@@ -97,6 +98,102 @@ it.each([
     expect(result[1]).not.toHaveProperty("stdout");
     expect(result[1]).not.toHaveProperty("stderr");
     expect(result[1]).not.toHaveProperty("compileOutput");
+  },
+);
+
+it.each(["ce.judge0.com", "extra-ce.judge0.com"])(
+  "allows explicitly enabled production personal practice on %s without forwarding stale private credentials",
+  async (host) => {
+    Object.assign(config, {
+      production: true,
+      host: "0.0.0.0",
+      origin: "https://hirelens.example.test",
+      allowPublicJudge0Practice: true,
+      judgeUrl: `https://${host}`,
+      judgeKey: "stale-private-key-not-for-public-service",
+      rapidHost: "stale-private-rapidapi-host",
+    });
+    expect(serviceStatus()).toMatchObject({ code: true, codePublicDemo: true });
+    expect(interviewProviderReadiness(config).execution).toMatchObject({
+      mode: "public-practice-only",
+      configuredForExternalUse: false,
+    });
+    const calls = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (url, options) => {
+        const headers = new Headers(options?.headers);
+        expect(headers.has(config.judgeHeader)).toBe(false);
+        expect(headers.has("X-RapidAPI-Host")).toBe(false);
+        expect(String(url)).toMatch(
+          new RegExp(`^https://${host.replaceAll(".", "\\.")}/`),
+        );
+        if (String(url).endsWith("/languages"))
+          return new Response(JSON.stringify(advertisedLanguages));
+        if (options?.method === "POST")
+          return new Response(
+            JSON.stringify({ token: "public-practice-token" }),
+          );
+        return new Response(
+          JSON.stringify({
+            status: { id: 3, description: "Accepted" },
+            stdout: Buffer.from("42\n").toString("base64"),
+          }),
+        );
+      });
+    const result = await executeCode(
+      "python",
+      "print(42)",
+      [{ input: "", output: "42", hidden: false }],
+      "practice",
+    );
+    expect(result[0]).toMatchObject({ passed: true, stdout: "42\n" });
+    expect(calls).toHaveBeenCalledTimes(3);
+    calls.mockClear();
+    await expect(
+      executeCode("python", "private hiring code", [
+        { input: "", hidden: false },
+      ]),
+    ).rejects.toMatchObject({ status: 403, code: "PRIVATE_EXECUTOR_REQUIRED" });
+    expect(calls).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  { allowPublicJudge0Practice: false },
+  { origin: "http://hirelens.example.test" },
+  { origin: "https://hirelens.example.test/" },
+  { origin: "https://user:secret@hirelens.example.test" },
+  { origin: "https://hirelens.example.test/path" },
+  { origin: "https://hirelens.example.test?token=private" },
+  { origin: "https://hirelens.example.test#private" },
+  { origin: "not-an-origin" },
+  { judgeUrl: "http://ce.judge0.com" },
+  { judgeUrl: "https://user:secret@ce.judge0.com" },
+  { judgeUrl: "https://ce.judge0.com?token=private" },
+  { judgeUrl: "https://ce.judge0.com#private" },
+])(
+  "rejects invalid or unapproved hosted public practice before outbound requests: %j",
+  async (patch) => {
+    Object.assign(config, {
+      production: true,
+      host: "0.0.0.0",
+      origin: "https://hirelens.example.test",
+      allowPublicJudge0Practice: true,
+      judgeUrl: "https://ce.judge0.com",
+      judgeKey: "",
+      ...patch,
+    });
+    const calls = vi.spyOn(globalThis, "fetch");
+    expect(serviceStatus().code).toBe(false);
+    await expect(
+      executeCode(
+        "python",
+        "sample code",
+        [{ input: "", hidden: false }],
+        "practice",
+      ),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(calls).not.toHaveBeenCalled();
   },
 );
 

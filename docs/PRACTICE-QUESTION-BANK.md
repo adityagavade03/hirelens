@@ -38,11 +38,12 @@ on a functioning configured Judge0 service. Draft
 editing and question browsing remain available when no executor is connected;
 results and accepted verdicts are never invented.
 
-The owner selected private execution, so the hosted service is not switched to
-the public demonstration runner. The prepared private-server instructions are
-in [PRIVATE-EXECUTION-SETUP.md](PRIVATE-EXECUTION-SETUP.md). A compatible dedicated
-execution host and authenticated HTTPS endpoint are still required to activate
-Run and Submit. The preparation command does not provision or pay for a server.
+On 1 November 2026 the owner approved the official public runner for personal
+practice. Hosted public use requires explicit `ALLOW_PUBLIC_JUDGE0_PRACTICE=true`
+and a valid HTTPS application origin. The screen discloses that source and test
+inputs go to Judge0 and may be stored. Hiring remains blocked from this public
+service. Private hiring setup is documented in
+[PRIVATE-EXECUTION-SETUP.md](PRIVATE-EXECUTION-SETUP.md).
 
 The five-language diagnostics in `npm run code:check` must pass against that
 actual endpoint before activation. Question-bank tests do not establish that a

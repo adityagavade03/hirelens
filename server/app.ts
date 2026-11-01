@@ -31,6 +31,7 @@ import {
   serviceStatus,
   allowedOrigins,
   localCompanyRegistrationEnabled,
+  publicJudge0Configured,
 } from "./config.js";
 import {
   UserModel,
@@ -1595,6 +1596,20 @@ export function createApp() {
       );
       await mustAttendInterview(req.user, interview);
       requireLive(interview);
+      const personalPractice =
+        req.user.role === "candidate" &&
+        interview.type === "practice" &&
+        interview.candidateId === req.user._id &&
+        interview.interviewerId === req.user._id &&
+        !interview.companyId &&
+        !interview.applicationId &&
+        !interview.batchId;
+      if (publicJudge0Configured() && !personalPractice)
+        throw new ApiError(
+          403,
+          "The public Judge0 demo can only run personal practice code. Hiring interviews require a private execution service.",
+          "PRIVATE_EXECUTOR_REQUIRED",
+        );
       const input = z
         .object({
           language: z.enum(codingLanguageKeys),
@@ -1614,12 +1629,7 @@ export function createApp() {
           : input.runMode === "examples"
             ? problem.tests.filter((test) => !test.hidden)
             : [{ input: input.stdin, hidden: false }],
-        interview.type === "practice" &&
-          !interview.companyId &&
-          !interview.applicationId &&
-          interview.interviewerId === req.user._id
-          ? "practice"
-          : "interview",
+        personalPractice ? "practice" : "interview",
       );
       const submission = await withResources(
         [`report:${interview.id}`],

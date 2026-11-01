@@ -1,9 +1,10 @@
 # Private code execution for hosted HireLens
 
-The owner selected private execution on 30 October 2026. No public runner is
-enabled in production. The practice bank and saved drafts work while Run/Submit
-wait for a separately hosted Judge0 service. This package prepares that service;
-it does not claim that a server exists or that a program has run there.
+Hiring execution remains private. On 1 November 2026 the owner separately
+approved the official public Judge0 runner for candidate-owned personal practice
+with a clear data-sharing notice. See [execution modes](CODE-EXECUTION.md).
+Hiring Run/Submit still waits for a separately hosted private Judge0 service.
+This package prepares that private service; it does not provision a server.
 
 ## Prepare configuration
 

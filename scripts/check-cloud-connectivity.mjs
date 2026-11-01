@@ -1,10 +1,17 @@
 // Explicit synthetic build probe: no database records, real resumes, or email sends.
 import { z } from "zod";
-import { config } from "../dist-server/server/config.js";
-import { llm } from "../dist-server/server/providers.js";
+import {
+  config,
+  publicJudge0Configured,
+  codeExecutionConfigured,
+} from "../dist-server/server/config.js";
+import { llm, executeCode } from "../dist-server/server/providers.js";
 import { brevoSender } from "../dist-server/server/provider-configuration.js";
 import { readProviderJson } from "../dist-server/server/provider-response.js";
-import { strictCloudAiProbe } from "./cloud-connectivity-probe.mjs";
+import {
+  strictCloudAiProbe,
+  publicPracticeCloudProbe,
+} from "./cloud-connectivity-probe.mjs";
 
 let stage = "configuration";
 let providerStatus = null;
@@ -22,6 +29,7 @@ try {
     fromRender: !!process.env.RENDER_SERVICE_ID,
     emailSender: "unconfigured",
     hostedAi: "unconfigured",
+    publicPracticeCode: { status: "not-requested" },
     realDataSent: false,
     emailsSent: 0,
     aiAttempts,
@@ -109,6 +117,27 @@ try {
     }
     if (value.status !== "ok") throw new Error("AI schema check failed.");
     result.hostedAi = "strict-schema-passed";
+  }
+  if (config.allowPublicJudge0Practice && publicJudge0Configured()) {
+    stage = "public-practice-execution";
+    providerStatus = null;
+    category = "public-practice-provider-error";
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const response = await originalFetch(input, init);
+      providerStatus = response.status;
+      return response;
+    };
+    try {
+      result.publicPracticeCode = await publicPracticeCloudProbe({
+        enabled: config.allowPublicJudge0Practice,
+        publicDemo: publicJudge0Configured(),
+        configured: codeExecutionConfigured(),
+        call: executeCode,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   }
   console.log(JSON.stringify(result));
 } catch {

@@ -131,7 +131,12 @@ function LegacyRoom() {
   const [faceState, setFaceState] = useState("");
   const interview = record.data;
   const practice = interview?.type === "practice";
-  const publicDemoBlocked = !!service.data?.codePublicDemo && !practice;
+  const personalPractice =
+    practice &&
+    !interview?.companyId &&
+    !interview?.applicationId &&
+    !interview?.batchId;
+  const publicDemoBlocked = !!service.data?.codePublicDemo && !personalPractice;
   const manager = user.role === "hr" || practice;
   const aiLed = interview?.facilitator === "ai";
   const candidate = user.role === "candidate";
@@ -1416,7 +1421,7 @@ function LegacyRoom() {
               </Suspense>
               <CodeExecutionNotice
                 publicDemo={service.data?.codePublicDemo}
-                practice={practice}
+                practice={personalPractice}
                 available={service.data?.code}
               />
               {candidate && (

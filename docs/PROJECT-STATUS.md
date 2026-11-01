@@ -12,7 +12,7 @@ are still absent from the hosted configuration, checked read-only on 1 November.
 
 | Remaining item                     | Implemented preparation                                                                                                                                    | What is still required                                                                                                                                                              |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code execution                     | Five-language editors, drafts, 302 questions, example/custom/all-case execution integration, detailed verdicts and private Judge0 deployment configuration | A compatible owner-controlled private execution service, authenticated HTTPS endpoint and successful real compiler/test-case checks. Hosted Run/Submit remain disabled.             |
+| Code execution                     | Five-language editors, 302 questions, real public personal-practice diagnostics and Run/Submit workflow; hosted opt-in approved 1 November | Hiring still needs an authenticated private execution service. Public practice cannot run company/application/batch-linked sessions and provides no availability guarantee. |
 | Cross-network interviews           | Candidate/HR role separation, signaling, camera/audio/screen-share controls, reconnect handling and TURN adapters                                          | Public TURN provisioning and a complete two-device call across different networks, including audible audio in both directions, screen sharing and reconnects.                       |
 | SMS                                | Twilio and HTTP delivery adapters, verified-contact preferences and notification retries                                                                   | Provider account, eligible sender and an authorized phone-delivery check.                                                                                                           |
 | Company verification               | Cashfree/HTTP adapters and receipt/identity validation                                                                                                     | Live provider access and a genuine eligible business-verification result. Current unverified companies must not be described as verified.                                           |
@@ -22,7 +22,7 @@ are still absent from the hosted configuration, checked read-only on 1 November.
 | AI quality                         | Full 30-case synthetic run, policy-corrected replay and new quoted-weakness/dimension safeguards; targeted final-schema reports and retained-output replay | Fresh repeated cloud checks and broader independent review. Earlier rejected outputs, transport failure and the corrected concession false rejection remain recorded; no accuracy guarantee. |
 | Final UI validation                | Shared themes, responsive/reduced-motion checks and both direct 7Heven/Amber previews inspected on 31 October | Complete route comparison, Safari/Firefox, physical mobile and screen-reader checks. The application adapts the templates; exact reproduction is not claimed. |
 
-The latest full verification passed **1,055 tests in 72 files**, the production
+The latest full verification passed **1,091 tests in 73 files**, the production
 build and TypeScript. It includes face/gaze lifecycle regressions, queued ICE
 failure isolation, transcript conflict preservation, microphone cleanup and
 grounded-report guards. These are software checks, not proof of live providers or
@@ -32,6 +32,13 @@ The latest fixes prevent stale camera results, prevent a rejected network route
 from blocking a video answer, preserve manual transcript corrections, release
 failed speech captures and reject unsupported AI report narratives. Existing
 reports, resume score thresholds and recruitment records are not rewritten.
+
+The public personal-practice runner passed eleven real five-language diagnostics,
+seven production-mode API workflow checks, and a real browser submission with
+four of four tests accepted. Hidden test inputs and outputs remained private.
+Hosted activation requires the explicit opt-in and a successful synthetic build
+probe from Render; hiring execution remains unavailable until a private service
+is connected. See [execution verification](PUBLIC-PRACTICE-VERIFICATION-2026-11-01.json).
 
 This follow-up extends example/custom/all-case controls and detailed results to
 human/AI interview rooms and saved reports, keeps HR review read-only, corrects

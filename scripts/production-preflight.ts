@@ -99,7 +99,23 @@ export function productionDeploymentIssues(fields: Fields) {
     );
   for (const [endpoint, key, model] of httpServices) {
     if (![endpoint, key, model].some((name) => name && fields[name])) continue;
-    if (!fields[key]?.trim())
+    let publicPractice = false;
+    if (
+      endpoint === "JUDGE0_URL" &&
+      fields.ALLOW_PUBLIC_JUDGE0_PRACTICE === "true"
+    ) {
+      try {
+        const runner = new URL(fields[endpoint]);
+        publicPractice =
+          runner.protocol === "https:" &&
+          ["ce.judge0.com", "extra-ce.judge0.com"].includes(
+            runner.hostname.toLowerCase().replace(/\.$/, ""),
+          );
+      } catch {
+        // Invalid endpoints still fail the transport validation below.
+      }
+    }
+    if (!publicPractice && !fields[key]?.trim())
       issues.push(`${key} is missing for the configured service.`);
     if (model && !fields[model]?.trim())
       issues.push(`${model} is missing for the configured service.`);

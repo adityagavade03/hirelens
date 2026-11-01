@@ -57,6 +57,10 @@ export default function CodingPractice() {
   }
   const i = record.data,
     p = problem.data;
+  const personalPractice =
+    i?.type === "practice" && !i.companyId && !i.applicationId && !i.batchId;
+  const publicDemoBlocked =
+    !!services.data?.codePublicDemo && !personalPractice;
   useEffect(() => {
     if (!i || !p || initialised.current === i._id) return;
     drafts.current = { ...i.drafts };
@@ -101,7 +105,7 @@ export default function CodingPractice() {
     mode: "run" | "submit",
     runMode: "custom" | "examples" = "custom",
   ) {
-    if (!services.data?.code || busy) return;
+    if (!services.data?.code || publicDemoBlocked || busy) return;
     setBusy(true);
     setRunningAction(
       mode === "submit"
@@ -192,7 +196,7 @@ export default function CodingPractice() {
       />
       <CodeExecutionNotice
         publicDemo={services.data?.codePublicDemo}
-        practice={true}
+        practice={personalPractice}
         available={services.data?.code}
       />
       {i.status === "live" ? (
@@ -293,6 +297,7 @@ export default function CodingPractice() {
                   busy ||
                   !code.trim() ||
                   !services.data?.code ||
+                  publicDemoBlocked ||
                   !available.includes(language) ||
                   i.status !== "live"
                 }
@@ -306,6 +311,7 @@ export default function CodingPractice() {
                   busy ||
                   !code.trim() ||
                   !services.data?.code ||
+                  publicDemoBlocked ||
                   !available.includes(language) ||
                   i.status !== "live"
                 }
@@ -319,6 +325,7 @@ export default function CodingPractice() {
                   busy ||
                   !code.trim() ||
                   !services.data?.code ||
+                  publicDemoBlocked ||
                   !available.includes(language) ||
                   i.status !== "live"
                 }

@@ -1,0 +1,31 @@
+{
+  "reviewDate": "2026-11-01",
+  "ownerApprovedScope": "Official public Judge0 for personal practice only",
+  "software": { "testsPassed": 1091, "testFiles": 73, "productionBuild": "passed", "typecheck": "passed" },
+  "realProviderDiagnostics": {
+    "syntheticOnly": true,
+    "languages": ["Python", "JavaScript", "Java", "C", "C++"],
+    "checksPassed": 11,
+    "outcomes": ["successful execution in five languages", "C/C++/Java compilation errors", "runtime error", "time limit", "wrong answer"],
+    "httpRequests": 37
+  },
+  "productionModeApi": {
+    "syntheticOnly": true,
+    "checksPassed": 7,
+    "checks": ["own practice creation", "ungraded custom input", "visible example execution", "all-case correct submission and hidden-data redaction", "wrong solution", "saved execution history", "company-linked practice rejected before external request"],
+    "httpRequests": 29
+  },
+  "browser": {
+    "syntheticOnly": true,
+    "realSubmission": "Accepted",
+    "testsPassed": 4,
+    "testsTotal": 4,
+    "hiddenCaseDataRedacted": true,
+    "lightAndDarkInspected": true,
+    "httpRequests": 11
+  },
+  "productionRecruitmentRecordsChanged": 0,
+  "privateCredentialsSentToPublicJudge0": false,
+  "hiringExecutionEnabled": false,
+  "limits": ["Public service may store submitted code and test inputs", "No availability guarantee", "Hiring requires a private execution provider", "Local/browser proof is separate from the deployment build probe"]
+}

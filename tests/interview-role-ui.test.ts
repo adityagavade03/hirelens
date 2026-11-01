@@ -197,9 +197,6 @@ vi.mock("../src/RoomConversation", () => ({
 vi.mock("../src/RoomDiagnostics", () => ({ RoomDiagnostics: () => null }));
 vi.mock("../src/CalibratedGaze", () => ({ CalibratedGaze: () => null }));
 vi.mock("../src/MonitoringReview", () => ({ EventReviewControls: () => null }));
-vi.mock("../src/CodeExecutionNotice", () => ({
-  CodeExecutionNotice: () => null,
-}));
 vi.mock("../src/theme", () => ({ ThemeToggle: () => null }));
 vi.mock("../src/CodingEditor", () => ({
   default: ({
@@ -232,6 +229,7 @@ beforeEach(() => {
   vi.mocked(api).mockClear();
   sessionStorage.clear();
   fixture.interview.type = "technical";
+  fixture.interview.applicationId = "application-fixture";
   fixture.interview.facilitator = "human";
   fixture.interview.status = "live";
   fixture.interview.questions = [];
@@ -419,6 +417,47 @@ it("does not send a real interview's code to a public practice runner", async ()
   await enterCandidate();
   for (const label of ["Run examples", "Run custom input", "Submit solution"])
     expect(button(label).disabled).toBe(true);
+});
+it("keeps a company-linked session blocked even when labelled practice", async () => {
+  fixture.interview.type = "practice";
+  fixture.services.code = true;
+  fixture.services.codePublicDemo = true;
+  fixture.role = "candidate";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () => button("Start my practice").click());
+  await act(async () => button("Coding exercise").click());
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label).disabled).toBe(true);
+  expect(host.textContent).toContain(
+    "The public demo cannot run candidate assessments",
+  );
+  expect(
+    vi.mocked(send).mock.calls.some(([path]) => String(path).endsWith("/code")),
+  ).toBe(false);
+});
+it("enables the public runner only in personal practice and shows its data-sharing notice", async () => {
+  fixture.interview.type = "practice";
+  fixture.interview.applicationId = "";
+  fixture.services.code = true;
+  fixture.services.codePublicDemo = true;
+  fixture.role = "candidate";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () => button("Start my practice").click());
+  await act(async () => button("Coding exercise").click());
+  expect(host.textContent).toContain("Public Judge0 runner");
+  expect(host.textContent).toContain("submitted code may be stored");
+  for (const label of ["Run examples", "Run custom input", "Submit solution"])
+    expect(button(label).disabled).toBe(false);
+  await act(async () => button("Run examples").click());
+  expect(
+    vi
+      .mocked(send)
+      .mock.calls.filter(([path]) => String(path).endsWith("/code")),
+  ).toHaveLength(1);
 });
 it("uses the same checked example and full-submit results in AI practice without adding HR controls", async () => {
   fixture.interview.type = "practice";

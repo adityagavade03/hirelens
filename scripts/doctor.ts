@@ -11,7 +11,9 @@ for (const [label, present] of Object.entries({
   "Company verification adapter": status.companyVerification,
   "AI provider": status.ai,
   "Speech transcription": status.transcription,
-  "Judge0 execution": status.code,
+  [status.codePublicDemo
+    ? "Judge0 personal practice only (hiring needs private execution)"
+    : "Judge0 execution"]: status.code,
   "TURN relay": status.turn,
   "Redis scaling": status.multiServer,
 }))

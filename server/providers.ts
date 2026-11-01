@@ -258,8 +258,12 @@ export async function transcribeAudio(buffer: Buffer, mime: string) {
 }
 const judgeHeaders = (): Record<string, string> => ({
   "Content-Type": "application/json",
-  ...(config.judgeKey ? { [config.judgeHeader]: config.judgeKey } : {}),
-  ...(config.rapidHost ? { "X-RapidAPI-Host": config.rapidHost } : {}),
+  ...(config.judgeKey && !publicJudge0Configured()
+    ? { [config.judgeHeader]: config.judgeKey }
+    : {}),
+  ...(config.rapidHost && !publicJudge0Configured()
+    ? { "X-RapidAPI-Host": config.rapidHost }
+    : {}),
 });
 const judgeVerdicts: Record<number, string> = {
   1: "In Queue",
@@ -309,7 +313,7 @@ export async function executionLanguages() {
     throw new ApiError(
       503,
       publicJudge0Configured()
-        ? "The public Judge0 demo is limited to local development practice. Configure a private execution service for this deployment."
+        ? "Public Judge0 practice is not enabled for this deployment. The administrator must explicitly enable personal practice with a valid HTTPS application origin. Hiring interviews require a private execution service."
         : "Private code execution is unavailable. Configure a valid Judge0 endpoint and, in production, its API credentials.",
       "CONFIGURATION_NEEDED",
     );
