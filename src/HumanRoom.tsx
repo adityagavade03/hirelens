@@ -50,6 +50,11 @@ import { MediaVideo, MicrophoneLevel, MonitoringSummary } from "./RoomMedia";
 import { InterviewCapture } from "./InterviewMedia";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
 import {
+  CodingProgramHelp,
+  ExecutionLanguageStatus,
+  useExecutionLanguages,
+} from "./ExecutionLanguageStatus";
+import {
   ExecutionResults,
   isCustomRun,
   submissionVerdict,
@@ -134,8 +139,6 @@ export default function HumanRoom({ id }: { id: string }) {
   const [faceVideo, setFaceVideo] = useState<HTMLVideoElement | null>(null);
   const [remoteVideo, setRemoteVideo] = useState<HTMLVideoElement | null>(null);
   const [faceConsentError, setFaceConsentError] = useState("");
-  const [languages, setLanguages] = useState<string[]>([]),
-    [languageError, setLanguageError] = useState("");
   const stopCapture = useRef<(() => Promise<void>) | null>(null),
     drafts = useRef<Record<string, string>>({});
   const saving = useRef(Promise.resolve()),
@@ -143,6 +146,10 @@ export default function HumanRoom({ id }: { id: string }) {
     joining = useRef(false);
   const i = interview.data,
     room = state.data;
+  const runner = useExecutionLanguages(
+    !!services.data?.code && !services.data?.codePublicDemo,
+  );
+  const languages = runner.languages;
   const ended = i?.status === "completed" || i?.status === "cancelled";
   const active = joined && i?.status === "live" && !ended;
   // Browser activity and optional face processing have independent consent.
@@ -245,26 +252,6 @@ export default function HumanRoom({ id }: { id: string }) {
   useEffect(() => {
     if (!selectedProblem && problem.data) setSelectedProblem(problem.data.id);
   }, [problem.data?.id]);
-  useEffect(() => {
-    if (!services.data?.code) {
-      setLanguages([]);
-      return;
-    }
-    let live = true;
-    void api<{ key: string }[]>("/languages")
-      .then((rows) => {
-        if (live) {
-          setLanguages(rows.map((row) => row.key));
-          setLanguageError("");
-        }
-      })
-      .catch((e) => {
-        if (live) setLanguageError(e.message);
-      });
-    return () => {
-      live = false;
-    };
-  }, [services.data?.code]);
   useEffect(() => {
     const enumerate = async () => {
       try {
@@ -1389,6 +1376,7 @@ export default function HumanRoom({ id }: { id: string }) {
             )}
             {candidate && (
               <>
+                <CodingProgramHelp language={language} />
                 <div className="meeting-toolbar">
                   <button
                     className="btn secondary"
@@ -1452,17 +1440,13 @@ export default function HumanRoom({ id }: { id: string }) {
                 )}
               </>
             )}
-            <ErrorBox message={languageError} />
-            {services.data?.code &&
-              !services.data?.codePublicDemo &&
-              !languageError &&
-              !languages.includes(editorLanguage) && (
-                <p role="status">
-                  Execution for {editorLanguage} is not available from the
-                  connected runner. Choose an available language or ask the
-                  administrator to enable it.
-                </p>
-              )}
+            {services.data?.code && !services.data?.codePublicDemo && (
+              <ExecutionLanguageStatus
+                state={runner}
+                language={editorLanguage}
+                disabled={!!busy}
+              />
+            )}
             <section className="meeting-console" aria-label="Execution output">
               <h3>Console</h3>
               {history.error && <ErrorBox message={history.error} />}

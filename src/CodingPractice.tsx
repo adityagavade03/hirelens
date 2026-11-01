@@ -7,9 +7,14 @@ import type {
   Submission,
 } from "../shared/types";
 import { codingLanguages, type CodingLanguage } from "../shared/languages";
-import { api, send, useResource } from "./api";
+import { send, useResource } from "./api";
 import { ErrorBox, Field, Loading, Notice, PageTitle, Panel } from "./ui";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
+import {
+  CodingProgramHelp,
+  ExecutionLanguageStatus,
+  useExecutionLanguages,
+} from "./ExecutionLanguageStatus";
 import {
   ExecutionResults,
   isCustomRun,
@@ -38,8 +43,7 @@ export default function CodingPractice() {
     [error, setError] = useState(""),
     [saved, setSaved] = useState("");
   const [runningAction, setRunningAction] = useState("");
-  const [available, setAvailable] = useState<string[]>([]),
-    [result, setResult] = useState<Submission | null>(null);
+  const [result, setResult] = useState<Submission | null>(null);
   const drafts = useRef<Record<string, string>>({}),
     initialised = useRef<string | undefined>(undefined),
     saving = useRef(Promise.resolve());
@@ -61,6 +65,10 @@ export default function CodingPractice() {
     i?.type === "practice" && !i.companyId && !i.applicationId && !i.batchId;
   const publicDemoBlocked =
     !!services.data?.codePublicDemo && !personalPractice;
+  const runner = useExecutionLanguages(
+    !!services.data?.code && !publicDemoBlocked,
+  );
+  const available = runner.languages;
   useEffect(() => {
     if (!i || !p || initialised.current === i._id) return;
     drafts.current = { ...i.drafts };
@@ -73,12 +81,6 @@ export default function CodingPractice() {
     initialised.current = i._id;
     setReady(true);
   }, [i, p]);
-  useEffect(() => {
-    if (!services.data?.code) return;
-    void api<{ key: string }[]>("/languages")
-      .then((rows) => setAvailable(rows.map((r) => r.key)))
-      .catch((e) => setError((e as Error).message));
-  }, [services.data?.code]);
   useEffect(() => {
     if (!ready || !i || i.status !== "live" || i.type !== "practice") return;
     setSaved("Saving draft…");
@@ -243,6 +245,7 @@ export default function CodingPractice() {
           description="Write a complete program that reads standard input and prints the requested output."
         >
           <div className="panel-form">
+            <CodingProgramHelp language={language} />
             <Field label="Programming language">
               <select
                 value={language}
@@ -354,11 +357,12 @@ export default function CodingPractice() {
                 finishes.
               </p>
             )}
-            {services.data?.code && !available.includes(language) && (
-              <p>
-                The connected runner has not confirmed this language is
-                available.
-              </p>
+            {services.data?.code && !publicDemoBlocked && (
+              <ExecutionLanguageStatus
+                state={runner}
+                language={language}
+                disabled={busy}
+              />
             )}
             {result && <ExecutionResults submission={result} />}
           </div>

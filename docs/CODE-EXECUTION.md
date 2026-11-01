@@ -1,5 +1,14 @@
 # Connecting the coding editor
 
+If a temporary language-discovery request fails, use **Retry code runner** in
+the coding workspace. It checks the runner again without replacing the draft.
+**Refresh available languages** checks a recovered or updated provider. Programs
+must read standard input and print the required output; a standalone function
+copied from LeetCode needs its input-reading and output-printing entry point.
+The editor's **How to read input and print output** section provides examples
+for Python, JavaScript, Java, C and C++. These illustrate I/O, not the solution
+to the selected question.
+
 `Code execution needs a Judge0 service` means `JUDGE0_URL` is empty. The editor and code drafts can work independently, but compiling/running code requires a real isolated executor. An arbitrary URL does not enable execution.
 
 ## Hosted personal practice — 1 November 2026

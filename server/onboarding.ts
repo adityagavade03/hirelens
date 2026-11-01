@@ -204,6 +204,11 @@ const otpRequired = (user: any) =>
   user.role === "company" &&
   config.companyOtpRequired &&
   !(config.demoLogin && user.sample);
+// Ordinary company signup is separate from legal verification and from local
+// development companies. Do not create an account that cannot complete its
+// required email sign-in challenge.
+const unverifiedCompanyRegistrationEnabled = () =>
+  config.companyOtpRequired && emailReady() && config.otpSecret.length >= 32;
 const otpDigest = (token: string, code: string) =>
   createHmac("sha256", config.otpSecret)
     .update(`${token}:${code}`)
@@ -302,6 +307,7 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
         providerConfiguration(config).companyVerification.mode,
       ),
       localCompanyRegistration: localCompanyRegistrationEnabled(),
+      unverifiedCompanyRegistration: unverifiedCompanyRegistrationEnabled(),
       messagePreview: config.messagePreview && !config.production,
       email: !!(emailReady() && config.otpSecret.length >= 32),
       companyOtp: config.companyOtpRequired,
@@ -351,6 +357,7 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
           ),
         confirmPassword: z.string().optional(),
         role: z.enum(roles),
+        companyDetails: companyDetailsSchema.optional(),
         localCompanyDetails: companyDetailsSchema.optional(),
         verificationToken: z
           .string()
@@ -359,6 +366,23 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
       })
       .parse(req.body);
     const localDetails = input.localCompanyDetails;
+    const companyDetails = input.companyDetails;
+    if (companyDetails) {
+      if (input.role !== "company" || localDetails || input.verificationToken)
+        throw new ApiError(400, "Choose one company registration method.");
+      if (!unverifiedCompanyRegistrationEnabled())
+        throw new ApiError(
+          503,
+          "Company account registration requires working email sign-in verification. Contact the platform administrator to connect email delivery.",
+          "EMAIL_NOT_CONFIGURED",
+        );
+      if (!input.username || input.email !== companyDetails.officialEmail)
+        throw new ApiError(
+          400,
+          "Choose a username and use the company’s official email address.",
+        );
+      await assertCompanyUnique(companyDetails);
+    }
     if (localDetails) {
       if (input.role !== "company" || input.verificationToken)
         throw new ApiError(
@@ -392,7 +416,7 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
     )
       throw new ApiError(409, "This email or username is already registered.");
     let verified: any;
-    if (input.role === "company" && !localDetails) {
+    if (input.role === "company" && !localDetails && !companyDetails) {
       if (!input.username || !input.verificationToken)
         throw new ApiError(
           400,
@@ -411,7 +435,9 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
     }
     const userId = new mongoose.Types.ObjectId(),
       companyId =
-        verified || localDetails ? new mongoose.Types.ObjectId() : undefined;
+        verified || localDetails || companyDetails
+          ? new mongoose.Types.ObjectId()
+          : undefined;
     const user = await UserModel.create({
       _id: userId,
       name: input.name,
@@ -435,7 +461,15 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
                 localDevelopment: true,
                 verification: { status: "unverified" },
               }
-            : companyRecord(verified.details, verified)),
+            : companyDetails
+              ? {
+                  ...companyDetails,
+                  name: companyDetails.companyName,
+                  registrationKey: registrationKey(companyDetails),
+                  localDevelopment: false,
+                  verification: { status: "unverified" },
+                }
+              : companyRecord(verified.details, verified)),
         });
       } catch (error) {
         await UserModel.deleteOne({ _id: userId });
@@ -445,7 +479,9 @@ export function registerAuthRoutes(app: Express, authLimit: RequestHandler) {
         registered: true,
         message: localDetails
           ? "Local company account created. The company is unverified. Sign in to open your workspace."
-          : "Company registered and verified. Sign in to verify your email and open your workspace.",
+          : companyDetails
+            ? "Company account created. Sign in with your password and email verification code. Business verification is pending; public job publishing remains restricted until your company is verified."
+            : "Company registered and verified. Sign in to verify your email and open your workspace.",
       });
     } else if (config.emailVerificationRequired) {
       try {

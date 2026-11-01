@@ -2,6 +2,17 @@
 
 ## Current status — 1 November 2026
 
+Company signup now supports ordinary **Business unverified** accounts when
+email OTP is configured. Password plus email-code sign-in remains required;
+public job publishing still requires business verification. This is separate
+from the older local-development company path and does not enlarge cloud test
+company access.
+
+Coding editors now offer **Retry code runner** after language discovery fails,
+and explain the complete-program stdin/stdout format with five-language examples.
+Public personal practice is active; hiring execution still requires a private
+provider. Fresh synthetic execution diagnostics passed all eleven expected cases.
+
 HireLens is deployed independently of this laptop at
 [hirelens-adityagavade03.onrender.com](https://hirelens-adityagavade03.onrender.com),
 using Render Free, MongoDB Atlas, Brevo email and Groq AI/transcription.

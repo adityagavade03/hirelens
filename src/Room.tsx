@@ -52,6 +52,11 @@ import { useMonitoring } from "./monitoring";
 import { InterviewCapture } from "./InterviewMedia";
 import { CodeExecutionNotice } from "./CodeExecutionNotice";
 import {
+  CodingProgramHelp,
+  ExecutionLanguageStatus,
+  useExecutionLanguages,
+} from "./ExecutionLanguageStatus";
+import {
   ExecutionResults,
   isCustomRun,
   submissionVerdict,
@@ -110,8 +115,6 @@ function LegacyRoom() {
   const [mode, setMode] = useState<"typed" | "spoken">("typed");
   const [reviewed, setReviewed] = useState(false);
   const [language, setLanguage] = useState("python");
-  const [executionLanguages, setExecutionLanguages] = useState<string[]>([]);
-  const [languageError, setLanguageError] = useState("");
   const [code, setCode] = useState("");
   const localDrafts = useRef<Record<string, string>>({});
   const [stdin, setStdin] = useState("4 7");
@@ -137,6 +140,10 @@ function LegacyRoom() {
     !interview?.applicationId &&
     !interview?.batchId;
   const publicDemoBlocked = !!service.data?.codePublicDemo && !personalPractice;
+  const runner = useExecutionLanguages(
+    !!service.data?.code && !publicDemoBlocked,
+  );
+  const executionLanguages = runner.languages;
   const manager = user.role === "hr" || practice;
   const aiLed = interview?.facilitator === "ai";
   const candidate = user.role === "candidate";
@@ -188,22 +195,6 @@ function LegacyRoom() {
   });
   const { remote, remoteScreen, remoteMedia, connection } = call;
   monitoring.setConnection(connection);
-  useEffect(() => {
-    let live = true;
-    setExecutionLanguages([]);
-    setLanguageError("");
-    if (service.data?.code)
-      void api<{ key: string }[]>("/languages")
-        .then((rows) => {
-          if (live) setExecutionLanguages(rows.map((row) => row.key));
-        })
-        .catch((e) => {
-          if (live) setLanguageError(e.message);
-        });
-    return () => {
-      live = false;
-    };
-  }, [service.data?.code]);
   useEffect(() => {
     if (
       interview?.status === "completed" ||
@@ -1424,6 +1415,7 @@ function LegacyRoom() {
                 practice={personalPractice}
                 available={service.data?.code}
               />
+              {candidate && <CodingProgramHelp language={language} />}
               {candidate && (
                 <div className="run-controls">
                   <Field label="Custom standard input">
@@ -1510,18 +1502,13 @@ function LegacyRoom() {
                     : "The candidate can save code for your review; execution requires a connected private service."}
                 </Notice>
               )}
-              <ErrorBox message={languageError} />
-              {service.data?.code &&
-                !publicDemoBlocked &&
-                !languageError &&
-                !executionLanguages.includes(language) && (
-                  <Notice>
-                    The connected runner has not made this language available.
-                    {candidate
-                      ? "You can still save your draft."
-                      : "The candidate can still save code for your review."}
-                  </Notice>
-                )}
+              {service.data?.code && !publicDemoBlocked && (
+                <ExecutionLanguageStatus
+                  state={runner}
+                  language={language}
+                  disabled={!!busy}
+                />
+              )}
               <h3>Execution history</h3>
               <ErrorBox message={history.error} />
               {history.data.length ? (

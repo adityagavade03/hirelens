@@ -76,6 +76,7 @@ export default function AuthPage({
     companyOtp: boolean;
     email: boolean;
     localCompanyRegistration: boolean;
+    unverifiedCompanyRegistration: boolean;
     messagePreview: boolean;
   } | null>("/auth/options", null);
   const [register, setRegister] = useState(false),
@@ -94,7 +95,8 @@ export default function AuthPage({
     null,
   );
   const [localCompany, setLocalCompany] = useState(false);
-  const companyReady = !!verified || localCompany;
+  const [unverifiedCompany, setUnverifiedCompany] = useState(false);
+  const companyReady = !!verified || localCompany || unverifiedCompany;
   const identityDefaults: Partial<Company> | undefined = companyDetails
     ? { ...companyDetails, name: companyDetails.companyName }
     : undefined;
@@ -104,6 +106,7 @@ export default function AuthPage({
     setVerified(null);
     setCompanyDetails(null);
     setLocalCompany(false);
+    setUnverifiedCompany(false);
     setOtp(null);
     setPassword("");
   }
@@ -122,16 +125,32 @@ export default function AuthPage({
     details.country = details.country.toUpperCase();
     details.officialEmail = details.officialEmail.toLowerCase();
     setCompanyDetails(details);
+    const action = (e.nativeEvent as SubmitEvent).submitter?.getAttribute(
+      "value",
+    );
+    const unverified =
+      action === "unverified" ||
+      (!action &&
+        !options.data?.companyVerification &&
+        options.data?.unverifiedCompanyRegistration);
     const local =
-      (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") ===
-        "local" ||
+      action === "local" ||
       (!options.data?.companyVerification &&
+        !options.data?.unverifiedCompanyRegistration &&
         options.data?.localCompanyRegistration);
     setError("");
     setSuccess("");
+    if (unverified && options.data?.unverifiedCompanyRegistration) {
+      setVerified(null);
+      setLocalCompany(false);
+      setUnverifiedCompany(true);
+      setIdentifier(details.officialEmail);
+      return;
+    }
     if (local && options.data?.localCompanyRegistration) {
       setVerified(null);
       setLocalCompany(true);
+      setUnverifiedCompany(false);
       setIdentifier(details.officialEmail);
       return;
     }
@@ -147,6 +166,7 @@ export default function AuthPage({
         email: details.officialEmail,
       });
       setLocalCompany(false);
+      setUnverifiedCompany(false);
       setIdentifier(details.officialEmail);
     } catch (e) {
       setError((e as Error).message);
@@ -180,6 +200,7 @@ export default function AuthPage({
               role,
               verificationToken: verified?.verificationToken,
               localCompanyDetails: localCompany ? companyDetails : undefined,
+              companyDetails: unverifiedCompany ? companyDetails : undefined,
             },
       );
       if (result.otpRequired) {
@@ -190,6 +211,7 @@ export default function AuthPage({
         setVerified(null);
         setCompanyDetails(null);
         setLocalCompany(false);
+        setUnverifiedCompany(false);
         setPassword("");
         setSuccess(
           result.message || "Account registered. Sign in to continue.",
@@ -315,14 +337,20 @@ export default function AuthPage({
                     : `Enter the six-digit code sent to ${otp.destination}. It expires in 10 minutes.`
                   : register
                     ? role === "company"
-                      ? options.data?.localCompanyRegistration
-                        ? "Enter your company details, then create your administrator account. Local setup is available for testing."
-                        : "Verify your company, then create your administrator account."
+                      ? options.data?.unverifiedCompanyRegistration
+                        ? "Enter your company details, then create your administrator account. Email sign-in verification is required; business verification is a separate step."
+                        : options.data?.localCompanyRegistration
+                          ? "Enter your company details, then create your administrator account. Local setup is available for testing."
+                          : "Verify your company, then create your administrator account."
                       : "Create your account and take the next step."
                     : entry?.detail}
               </p>
               {!otp && (
-                <div className="auth-tabs" role="group" aria-label="Account access">
+                <div
+                  className="auth-tabs"
+                  role="group"
+                  aria-label="Account access"
+                >
                   <button
                     type="button"
                     disabled={busy}
@@ -372,6 +400,15 @@ export default function AuthPage({
                     <strong>01 · Company details</strong>
                     <span>02 · Create account</span>
                   </div>
+                  {options.data?.unverifiedCompanyRegistration && (
+                    <Notice>
+                      You can create a company account before official business
+                      verification. Sign in with your password and an email
+                      code. Your company stays unverified, and public job
+                      publishing remains restricted until business verification
+                      is completed.
+                    </Notice>
+                  )}
                   {options.data?.localCompanyRegistration ? (
                     <Notice>
                       Local setup creates an unverified company for testing on
@@ -381,10 +418,13 @@ export default function AuthPage({
                     </Notice>
                   ) : (
                     options.data &&
-                    !options.data.companyVerification && (
+                    !options.data.companyVerification &&
+                    !options.data.unverifiedCompanyRegistration && (
                       <Notice>
-                        New company registration will be available when the
-                        administrator connects the company verification service.
+                        Company account registration needs email sign-in
+                        verification or a configured business verification
+                        service. Contact the platform administrator to finish
+                        setup.
                       </Notice>
                     )
                   )}
@@ -392,6 +432,17 @@ export default function AuthPage({
                   <div className="form-actions">
                     {options.data?.companyVerification && (
                       <Submit busy={busy}>Verify company & continue</Submit>
+                    )}
+                    {options.data?.unverifiedCompanyRegistration && (
+                      <button
+                        type="submit"
+                        value="unverified"
+                        className={`btn ${options.data.companyVerification ? "secondary" : "primary"}`}
+                        disabled={busy}
+                      >
+                        Continue without business verification{" "}
+                        <ArrowRight size={17} />
+                      </button>
                     )}
                     {options.data?.localCompanyRegistration && (
                       <button
@@ -495,6 +546,16 @@ export default function AuthPage({
                           account to test recruitment on this computer.
                         </Notice>
                       )}
+                      {register && unverifiedCompany && (
+                        <Notice>
+                          <strong>{companyDetails?.companyName}</strong>
+                          <br />
+                          Business verification pending. Create your account,
+                          then sign in with your password and email code. Public
+                          job publishing stays restricted until your company is
+                          verified.
+                        </Notice>
+                      )}
                       {register && role === "company" && companyReady && (
                         <div className="form-actions">
                           <button
@@ -504,6 +565,7 @@ export default function AuthPage({
                             onClick={() => {
                               setVerified(null);
                               setLocalCompany(false);
+                              setUnverifiedCompany(false);
                               setError("");
                               setPassword("");
                             }}
@@ -550,7 +612,7 @@ export default function AuthPage({
                         label={
                           register
                             ? role === "company"
-                              ? localCompany
+                              ? localCompany || unverifiedCompany
                                 ? "Official company email"
                                 : "Verified company email"
                               : "Email address"
@@ -624,7 +686,9 @@ export default function AuthPage({
                         {busy
                           ? "Please wait…"
                           : register
-                            ? "Create account"
+                            ? role === "company"
+                              ? "Create company account"
+                              : "Create account"
                             : `Sign in as ${entry?.title}`}
                         <ArrowRight size={17} />
                       </button>
