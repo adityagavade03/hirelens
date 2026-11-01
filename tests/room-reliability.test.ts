@@ -296,6 +296,96 @@ it("releases a pending frame when consent is withdrawn during capture", async ()
     false,
   );
 });
+it("clears face readiness immediately on hide and rejects a result across a hide/show cycle", async () => {
+  const f = faceSetup();
+  await f.render(true, true);
+  const worker = FaceWorker.instances[0];
+  await act(async () => worker.respond({ kind: "ready" }));
+  for (let n = 0; n < 4; n++) await f.frame(0);
+  f.video.currentTime += 0.75;
+  await advance(750); // Hold a frame captured before the page was hidden.
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(f.face()).toMatchObject({
+    ready: false,
+    state: "paused",
+    count: null,
+  });
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    worker.respond({ kind: "count", count: 0 });
+  });
+  expect(f.face().ready).toBe(false);
+  expect(f.record.mock.calls.some((c) => c[0] === "no-face")).toBe(false);
+  for (let n = 0; n < 4; n++) await f.frame(0);
+  expect(f.record.mock.calls.some((c) => c[0] === "no-face")).toBe(false);
+  await f.frame(0);
+  expect(f.record.mock.calls.filter((c) => c[0] === "no-face")).toHaveLength(1);
+});
+it("does not transfer a face bitmap when the page hides while capture is pending", async () => {
+  const f = faceSetup();
+  let resolve!: (value: any) => void;
+  vi.stubGlobal(
+    "createImageBitmap",
+    vi.fn(
+      () =>
+        new Promise((r) => {
+          resolve = r;
+        }),
+    ),
+  );
+  await f.render(true, true);
+  const worker = FaceWorker.instances[0];
+  await act(async () => worker.respond({ kind: "ready" }));
+  await advance(750);
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const bitmap = { close: vi.fn() };
+  await act(async () => resolve(bitmap));
+  expect(bitmap.close).toHaveBeenCalledOnce();
+  expect(
+    worker.postMessage.mock.calls.some(([message]) => message.kind === "frame"),
+  ).toBe(false);
+});
+it("invalidates face readiness across rapid interview activity changes", async () => {
+  const f = faceSetup();
+  await f.render(true, true);
+  const worker = FaceWorker.instances[0];
+  await act(async () => worker.respond({ kind: "ready" }));
+  for (let n = 0; n < 4; n++) await f.frame(0);
+  f.video.currentTime += 0.75;
+  await advance(750);
+  await f.render(true, false);
+  await f.render(true, true);
+  await act(async () => worker.respond({ kind: "count", count: 0 }));
+  expect(f.face()).toMatchObject({ ready: false, count: null });
+  expect(f.record.mock.calls.some((c) => c[0] === "no-face")).toBe(false);
+});
+it("keeps sustained face checks working when fresh camera frames arrive slower than the polling interval", async () => {
+  const f = faceSetup();
+  await f.render(true, true);
+  const worker = FaceWorker.instances[0];
+  await act(async () => worker.respond({ kind: "ready" }));
+  for (let n = 0; n < 4; n++) {
+    await f.frame(0);
+    await advance(750); // A real frame every 1.5s; the intervening poll is a duplicate.
+  }
+  expect(f.record.mock.calls.filter((c) => c[0] === "no-face")).toHaveLength(1);
+});
 it("uses only the selected ICE pair and excludes addresses and credentials from live diagnostics", () => {
   const report = new Map<string, any>([
     ["transport", { type: "transport", selectedCandidatePairId: "pair" }],

@@ -4,6 +4,81 @@ This benchmark exercises HireLens's actual resume comparison and interview repor
 
 The coding assistant authored the fixtures and inspected generated outputs. These are not independent expert labels, human hiring reviews, or consented candidate training data.
 
+## Report grounding follow-up — 31 October 2026
+
+New reports now assess explanation clarity separately from technical correctness.
+Every generated weakness must cite an allowed evidence reference and an exact
+candidate quotation (or literal coding-result status). The server verifies that
+quotation against the actual supplied candidate content, never the rubric, and
+includes the quotation in the visible report. Empty weakness lists are valid.
+Unassessed topics belong in scoped limitations; they must not be presented as an
+observed candidate weakness. The summary is now a server-computed statement of
+the evidence actually assessed, while the referenced metric explanations contain
+the AI's assessment. This prevents a separate free-form summary from inventing
+broader performance or absence claims.
+
+Conservative output-contract checks reject explicit factual-error judgments in
+the communication explanation and categorical absence conclusions from excerpted
+evidence. Rejected generations return an actionable error and are not saved;
+the system does not silently replace a model's scores with passing scores.
+These checks are narrow wording/quotation safeguards, not semantic proof that
+every cited interpretation is correct. Earlier saved reports are unchanged.
+New reports identify `content-rubric-v2`.
+
+A bounded synthetic Groq follow-up made six requests with no automatic retries,
+no recruitment records or credentials changed, and no paid upgrade. The first
+four used the initial prompt/guard revision: the sparse case passed, and three
+outputs were rejected for new absence claims. Their communication explanations
+did separate clarity from factual correctness, but prompt changes alone were
+insufficient. Those failures remain preserved.
+
+The subsequent quotation-based revision passed one fresh strong-answer report:
+it recognized the explicit empty-interval condition, independently assessed
+clarity, and supported its coding weakness using the actual `Wrong Answer`
+result. The transcript-only request failed before an HTTP response was received;
+it produced no assessment and was not retried. Five responses reported 15,068
+tokens in total; usage for the unsuccessful transport request is unavailable.
+The overall request, token-reserve and five-minute bounds were retained. This
+is partial regression evidence, **not a successful full-corpus rerun** or an
+accuracy percentage. Transcript-only/incorrect-answer checks were unfinished at
+that stage; the separate final-schema follow-up below records their later
+targeted results. Broader independent narrative review remains unfinished.
+
+See the [sanitized follow-up record](AI-REPORT-VERIFICATION-2026-10-31.json).
+Full synthetic outputs, failures and per-request metadata are preserved in the
+ignored `.data/runtime/ai-quality/groq-report-v2-20261031.json` and
+`groq-report-v2-quotes-20261031.json`. Existing resume shortlisting thresholds
+and the user's aggregate-score policy are unchanged.
+
+### Separately bounded final-schema follow-up
+
+A new stage made three explicitly bounded synthetic requests (maximum three
+requests, 20,000-token reserve and six minutes), one each for the sparse-answer,
+incorrect-answer and reviewed-transcript cases. All returned HTTP 200 and
+reported 9,558 tokens over about 57 seconds. Sparse and transcript-only reports
+passed the final schema and semantic checks. The transcript was assessed as
+clear communication; its unassessed advanced coverage stayed in limitations and
+its weakness list was empty.
+
+The incorrect-answer output exposed a real false rejection in the new guard:
+it rated technical knowledge 0 and clarity 3, explicitly describing the answers
+as followable **despite factual errors**. The original blanket wording check
+mistook that valid separation for correctness-based communication scoring. The
+failed original artifact is preserved. A narrow correction now excludes named
+contrast clauses such as "despite factual errors" before looking for a causal
+correctness judgment. It still rejects explanations that call communication poor
+because of factual errors, including a later causal claim after a valid contrast.
+The independent benchmark check received the same semantic correction; technical
+score expectations and the retained model scores did not change.
+
+An offline replay of that exact retained response through the corrected actual
+assessment pipeline passed, preserving technical 0 and clarity 3 with **zero
+new provider requests**. This makes the targeted remaining responses usable
+under the corrected contract; it is not three fresh calls after the final guard
+change or a new full-corpus run. Fresh repeated and independent quality review
+remain required. The [final-schema record](AI-REPORT-FINAL-SCHEMA-2026-10-31.json)
+distinguishes the two fresh passes, original false rejection and offline replay.
+
 ## Full cloud corpus — 30 October 2026
 
 All **26 resume/JD cases and four report cases** were exercised once using the

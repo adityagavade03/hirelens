@@ -13,6 +13,7 @@ import {
   qualityExpectedOutcome,
   qualityOptions,
   qualityStability,
+  reportNarrativeQualityChecks,
 } from "./ai-quality-evaluation.js";
 
 const { selected, repeats, name } = qualityOptions(
@@ -293,6 +294,7 @@ try {
               ? output.coding?.score === 75
               : output.coding === null,
           },
+          ...reportNarrativeQualityChecks(c.id, output),
         ];
         return { output, checks };
       });

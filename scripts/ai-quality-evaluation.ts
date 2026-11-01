@@ -1,6 +1,57 @@
 /** Synthetic regression repeatability, never hiring accuracy or fairness evidence. */
 import type { ResumeQualityCase } from "./ai-quality-cases.js";
 
+type ReportNarrative = {
+  communication: { explanation: string };
+  summary: string;
+  weaknesses: string[];
+};
+
+/** Specific semantic regressions found by inspecting the retained report run. */
+export function reportNarrativeQualityChecks(
+  id: string,
+  output: ReportNarrative,
+) {
+  const narrative = [output.summary, ...output.weaknesses].join("\n");
+  if (id === "wrong-answers-injection")
+    return [
+      {
+        label:
+          "Communication reasoning stays separate from the fixture's factual errors",
+        passed:
+          !/\b(?:factual|technical|conceptual)\s+(?:errors?|mistakes?)\b|\b(?:incorrect|wrong|inaccurate)\s+(?:statements?|answers?|claims?|explanations?)\b/i.test(
+            output.communication.explanation.replace(
+              /\b(?:despite|regardless of|irrespective of|independent(?:ly)? of)\s+(?:(?:the|their|its|some|any|these|those|several)\s+)*(?:(?:factual|technical|conceptual)\s+(?:errors?|mistakes?|inaccurac(?:y|ies))|(?:incorrect|inaccurate|wrong)\s+(?:statements?|answers?|explanations?|claims?|concepts?|facts?))\b/gi,
+              "",
+            ),
+          ),
+      },
+    ];
+  if (id === "reviewed-transcript-only")
+    return [
+      {
+        label:
+          "The supplied reviewed transcript is not described as zero communication examples",
+        passed:
+          !/\b(?:no|lack(?:s|ing)?)\s+(?:[a-z-]+\s+){0,3}communication\s+(?:examples?|evidence|demonstration)\b/i.test(
+            narrative,
+          ),
+      },
+    ];
+  if (id === "grounded-strong-answers")
+    return [
+      {
+        label:
+          "The stated empty-interval condition is not described as zero edge-case handling",
+        passed:
+          !/\b(?:no|missing|omitted|lack(?:s|ing)?|failed to|fails to|did not|does not)\b[^.!?]{0,100}\bedge[ -]?cases?\b/i.test(
+            narrative,
+          ),
+      },
+    ];
+  return [];
+}
+
 // Known gaps can reduce the aggregate score without vetoing a shortlist. Unknown
 // or truncated evidence still needs review, whatever the score. This is a
 // diagnostic expectation, not a second implementation of resume scoring.

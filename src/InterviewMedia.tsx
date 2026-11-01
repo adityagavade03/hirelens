@@ -61,33 +61,56 @@ export function MediaReview({
   const clips = useResource<Clip[]>(`/interviews/${interviewId}/media`, []);
   const [selected, setSelected] = useState<string>(""),
     [draft, setDraft] = useState(""),
+    [draftBase, setDraftBase] = useState<Clip | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [playbackError, setPlaybackError] = useState("");
   const clip = clips.data.find((c) => c._id === selected);
+  const dirty =
+    !!clip && draftBase?._id === clip._id && draft !== draftBase.transcript;
+  const conflict =
+    dirty &&
+    (clip.transcript !== draftBase?.transcript ||
+      clip.reviewedAt !== draftBase?.reviewedAt);
   useEffect(() => {
     if (version) void clips.reload();
   }, [version]);
   useEffect(() => {
-    setDraft(clip?.transcript || "");
-  }, [clip?._id, clip?.transcript]);
+    if (!clip) {
+      setDraft("");
+      setDraftBase(null);
+    } else if (draftBase?._id !== clip._id || !dirty) {
+      setDraft(clip.transcript || "");
+      setDraftBase(clip);
+    } else if (
+      clip.transcript === draftBase.transcript &&
+      clip.reviewedAt === draftBase.reviewedAt
+    ) {
+      // A processing/error update can advance the revision without changing
+      // transcript evidence. A changed transcript needs an explicit choice.
+      setDraftBase(clip);
+    }
+  }, [clip?._id, clip?.transcript, clip?.reviewedAt, clip?.updatedAt]);
   useEffect(() => setPlaybackError(""), [clip?._id]);
   async function update(transcribe: boolean) {
-    if (!clip) return;
+    if (!clip || (!transcribe && conflict)) return;
     setBusy(true);
     setError("");
     try {
       if (transcribe) await send(`/media/${clip._id}/transcribe`);
-      else
-        await send(
+      else {
+        const saved = await send<Clip>(
           `/media/${clip._id}/transcript`,
           {
             transcript: draft,
             reviewed: true,
-            expectedUpdatedAt: clip.updatedAt,
+            expectedUpdatedAt: draftBase?.updatedAt || clip.updatedAt,
           },
           "PATCH",
         );
+        setDraft(saved.transcript);
+        setDraftBase(saved);
+      }
       await clips.reload();
       onChange?.();
     } catch (e) {
@@ -126,6 +149,7 @@ export function MediaReview({
             Recording segment
             <select
               value={selected}
+              disabled={busy}
               onChange={(e) => setSelected(e.target.value)}
             >
               <option value="">Choose a segment</option>
@@ -161,6 +185,37 @@ export function MediaReview({
             />
             <ErrorBox message={playbackError} />
             <ErrorBox message={clip.transcriptError || ""} />
+            {conflict && (
+              <div role="status">
+                <p>
+                  The saved transcript changed while you were editing. Your
+                  unsaved corrections are preserved. Compare the latest saved
+                  text before deciding which version to keep.
+                </p>
+                <blockquote>
+                  {clip.transcript || "The latest saved transcript is empty."}
+                </blockquote>
+                <div className="form-actions">
+                  <button
+                    className="btn secondary"
+                    disabled={busy || locked}
+                    onClick={() => {
+                      setDraft(clip.transcript || "");
+                      setDraftBase(clip);
+                    }}
+                  >
+                    Use latest saved transcript
+                  </button>
+                  <button
+                    className="btn secondary"
+                    disabled={busy || locked}
+                    onClick={() => setDraftBase(clip)}
+                  >
+                    Keep my corrections
+                  </button>
+                </div>
+              </div>
+            )}
             <label className="field">
               Transcript
               <textarea
@@ -183,7 +238,7 @@ export function MediaReview({
               </button>
               <button
                 className="btn primary"
-                disabled={busy || locked}
+                disabled={busy || locked || conflict}
                 onClick={() => void update(false)}
               >
                 Save reviewed transcript

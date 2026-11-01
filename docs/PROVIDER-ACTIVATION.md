@@ -1,6 +1,6 @@
 # Finish real provider setup
 
-Reviewed 19 October 2026. The owner confirmed that provider accounts have not been created yet. HireLens has the integrations, but private hiring execution, public TURN, SMS delivery and real company verification cannot be activated without the corresponding server or approved accounts. Gmail email OTP is separate and has already been received successfully.
+Reviewed 31 October 2026. The hosted application uses MongoDB Atlas, Brevo email and Groq AI/transcription independently of this laptop. Private Judge0, public TURN, SMS delivery and real company verification still have no owner-controlled server or provider credentials. The integration code and private setup helpers are prepared; those services remain unavailable until the corresponding server or approved accounts exist. Email delivery is separate and was confirmed previously.
 
 ## Get the required services
 
@@ -31,8 +31,8 @@ The helper refuses public Judge0 demo endpoints, missing API credentials, malfor
 
 ## Activate deliberately after reviewing the configuration
 
-1. Plan an API restart outside any active interview. Have the server administrator load only the staged service's variables into the deployment secret manager, or merge those assignments into the ignored local `.env`. Do not replace the whole file. Preserve the working Gmail, database, OTP hashing secret and authentication settings.
-2. Before activating SMS, review queued notification delivery attempts. The current Gmail setup already uses `MESSAGE_PREVIEW=false`; enabling SMS then allows the notification worker to send eligible pending SMS when the API restarts. Do not toggle global preview mode just to test SMS, because that also changes Gmail behavior. Twilio provider acceptance does not prove handset receipt.
+1. Plan an API restart outside any active interview. Have the server administrator load only the staged service's variables into the deployment secret manager, or merge those assignments into the ignored local `.env`. Do not replace the whole file. Preserve the working Brevo email, database, AI, OTP hashing secret and authentication settings. A local `.env` change does not configure the Render service.
+2. Before activating SMS, review queued notification delivery attempts. The hosted setup already uses `MESSAGE_PREVIEW=false`; enabling SMS then allows the notification worker to send eligible pending SMS when the API restarts. Do not toggle global preview mode just to test SMS, because that also changes email behavior. Twilio provider acceptance does not prove handset receipt.
 3. If Twilio credentials were previously used for the other service, check that the staged Account SID and key support both services. Do not combine staging files from different Twilio accounts or overwrite working TURN credentials with an SMS-only key.
 4. Run `npm run providers:check -- --require-external` before restarting. This reads the environment and reports missing/invalid setup without printing secrets or calling providers. It requires actual provider configuration for email, SMS, company verification, private code execution and public TURN; local relays, public practice execution and Cashfree sandbox do not pass. A pass still says **configured, unverified**.
 5. Restart the API once configuration and any pending notifications have been reviewed. Then complete the live checks below. This helper never marks an account verified, changes an application's status or enables real hiring based only on configuration presence.

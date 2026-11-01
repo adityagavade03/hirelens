@@ -203,16 +203,18 @@ export function Field({
 }
 export function Submit({
   busy,
+  disabled = false,
   children,
 }: {
   busy: boolean;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       className="btn primary"
       type="submit"
-      disabled={busy}
+      disabled={busy || disabled}
       aria-busy={busy}
     >
       {busy ? <LoaderCircle size={17} className="spin" /> : <Check size={17} />}{" "}

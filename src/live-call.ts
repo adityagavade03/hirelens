@@ -75,6 +75,16 @@ export class RtcSession {
       sdp.split(/\r?\n/).includes(`a=ice-ufrag:${candidate.usernameFragment}`)
     );
   }
+  private async addCandidate(candidate: RTCIceCandidateInit) {
+    if (this.closed || this.ignoreOffer) return;
+    try {
+      await this.peer.addIceCandidate(candidate);
+    } catch (error) {
+      // One stale/invalid route must not discard other routes or prevent an
+      // answer to an otherwise valid offer. Keep the failure visible.
+      if (!this.closed && !this.ignoreOffer) this.onError(error);
+    }
+  }
   constructor(
     configuration: RTCConfiguration,
     private polite: boolean,
@@ -181,8 +191,8 @@ export class RtcSession {
             this.settingAnswer = false;
           }
           for (const item of this.pending.splice(0))
-            if (this.matchesDescription(item))
-              await this.peer.addIceCandidate(item);
+            if (this.matchesDescription(item)) await this.addCandidate(item);
+          if (this.closed) return;
           if (description.type === "offer") {
             await this.peer.setLocalDescription();
             if (!this.closed)
@@ -191,7 +201,7 @@ export class RtcSession {
         }
         if (candidate && !this.ignoreOffer) {
           if (this.peer.remoteDescription && this.matchesDescription(candidate))
-            await this.peer.addIceCandidate(candidate);
+            await this.addCandidate(candidate);
           else if (this.pending.length < 128) this.pending.push(candidate);
         }
       })

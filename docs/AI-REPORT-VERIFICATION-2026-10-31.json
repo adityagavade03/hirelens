@@ -1,0 +1,51 @@
+{
+  "reviewedOn": "2026-10-31",
+  "syntheticOnly": true,
+  "provider": "Groq",
+  "model": "openai/gpt-oss-20b",
+  "strictJson": true,
+  "rubricVersion": "content-rubric-v2",
+  "productionRecordsChanged": 0,
+  "providerConfigurationChanged": false,
+  "automaticRetries": false,
+  "budget": {
+    "maximumRequests": 6,
+    "maximumTokenReserve": 30000,
+    "maximumDurationMs": 300000
+  },
+  "requestsAttempted": 6,
+  "http200Responses": 5,
+  "requestsWithoutHttpResponse": 1,
+  "reportedTokens": 15068,
+  "usageUnavailableForRequests": 1,
+  "stages": [
+    {
+      "revision": "Separate communication rubric and reject categorical absence claims",
+      "requests": 4,
+      "passedCases": ["sparse-answer"],
+      "rejectedCases": [
+        "grounded-strong-answers",
+        "wrong-answers-injection",
+        "reviewed-transcript-only"
+      ],
+      "observation": "Communication explanations separated clarity from factual correctness, but new absence claims still caused rejection. Prompt changes alone were insufficient."
+    },
+    {
+      "revision": "Quoted candidate evidence for weaknesses and factual server-computed scope summary",
+      "requests": 2,
+      "passedCases": ["grounded-strong-answers"],
+      "transportFailures": ["reviewed-transcript-only"],
+      "observation": "The successful report recognized the supplied empty-interval condition and cited the literal failed coding-test status. The second request returned no HTTP response or assessment."
+    }
+  ],
+  "preservedArtifacts": [
+    ".data/runtime/ai-quality/groq-report-v2-20261031.json",
+    ".data/runtime/ai-quality/groq-report-v2-quotes-20261031.json"
+  ],
+  "remaining": [
+    "Fresh transcript-only and incorrect-answer checks under the final structured weakness schema",
+    "Repeatability and broader independent report review",
+    "Representative hiring accuracy and fairness evaluation"
+  ],
+  "interpretation": "Partial regression evidence only. Not a full-corpus pass, hiring-accuracy percentage or proof that a valid quotation supports every generated interpretation. Earlier saved reports and resume scoring policy remain unchanged."
+}

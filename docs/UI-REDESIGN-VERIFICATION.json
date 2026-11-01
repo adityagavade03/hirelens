@@ -6,14 +6,14 @@
       "provided": true,
       "gallery": "https://www.hostinger.com/templates/website/service",
       "preview": "https://suspended-ceiling-cost-394223.hostingersite.com/",
-      "basis": "Visible gallery thumbnail: warm paper/grid surfaces, charcoal typography and burnt orange accents. Live preview did not load."
+      "basis": "Direct preview inspected 31 October 2026: warm paper/grid surfaces, Sora typography, charcoal headings and burnt-orange actions with rounded corners. HireLens adapts this direction to recruitment screens; exact reproduction is not claimed."
     },
     "dark": {
       "name": "Amber Video Editor",
       "provided": true,
       "gallery": "https://www.hostinger.com/templates/website",
       "preview": "https://cinematic-video-editor-amber-374889.hostingersite.com/",
-      "basis": "User selected Amber Video Editor on 2026-10-13. Gallery listing confirmed; live-preview appearance remains unverified.",
+      "basis": "Direct Amber Video Editor preview inspected 31 October 2026: dark cinematic hero and alternating cream/dark sections, Space Grotesk headings, Inter body and red-orange actions. HireLens retains the user-requested dark surfaces with amber accents and consistent fonts across modes; it is an adaptation rather than an exact palette match.",
       "selectionConfirmed": "2026-10-13"
     }
   },
@@ -276,7 +276,11 @@
       "date": "2026-10-13",
       "engine": "Codex in-app Chromium browser",
       "observations": 95,
-      "widths": [390, 768, 1440],
+      "widths": [
+        390,
+        768,
+        1440
+      ],
       "horizontalOverflow": 0,
       "evidence": ".data/runtime/final-ui-qa/route-observations.json",
       "screenshots": ".data/runtime/final-ui-qa",
@@ -293,6 +297,19 @@
       "Exact 7Heven/Amber Video Editor appearance needs accessible live previews or user screenshots/theme configuration.",
       "Cross-engine Safari/Firefox and physical mobile screen-reader checks are not established by source review or Chromium checks.",
       "Contrast tests cover shared flat-surface tokens; they do not establish contrast over every dynamic image/video."
+    ]
+  },
+  "referenceInspection": {
+    "reviewedOn": "2026-10-31",
+    "bothDirectPreviewsAccessibleInBrowser": true,
+    "galleryReadAloneWasInsufficient": true,
+    "exactTemplateReproduction": false,
+    "existingApplicationPaletteChanged": false,
+    "remaining": [
+      "Firefox and Safari verification",
+      "Physical mobile verification",
+      "Screen-reader review",
+      "Complete route-by-route comparison"
     ]
   }
 }

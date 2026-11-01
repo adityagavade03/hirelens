@@ -511,7 +511,7 @@ it("validates AI report references, preserves human control, and hides unrelease
     companyId,
     candidateId: candidate.user.id,
   });
-  await SubmissionModel.create({
+  const evidenceSubmission = await SubmissionModel.create({
     interviewId: i.id,
     candidateId: candidate.user.id,
     mode: "submit",
@@ -519,6 +519,12 @@ it("validates AI report references, preserves human control, and hides unrelease
     code: "print(1)",
     passed: 3,
     total: 4,
+    results: [
+      { status: "Accepted", passed: true },
+      { status: "Accepted", passed: true },
+      { status: "Accepted", passed: true },
+      { status: "Wrong Answer", passed: false },
+    ],
   });
   const metric = {
     score: 4,
@@ -531,7 +537,13 @@ it("validates AI report references, preserves human control, and hides unrelease
     problemSolving: metric,
     communication: metric,
     strengths: ["Clear reasoning"],
-    weaknesses: ["One failing test"],
+    weaknesses: [
+      {
+        evidenceRef: `submission:${evidenceSubmission.id}`,
+        quote: "Wrong Answer",
+        observation: "One failing test",
+      },
+    ],
     improvements: ["Review the failing case"],
     recommendation: "Candidate",
     recommendationReason: "Requires human review.",

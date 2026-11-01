@@ -14,18 +14,19 @@ The human interview room separates Candidate tasks from HR controls and displays
 consented candidate camera status to the assigned interviewer. See the
 [live interview role guide](docs/LIVE-INTERVIEW-ROLES.md) for setup and model details.
 
-## Current status — 30 October 2026
+## Current status — 1 November 2026
 
 The app is live at [HireLens](https://hirelens-adityagavade03.onrender.com),
 independent of the laptop, using Render Free, MongoDB Atlas, Brevo email and Groq
 AI/transcription. The owner extended the cloud test workspace through
-**1 February 2027, 11:59 pm IST**. The latest broad check passed **984 automated tests in 68 files**.
-Two additional saved-language/autosave regressions passed in a final 58-test
-targeted run, with a fresh client/server build and TypeScript checks.
+**1 February 2027, 11:59 pm IST**. Current build/test evidence and remaining
+activation requirements are recorded in [project status](docs/PROJECT-STATUS.md).
+The latest fixes cover camera lifecycle, video negotiation, transcript conflicts,
+speech-capture cleanup and evidence-grounded AI reports.
 
 - Optional object detection has a local **More detail** model and image-quality guidance. The 21 October physical check was inconclusive: the active test page/model could not be confirmed. Earlier failed checks are preserved. See [object detection](docs/OBJECT-DETECTION.md).
 - Generated Candidate/HR recordings previously passed storage, decoding, playback and local transcription checks. Hosted transcription is now configured through Groq; fresh physical speech, both microphones and cross-network audio remain unverified. See [recording evidence](docs/MEDIA-TRACKS-VERIFICATION.md) and [speech quality](docs/SPEECH-QUALITY.md).
-- The full **26 resume/JD and four report cases** ran on cloud AI on 30 October. Original results were 26 passes and four stale policy expectations; replaying the retained outputs offline passed the corrected threshold-policy checks. Three qualitative report-narrative concerns remain. This is synthetic regression evidence, not hiring accuracy. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
+- The full **26 resume/JD and four report cases** ran on cloud AI on 30 October. Original results were 26 passes and four stale policy expectations; offline policy replay is recorded separately. New reports separate clarity from correctness, require verified candidate quotations for weaknesses and reject unsupported absence claims. Targeted follow-up requests and an exact retained-output replay cover the report regressions; broader independent review remains. This is synthetic regression evidence, not hiring accuracy. See [AI quality findings](docs/AI-QUALITY-VALIDATION.md).
 - Private Judge0, public TURN, SMS and real company verification still need owner-controlled services/accounts. Their adapters and setup are implemented, but no live execution, public relay, handset delivery or registry result is claimed. See the [remaining work and activation order](docs/REMAINING-WORK.md).
 - Gaze/face/speaker accuracy, a consented trained integrity model, exact theme matching and remaining physical mobile/browser checks are unfinished. See [current project status](docs/PROJECT-STATUS.md).
 
@@ -93,7 +94,7 @@ Only if you deliberately want fictional records again, point `MONGODB_URI` at a 
 | HR / interviewer | `hr@demo.hirelens.local`        |
 | Candidate        | `candidate@demo.hirelens.local` |
 
-The optional seed uses password **`HireLensDemo!2026`** unless `DEMO_PASSWORD` is set. These accounts do not exist in the cleaned local database. The “Explore the demo” shortcut is hidden while demo mode is disabled.
+The optional seed uses password **`choose-a-unique-local-demo-password`** unless `DEMO_PASSWORD` is set. These accounts do not exist in the cleaned local database. The “Explore the demo” shortcut is hidden while demo mode is disabled.
 
 The seed creates a fictional company, sample jobs, sample PDF resumes, applications, and upcoming interviews. It computes skill coverage from those sample profiles. It does **not** manufacture completed interviews, AI feedback, or execution results. Running the seed again preserves existing data. Never seed a production database; the script refuses `NODE_ENV=production`.
 

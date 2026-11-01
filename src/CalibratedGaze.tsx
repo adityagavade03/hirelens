@@ -108,10 +108,14 @@ export function CalibratedGaze({
         "Gaze preview unavailable. Leave it off or toggle it to retry; no observation was saved.",
       );
     };
-    const pause = () =>
+    const pause = () => {
+      readiness.current = { count: 0, lastGoodAt: 0 };
+      setCameraReady(false);
+      setQuality(null);
       invalidate(
         "Calibration expired after the page, camera or layout changed. Calibrate again before previewing.",
       );
+    };
     const visibility = () => {
       if (document.hidden) pause();
     };
@@ -337,8 +341,22 @@ export function CalibratedGaze({
           resizeWidth: size.width,
           resizeHeight: size.height,
         });
-        if (disposed || failed) {
+        const currentTrack = (
+          video.srcObject as MediaStream | null
+        )?.getVideoTracks()[0];
+        if (
+          disposed ||
+          failed ||
+          document.hidden ||
+          metadata.generation !== generation.current ||
+          !currentTrack?.enabled ||
+          currentTrack.muted ||
+          currentTrack.readyState !== "live" ||
+          currentTrack.id !== metadata.cameraId ||
+          video.paused
+        ) {
           frame.close();
+          busy = false;
           return;
         }
         try {

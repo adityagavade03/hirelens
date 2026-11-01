@@ -23,8 +23,15 @@ export function useFacePresence({
   const [count, setCount] = useState<number | null>(null);
   const [model, setModel] = useState("BlazeFace");
   const [attempt, setAttempt] = useState(0);
-  const latest = useRef({ active, record });
-  latest.current = { active, record };
+  const latest = useRef({ enabled, active, record, activityEpoch: 0 });
+  if (latest.current.active !== active) latest.current.activityEpoch++;
+  latest.current.enabled = enabled;
+  latest.current.active = active;
+  latest.current.record = record;
+  const controls = useRef<{
+    activityEpoch: number;
+    reset: (message: string) => void;
+  } | null>(null);
   useEffect(() => {
     setReady(false);
     setCount(null);
@@ -35,7 +42,11 @@ export function useFacePresence({
       );
       return;
     }
-    if (!services?.face) {
+    if (
+      !services?.face ||
+      !services.faceModelUrl ||
+      !services.mediapipeWasmUrl
+    ) {
       setState("not-configured");
       setStatus("Face model is not configured; browser monitoring still works");
       return;
@@ -58,13 +69,49 @@ export function useFacePresence({
       frameStarted = 0,
       lastFreshFrameAt = Date.now(),
       frameStalled = false;
-    let requestId = 0;
+    let requestId = 0,
+      epoch = 0,
+      frameEpoch = 0,
+      frameActivityEpoch = 0;
     let frameTrack: MediaStreamTrack | undefined;
     let frameActive = false;
     let cameraReady: boolean | undefined;
-    let wasActive = latest.current.active;
     const started = Date.now();
     const observation = new SustainedObservation();
+    const reset = (message: string) => {
+      epoch++;
+      observation.observe("unavailable", Date.now(), 0);
+      setReady(false);
+      setCount(null);
+      setState("paused");
+      setStatus(message);
+      if (controls.current === control)
+        control.activityEpoch = latest.current.activityEpoch;
+    };
+    const control = { activityEpoch: latest.current.activityEpoch, reset };
+    controls.current = control;
+    const trackNow = () =>
+      (video.srcObject as MediaStream | null)?.getVideoTracks()[0];
+    const usable = (track: MediaStreamTrack | undefined) =>
+      !document.hidden &&
+      !!track?.enabled &&
+      !track.muted &&
+      track.readyState === "live" &&
+      video.readyState >= 2 &&
+      !video.paused &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0;
+    const visibility = () => {
+      if (!document.hidden || disposed || failed) return;
+      cameraReady = false;
+      reset("Face check paused · keep this page visible and camera on");
+      if (latest.current.active)
+        latest.current.record(
+          "monitoring-unavailable",
+          0,
+          "Face check paused; camera/page unavailable, no inference made",
+        );
+    };
     let worker: Worker;
     const failure = () => {
       if (disposed || failed) return;
@@ -83,6 +130,7 @@ export function useFacePresence({
         );
       worker?.terminate();
     };
+    document.addEventListener("visibilitychange", visibility);
     try {
       worker = new Worker(
         new URL("./face-presence.worker.ts", import.meta.url),
@@ -93,7 +141,7 @@ export function useFacePresence({
         failure();
       };
       worker.onmessage = ({ data }) => {
-        if (disposed || failed) return;
+        if (disposed || failed || !latest.current.enabled) return;
         if (data.kind === "error") {
           console.warn("Optional face check:", data.message);
           return failure();
@@ -116,25 +164,22 @@ export function useFacePresence({
           return;
         }
         if (data.kind !== "count") return;
-        if (data.requestId !== requestId) return;
+        if (!busy || data.requestId !== requestId) return;
         busy = false;
-        // A result from a hidden page, stopped camera or pre-interview frame is not evidence.
-        const track = (
-          video.srcObject as MediaStream | null
-        )?.getVideoTracks()[0];
         if (
-          document.hidden ||
-          !track?.enabled ||
-          track.muted ||
-          track.readyState !== "live" ||
+          frameEpoch !== epoch ||
+          frameActivityEpoch !== latest.current.activityEpoch
+        )
+          return;
+        // A result from a hidden page, stopped camera or pre-interview frame is not evidence.
+        const track = trackNow();
+        if (
+          !usable(track) ||
           track !== frameTrack ||
-          video.paused ||
+          Date.now() < frameStarted ||
           Date.now() - frameStarted > 5000
         ) {
-          setReady(false);
-          setCount(null);
-          setState("paused");
-          observation.observe("unavailable", Date.now(), 0);
+          reset("Face check paused · waiting for fresh camera frames");
           return;
         }
         // Zero/multiple faces are valid model results too. Requiring a prior
@@ -153,8 +198,8 @@ export function useFacePresence({
                 : "Face presence active · local processing"
             : `Camera preview · ${data.count} face${data.count === 1 ? "" : "s"} estimated; observations start after admission`,
         );
-        if (!latest.current.active || !wasActive || !frameActive) {
-          observation.observe("unavailable", Date.now(), 0);
+        if (!latest.current.active || !frameActive) {
+          observation.observe("unavailable", frameStarted, 0);
           return;
         }
         const result = observation.observe(
@@ -163,7 +208,7 @@ export function useFacePresence({
             : data.count > 1
               ? "multiple-faces"
               : "one",
-          Date.now(),
+          frameStarted,
           Math.max(3, services.faceThresholdSeconds) * 1000,
         );
         if (result)
@@ -185,39 +230,27 @@ export function useFacePresence({
       });
     } catch {
       failure();
+      document.removeEventListener("visibilitychange", visibility);
+      if (controls.current === control) controls.current = null;
       return;
     }
     const timer = setInterval(async () => {
-      if (disposed || failed) return;
+      if (disposed || failed || !latest.current.enabled) return;
       if (
         (!loaded && Date.now() - started > 60000) ||
         (busy && Date.now() - frameStarted > 10000)
       )
         return failure();
-      if (wasActive !== latest.current.active) {
-        wasActive = latest.current.active;
-        observation.observe("unavailable", Date.now(), 0);
-      }
-      const track = (
-        video.srcObject as MediaStream | null
-      )?.getVideoTracks()[0];
-      const available =
-        !document.hidden &&
-        !!track?.enabled &&
-        !track.muted &&
-        track.readyState === "live" &&
-        video.readyState >= 2 &&
-        !video.paused &&
-        video.videoWidth > 0 &&
-        video.videoHeight > 0;
+      if (control.activityEpoch !== latest.current.activityEpoch)
+        reset(
+          "Face check waiting for fresh images after the interview state changed",
+        );
+      const track = trackNow();
+      const available = usable(track);
       if (!available) {
-        setReady(false);
-        setCount(null);
-        setState("paused");
-        observation.observe("unavailable", Date.now(), 0);
         lastFreshFrameAt = Date.now();
         if (cameraReady !== false) {
-          setStatus("Face check paused · keep this page visible and camera on");
+          reset("Face check paused · keep this page visible and camera on");
           if (latest.current.active)
             latest.current.record(
               "monitoring-unavailable",
@@ -231,15 +264,11 @@ export function useFacePresence({
       cameraReady = true;
       if (!loaded || busy) return;
       if (lastFrame === video.currentTime) {
-        observation.observe("unavailable", Date.now(), 0);
         // A live track can stop producing frames without ending or muting.
         // A frozen preview must not continue to advertise active observation.
         if (!frameStalled && Date.now() - lastFreshFrameAt >= 3000) {
           frameStalled = true;
-          setReady(false);
-          setCount(null);
-          setState("paused");
-          setStatus("Face check paused · waiting for fresh camera frames");
+          reset("Face check paused · waiting for fresh camera frames");
           if (latest.current.active)
             latest.current.record(
               "monitoring-unavailable",
@@ -256,6 +285,8 @@ export function useFacePresence({
       frameStarted = Date.now();
       frameTrack = track;
       frameActive = latest.current.active;
+      frameEpoch = epoch;
+      frameActivityEpoch = latest.current.activityEpoch;
       requestId++;
       try {
         const frame = await createImageBitmap(video, {
@@ -268,8 +299,17 @@ export function useFacePresence({
             ),
           ),
         });
-        if (disposed || failed) {
+        if (
+          disposed ||
+          failed ||
+          !latest.current.enabled ||
+          frameEpoch !== epoch ||
+          frameActivityEpoch !== latest.current.activityEpoch ||
+          !usable(trackNow()) ||
+          trackNow() !== frameTrack
+        ) {
           frame.close();
+          busy = false;
           return;
         }
         try {
@@ -288,6 +328,8 @@ export function useFacePresence({
     return () => {
       disposed = true;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibility);
+      if (controls.current === control) controls.current = null;
       worker.terminate();
     };
   }, [
@@ -300,6 +342,15 @@ export function useFacePresence({
     services?.faceThresholdSeconds,
     attempt,
   ]);
+  useEffect(() => {
+    if (
+      controls.current &&
+      controls.current.activityEpoch !== latest.current.activityEpoch
+    )
+      controls.current.reset(
+        "Face check waiting for fresh images after the interview state changed",
+      );
+  }, [active]);
   return {
     status,
     state,

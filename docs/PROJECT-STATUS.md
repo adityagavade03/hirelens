@@ -1,6 +1,6 @@
 # HireLens — current implementation and review guide
 
-## Current status — 30 October 2026
+## Current status — 1 November 2026
 
 HireLens is deployed independently of this laptop at
 [hirelens-adityagavade03.onrender.com](https://hirelens-adityagavade03.onrender.com),
@@ -8,7 +8,7 @@ using Render Free, MongoDB Atlas, Brevo email and Groq AI/transcription.
 The owner extended the cloud test workspace to **1 February 2027, 11:59 pm IST**
 on 30 October 2026; this supersedes the original 21 November deadline.
 Free hosting can sleep when idle. Hosting is active; the four services below
-are still absent from the hosted configuration, checked read-only on 30 October.
+are still absent from the hosted configuration, checked read-only on 1 November.
 
 | Remaining item                     | Implemented preparation                                                                                                                                    | What is still required                                                                                                                                                              |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,14 +19,19 @@ are still absent from the hosted configuration, checked read-only on 30 October.
 | Recording/transcription validation | Per-participant consent, saved segments, authenticated playback, transcript review and cloud transcription                                                 | Fresh physical Candidate and HR recordings, audibility/playback and accurate human-speech transcription checks. Earlier generated-media tests do not replace them.                  |
 | Camera/gaze/speaker validation     | Optional local models, lifecycle/quality gates, candidate-only consent and HR observation review                                                           | Representative real-device accuracy checks. Gaze failed its independent calibration gate; phone/book checks failed or were inconclusive. No cheating-accuracy guarantee is claimed. |
 | Trained integrity model            | Offline consent/schema validation, reviewed-data protocol, trainer and grouped evaluation                                                                  | Genuine consented, independently reviewed data and prospective evaluation. No real trained model exists; current integrity scoring uses rules.                                      |
-| AI quality                         | Full current-provider 30-case synthetic run and separately recorded policy-corrected offline replay                                                        | Three qualitative report-narrative concerns, broader independent assessment and repeatability checks. Synthetic passes do not establish hiring accuracy or fairness.                |
-| Final UI validation                | Shared light/dark themes, responsive layouts, reduced motion and targeted browser/accessibility checks                                                     | Exact accessible 7Heven/Amber reference comparison, Safari/Firefox, physical mobile and screen-reader checks.                                                                       |
+| AI quality                         | Full 30-case synthetic run, policy-corrected replay and new quoted-weakness/dimension safeguards; targeted final-schema reports and retained-output replay | Fresh repeated cloud checks and broader independent review. Earlier rejected outputs, transport failure and the corrected concession false rejection remain recorded; no accuracy guarantee. |
+| Final UI validation                | Shared themes, responsive/reduced-motion checks and both direct 7Heven/Amber previews inspected on 31 October | Complete route comparison, Safari/Firefox, physical mobile and screen-reader checks. The application adapts the templates; exact reproduction is not claimed. |
 
-The latest broad verification passed **984 tests in 68 files**. Two additional
-saved-language/autosave regressions then passed within a 58-test targeted run,
-along with a fresh production build and TypeScript checks. Thirteen read-only
-hosted checks passed for the preceding deployment. These are software/deployment checks, not proof of live providers or
+The latest full verification passed **1,055 tests in 72 files**, the production
+build and TypeScript. It includes face/gaze lifecycle regressions, queued ICE
+failure isolation, transcript conflict preservation, microphone cleanup and
+grounded-report guards. These are software checks, not proof of live providers or
 physical-device accuracy. See [remaining work and activation order](REMAINING-WORK.md).
+
+The latest fixes prevent stale camera results, prevent a rejected network route
+from blocking a video answer, preserve manual transcript corrections, release
+failed speech captures and reject unsupported AI report narratives. Existing
+reports, resume score thresholds and recruitment records are not rewritten.
 
 This follow-up extends example/custom/all-case controls and detailed results to
 human/AI interview rooms and saved reports, keeps HR review read-only, corrects

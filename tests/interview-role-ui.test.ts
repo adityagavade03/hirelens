@@ -20,7 +20,7 @@ const fixture = vi.hoisted(() => ({
     activeLanguage: "java",
     scheduledAt: "2026-10-30T09:00:00Z",
     topics: ["REST APIs"],
-    questions: [],
+    questions: [] as any[],
     answers: [],
     drafts: {} as Record<string, string>,
   },
@@ -39,7 +39,13 @@ const fixture = vi.hoisted(() => ({
   },
   face: vi.fn(),
   objects: vi.fn(),
-  services: { face: true, objects: true, code: false, codePublicDemo: false },
+  services: {
+    face: true,
+    objects: true,
+    code: false,
+    codePublicDemo: false,
+    transcription: false,
+  },
   problem: {
     id: "test-problem",
     title: "Add two numbers",
@@ -227,11 +233,14 @@ beforeEach(() => {
   sessionStorage.clear();
   fixture.interview.type = "technical";
   fixture.interview.facilitator = "human";
+  fixture.interview.status = "live";
+  fixture.interview.questions = [];
   fixture.interview.activeLanguage = "java";
   fixture.interview.drafts = {};
   fixture.room.activeLanguage = "java";
   fixture.services.code = false;
   fixture.services.codePublicDemo = false;
+  fixture.services.transcription = false;
   fixture.submissions = [];
   host = document.createElement("div");
   document.body.append(host);
@@ -507,4 +516,127 @@ it("keeps the language and its draft paired when switching after restoring a ses
   expect(
     host.querySelector("[data-code-value]")?.getAttribute("data-code-value"),
   ).toBe("print(12)");
+});
+
+class SpeechRecorder {
+  static instances: SpeechRecorder[] = [];
+  static failure: "" | "start" | "construct" = "";
+  static isTypeSupported() {
+    return true;
+  }
+  state = "inactive";
+  ondataavailable?: (event: { data: Blob }) => void;
+  onstop?: () => void;
+  onerror?: () => void;
+  constructor() {
+    if (SpeechRecorder.failure === "construct")
+      throw new Error("Recorder construction failed");
+    SpeechRecorder.instances.push(this);
+  }
+  start() {
+    if (SpeechRecorder.failure === "start")
+      throw new Error("Recorder startup failed");
+    this.state = "recording";
+  }
+  stop() {
+    this.state = "inactive";
+    queueMicrotask(() => {
+      this.ondataavailable?.({
+        data: new Blob(["synthetic microphone bytes"]),
+      });
+      this.onstop?.();
+    });
+  }
+}
+async function spokenPractice() {
+  SpeechRecorder.instances = [];
+  SpeechRecorder.failure = "";
+  const track = { stop: vi.fn() };
+  const stream = { getTracks: () => [track] } as unknown as MediaStream;
+  Object.defineProperty(navigator, "mediaDevices", {
+    configurable: true,
+    value: { getUserMedia: vi.fn(async () => stream) },
+  });
+  vi.stubGlobal("MediaRecorder", SpeechRecorder);
+  fixture.interview.type = "practice";
+  fixture.interview.questions = [
+    { id: "q1", text: "Explain transactions.", topic: "Databases", rubric: [] },
+    { id: "q2", text: "Explain isolation.", topic: "Databases", rubric: [] },
+  ];
+  fixture.services.transcription = true;
+  fixture.role = "candidate";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () => button("Start my practice").click());
+  return track;
+}
+it.each(["construct", "start"] as const)(
+  "closes the practice microphone after recorder %s failure",
+  async (failure) => {
+    const track = await spokenPractice();
+    SpeechRecorder.failure = failure;
+    await act(async () => button("Record spoken answer").click());
+    expect(track.stop).toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      failure === "start"
+        ? "Recorder startup failed"
+        : "Recorder construction failed",
+    );
+    expect(button("Record spoken answer").disabled).toBe(false);
+    expect(
+      vi
+        .mocked(api)
+        .mock.calls.some(([path]) => String(path).endsWith("/transcribe")),
+    ).toBe(false);
+  },
+);
+it("keeps practice speech attached to its question and does not transcribe recorder-error fragments", async () => {
+  const track = await spokenPractice();
+  await act(async () => button("Record spoken answer").click());
+  expect(
+    host.querySelector<HTMLButtonElement>('[aria-label="Question 2"]')!
+      .disabled,
+  ).toBe(true);
+  expect(
+    host.querySelector<HTMLTextAreaElement>('[aria-label="Your answer"]')!
+      .disabled,
+  ).toBe(true);
+  await act(async () => SpeechRecorder.instances[0].onerror?.());
+  expect(track.stop).toHaveBeenCalled();
+  expect(host.textContent).toContain("Audio capture stopped");
+  expect(
+    vi
+      .mocked(api)
+      .mock.calls.some(([path]) => String(path).endsWith("/transcribe")),
+  ).toBe(false);
+  expect(
+    host.querySelector<HTMLButtonElement>('[aria-label="Question 2"]')!
+      .disabled,
+  ).toBe(false);
+});
+it("ignores a practice transcript arriving after the interview ends", async () => {
+  await spokenPractice();
+  let resolve!: (value: { text: string }) => void;
+  vi.mocked(api).mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done as typeof resolve;
+      }),
+  );
+  await act(async () => button("Record spoken answer").click());
+  await act(async () => button("Stop & transcribe").click());
+  fixture.interview.status = "completed";
+  await act(async () =>
+    root.render(createElement(MemoryRouter, null, createElement(Room))),
+  );
+  await act(async () =>
+    resolve({ text: "Late transcription must not overwrite an answer." }),
+  );
+  expect(host.textContent).not.toContain(
+    "Late transcription must not overwrite an answer",
+  );
+  expect(host.textContent).not.toContain(
+    "I reviewed and corrected the transcription",
+  );
 });

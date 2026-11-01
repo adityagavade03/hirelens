@@ -30,11 +30,14 @@ export function RoomConversation({
   const recorder = useRef<MediaRecorder | null>(null),
     stream = useRef<MediaStream | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
-    alive = useRef(true);
+    alive = useRef(true),
+    speechVersion = useRef(0);
   const current = useRef(active);
   current.current = active;
   const question = i.questions[index],
     answer = i.answers.find((a) => a.questionId === question?.id);
+  const questionId = useRef(question?.id);
+  questionId.current = question?.id;
   useEffect(() => {
     onRecordingChange(recording);
   }, [recording, onRecordingChange]);
@@ -48,6 +51,7 @@ export function RoomConversation({
     alive.current = true;
     return () => {
       alive.current = false;
+      ++speechVersion.current;
       clearTimeout(timer.current);
       if (recorder.current?.state === "recording") recorder.current.stop();
       stream.current?.getTracks().forEach((t) => t.stop());
@@ -55,9 +59,11 @@ export function RoomConversation({
   }, []);
   useEffect(() => {
     if (!active) {
+      ++speechVersion.current;
       clearTimeout(timer.current);
       if (recorder.current?.state === "recording") recorder.current.stop();
       stream.current?.getTracks().forEach((t) => t.stop());
+      setRecording(false);
     }
   }, [active]);
   async function action(work: () => Promise<unknown>) {
@@ -77,6 +83,13 @@ export function RoomConversation({
       return;
     }
     await action(async () => {
+      const version = ++speechVersion.current;
+      const requestedQuestion = question?.id;
+      const currentCapture = () =>
+        alive.current &&
+        current.current &&
+        version === speechVersion.current &&
+        questionId.current === requestedQuestion;
       if (
         !navigator.mediaDevices?.getUserMedia ||
         typeof MediaRecorder === "undefined"
@@ -85,57 +98,91 @@ export function RoomConversation({
       const audio = await permissionDialog(() =>
         navigator.mediaDevices.getUserMedia({ audio: true }),
       );
-      if (!alive.current || !current.current) {
+      if (!currentCapture()) {
         audio.getTracks().forEach((t) => t.stop());
         return;
       }
       stream.current = audio;
-      const mimeType = ["audio/webm", "audio/mp4"].find((m) =>
-        MediaRecorder.isTypeSupported(m),
-      );
-      if (!mimeType) {
+      let media: MediaRecorder | null = null;
+      let captureTimer: ReturnType<typeof setTimeout> | undefined;
+      const release = () => {
         audio.getTracks().forEach((t) => t.stop());
-        throw new Error("This browser cannot record a supported audio format.");
-      }
-      const media = new MediaRecorder(audio, { mimeType }),
-        chunks: BlobPart[] = [];
-      recorder.current = media;
-      media.ondataavailable = (e) => {
-        if (e.data.size) chunks.push(e.data);
+        if (stream.current === audio) stream.current = null;
+        if (recorder.current === media) recorder.current = null;
+        clearTimeout(captureTimer);
+        if (timer.current === captureTimer) timer.current = undefined;
       };
-      media.onstop = () => {
-        audio.getTracks().forEach((t) => t.stop());
-        clearTimeout(timer.current);
-        if (!alive.current || !current.current) return;
-        setRecording(false);
-        void action(async () => {
-          const body = new FormData();
-          body.append(
-            "audio",
-            new Blob(chunks, { type: mimeType }),
-            mimeType.includes("mp4") ? "answer.m4a" : "answer.webm",
+      try {
+        const mimeType = ["audio/webm", "audio/mp4"].find((m) =>
+          MediaRecorder.isTypeSupported(m),
+        );
+        if (!mimeType) {
+          throw new Error(
+            "This browser cannot record a supported audio format.",
           );
-          const result = await api<{ text: string }>(
-            `/interviews/${i._id}/transcribe`,
-            { method: "POST", body },
-          );
-          if (alive.current) {
-            setText(result.text);
-            setMode("spoken");
-            setReviewed(false);
+        }
+        media = new MediaRecorder(audio, { mimeType });
+        const capture = media;
+        const chunks: BlobPart[] = [];
+        let failed = false;
+        recorder.current = media;
+        media.ondataavailable = (e) => {
+          if (e.data.size) chunks.push(e.data);
+        };
+        media.onstop = () => {
+          release();
+          if (alive.current && version === speechVersion.current)
+            setRecording(false);
+          if (failed || !currentCapture()) return;
+          if (!chunks.length) {
+            setError(
+              "No audio was captured. Check your microphone and try again, or use a typed answer.",
+            );
+            return;
           }
-        });
-      };
-      media.onerror = () => {
-        audio.getTracks().forEach((t) => t.stop());
-        setRecording(false);
-        setError("Audio capture stopped. Retry or use a typed answer.");
-      };
-      media.start();
-      setRecording(true);
-      timer.current = setTimeout(() => {
-        if (media.state === "recording") media.stop();
-      }, 120000);
+          void action(async () => {
+            const body = new FormData();
+            body.append(
+              "audio",
+              new Blob(chunks, { type: mimeType }),
+              mimeType.includes("mp4") ? "answer.m4a" : "answer.webm",
+            );
+            const result = await api<{ text: string }>(
+              `/interviews/${i._id}/transcribe`,
+              { method: "POST", body },
+            );
+            if (currentCapture()) {
+              setText(result.text);
+              setMode("spoken");
+              setReviewed(false);
+            }
+          });
+        };
+        media.onerror = () => {
+          failed = true;
+          release();
+          if (capture.state !== "inactive") {
+            try {
+              capture.stop();
+            } catch {
+              /* The browser may already be stopping. */
+            }
+          }
+          if (alive.current && version === speechVersion.current) {
+            setRecording(false);
+            setError("Audio capture stopped. Retry or use a typed answer.");
+          }
+        };
+        media.start();
+        setRecording(true);
+        captureTimer = setTimeout(() => {
+          if (capture.state === "recording") capture.stop();
+        }, 120000);
+        timer.current = captureTimer;
+      } catch (error) {
+        release();
+        throw error;
+      }
     });
   }
   return (
@@ -255,6 +302,7 @@ export function RoomConversation({
                 <textarea
                   rows={6}
                   value={text}
+                  disabled={recording || busy}
                   maxLength={12000}
                   onChange={(e) => setText(e.target.value)}
                 />

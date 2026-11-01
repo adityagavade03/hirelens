@@ -1251,21 +1251,23 @@ export function SettingsPage() {
         <Panel title="Privacy & monitoring">
           <div className="report-content">
             <p>
-              Monitoring requires candidate consent. Browser events and
-              face-count metadata can be recorded during assessed sessions.
-              Webcam frames are processed locally; raw webcam video is not
-              stored.
+              Interview monitoring requires candidate consent. Optional face
+              and object checks process camera frames in your browser and share
+              observations with authorised interview reviewers.
             </p>
             <p>
-              Microphone audio is sent to the configured speech provider only
-              when you explicitly record and request transcription. Typed
-              answers remain available.
+              Recording is a separate choice. With your recording consent,
+              HireLens saves your own camera and microphone for interview
+              review, and audio may be sent to the configured transcription
+              provider. Each participant starts their own recording. Review
+              recognised text for mistakes before using it as evidence.
             </p>
             <p>
               Resume files and application snapshots stay in MongoDB. The
               configured AI provider receives job-relevant resume text and the
               JD for screening, plus technical question and answer context for
-              interviews. The local setup uses Ollama.
+              interviews. AI findings support human review; the company makes
+              the final hiring decision.
             </p>
           </div>
         </Panel>

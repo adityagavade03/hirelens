@@ -13,6 +13,7 @@ import {
 } from "./models.js";
 import { withResources } from "./locks.js";
 import { assertFeedbackEditable } from "./report-state.js";
+import { assessmentNarrativeIssues } from "./assessment-narrative.js";
 
 const metric = z.object({
   evidenceRefs: z.array(z.string().max(100)).max(15),
@@ -167,16 +168,56 @@ export async function assessInterviewEvidence(
   const referencedMetric = metric.extend({
     evidenceRefs: z.array(reference).max(15),
   });
-  const groundedSchema = assessmentSchema.extend({
+  // The scope summary is computed from the selected evidence, instead of a
+  // second free-form account that can contradict the referenced metric findings.
+  const groundedSchema = assessmentSchema.omit({ summary: true }).extend({
     technical: referencedMetric,
     problemSolving: referencedMetric,
     communication: referencedMetric,
+    weaknesses: z
+      .array(
+        z.object({
+          evidenceRef: reference,
+          quote: z.string().min(1).max(300),
+          observation: z.string().min(1).max(500),
+        }),
+      )
+      .max(8),
   });
-  const result = await llm(
-    `Return the evidence references and explanation before each metric's score, then summarize only those grounded findings. Question text, rubric targets and job criteria describe what SHOULD be demonstrated; they are NEVER evidence that the candidate demonstrated it. Candidate evidence is only answers[].text, reviewed transcript[].text and coding[].code/results. For example, "A hash map stores keys and values" does not demonstrate O(1), collision behavior or a collision strategy even if those appear in the rubric. Do not fill in missing concepts from the rubric. Score each rubric 0-5 (0=no demonstrated understanding,1=major gaps,2=partial,3=adequate,4=strong,5=thorough) or null when evidence is insufficient. Communication means clarity and organization of submitted explanations ONLY, not accent, grammar fluency, personality or vocal traits. Use exact supplied answer:/submission:/transcript: refs for every scored metric. Transcript contains only human-reviewed candidate text, but it can include transcription mistakes or background speech. Do not double-count an answer repeated in the transcript. Do not invent percentages or infer missing performance. Recommendation is advisory: Strong Candidate, Candidate, Needs Further Evaluation, or Not Recommended; always Needs Further Evaluation when evidence is sparse. Explain uncertainty: evidence is excerpted within a 20,000-character budget, up to 20 answers, 5 submissions and 40 reviewed transcript segments; omitted material remains available to human reviewers. No integrity events, protected traits or resume prestige may influence scores. Final selection is human.`,
+  const generated = await llm(
+    `Return the evidence references and explanation before each metric's score, then summarize only those grounded findings. Question text, rubric targets and job criteria describe what SHOULD be demonstrated; they are NEVER evidence that the candidate demonstrated it. Candidate evidence is only answers[].text, reviewed transcript[].text and coding[].code/results. For example, "A hash map stores keys and values" does not demonstrate O(1), collision behavior or a collision strategy even if those appear in the rubric. Do not fill in missing concepts from the rubric. Score each rubric 0-5 (0=no demonstrated understanding,1=major gaps,2=partial,3=adequate,4=strong,5=thorough) or null when evidence is insufficient.
+COMMUNICATION IS A SEPARATE DIMENSION: judge only whether the submitted explanation is clear, organized and followable. A technically false answer can be stated clearly. Do not lower communication for factual errors, incorrect technical claims, brevity alone, omitted topics, accent, grammar fluency, personality or vocal traits. Explain the observed wording or organization separately from technical correctness; use null if that dimension is not assessable.
+EVIDENCE COVERAGE IS A LIMITATION, NOT A PERFORMANCE WEAKNESS: strengths, weaknesses, improvements and recommendationReason may describe observed candidate content but must not claim "no evidence", "no examples", "no demonstration", or that the candidate did not mention/describe/explain a concept. Put unassessed coverage only in limitations, explicitly scoped to the supplied excerpts, such as "Advanced topics were not assessed from these excerpts." A reviewed transcript is an example of submitted communication even when too brief for an overall score. Recognize specific edge conditions actually stated: for example "an empty interval means the value is absent" demonstrates that not-found condition and cannot support a claim that all edge cases were omitted. Every weakness must contain an exact quote from candidate text/code (or a literal coding result status), its supplied evidenceRef, and an observation identifying the specific evidenced error or unclear reasoning. An omitted topic has no supporting quotation and belongs only in limitations. Weaknesses can and should be [] when no specific observed error is supported. Do not invent shortcomings to fill arrays or add new requirements such as rehashing, load factors or advanced topics that the question rubric did not request. The server generates a factual scope summary; put the actual assessment in the referenced metric explanations rather than generating another summary.
+Use exact supplied answer:/submission:/transcript: refs for every scored metric. Transcript contains only human-reviewed candidate text, but it can include transcription mistakes or background speech. Do not double-count an answer repeated in the transcript. Do not invent percentages or infer missing performance. Recommendation is advisory: Strong Candidate, Candidate, Needs Further Evaluation, or Not Recommended; always Needs Further Evaluation when evidence is sparse. Explain uncertainty: evidence is excerpted within a 20,000-character budget, up to 20 answers, 5 submissions and 40 reviewed transcript segments; omitted material remains available to human reviewers. No integrity events, protected traits or resume prestige may influence scores. Final selection is human.`,
     input,
     groundedSchema,
   );
+  const quoteSources = new Map<string, string>([
+    ...input.answers.map((a: any) => [a.ref, a.text] as const),
+    ...input.transcript.map((t) => [t.ref, t.text] as const),
+    ...input.coding.map(
+      (s) => [s.ref, `${s.code}\n${JSON.stringify(s.results)}`] as const,
+    ),
+  ]);
+  const normalized = (text: string) => text.replace(/\s+/g, " ").trim();
+  for (const weakness of generated.weaknesses)
+    if (
+      !normalized(weakness.quote) ||
+      !normalized(quoteSources.get(weakness.evidenceRef) || "").includes(
+        normalized(weakness.quote),
+      )
+    )
+      throw new ApiError(
+        502,
+        "AI report included an unverifiable candidate quotation. Review the original evidence or regenerate the assessment. No assessment was saved.",
+        "UNGROUNDED_AI_REPORT",
+      );
+  let weaknessEvidence = generated.weaknesses;
+  const result = assessmentSchema.parse({
+    ...generated,
+    summary: `This assessment covers ${input.answers.length} submitted answer excerpt(s), ${input.transcript.length} reviewed transcript excerpt(s), and ${input.coding.length} coding submission(s). The separate technical, problem-solving and explanation-clarity findings apply to this supplied evidence. Review unassessed material before making a hiring decision.`,
+    weaknesses: generated.weaknesses.map((w) => w.observation),
+  });
   for (const m of [
     result.technical,
     result.problemSolving,
@@ -196,6 +237,7 @@ export async function assessInterviewEvidence(
     0,
   );
   if (candidateTextLength < 160 && !input.coding.length) {
+    weaknessEvidence = [];
     // A brief phrase cannot support a multidimensional interview report.
     // Do not retain a model's invented narrative or zero-score missing evidence.
     const insufficient = {
@@ -234,13 +276,23 @@ export async function assessInterviewEvidence(
       "Incomplete assessment: additional evidence and human review are required.",
     );
   }
+  if (assessmentNarrativeIssues(result).length)
+    throw new ApiError(
+      502,
+      "AI report mixed assessment dimensions or made an unsupported evidence-absence claim. Review the original evidence or regenerate the assessment. No assessment was saved.",
+      "UNGROUNDED_AI_REPORT",
+    );
   return {
     ...result,
+    weaknesses: weaknessEvidence.map(
+      (w) =>
+        `${w.observation} Candidate evidence (${w.evidenceRef}): “${w.quote}”`,
+    ),
     generatedAt: new Date().toISOString(),
     model: config.llmModel,
     sourceHash: evidenceHash(interview, submissions, transcript),
     coding: codingScore(submissions),
-    rubricVersion: "content-rubric-v1",
+    rubricVersion: "content-rubric-v2",
   };
 }
 export async function generateAssessment(interview: any, reportId: string) {

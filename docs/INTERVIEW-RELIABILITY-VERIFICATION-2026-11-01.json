@@ -1,0 +1,66 @@
+{
+  "reviewedOn": "2026-11-01",
+  "status": "software-verified-external-and-device-validation-incomplete",
+  "automated": {
+    "command": "npm run check",
+    "passed": true,
+    "files": 72,
+    "tests": 1055,
+    "typecheck": true,
+    "productionClientAndServerBuild": true
+  },
+  "fixed": [
+    "Reject stale face results across visibility/admission/camera changes and preserve sustained observations on slower advancing cameras",
+    "Require fresh gaze readiness after hide/resize",
+    "Isolate rejected queued ICE routes so a valid offer still receives an answer",
+    "Preserve transcript edits and require an explicit conflict choice",
+    "Release failed microphone captures and discard error/late spoken-answer results",
+    "Require verified candidate quotations for report weaknesses and separate clarity from correctness",
+    "Disable phone verification while SMS configuration is absent or unavailable",
+    "Correct settings explanation of consented recording and cloud AI"
+  ],
+  "browserReview": {
+    "syntheticOnly": true,
+    "externalProvidersDisabled": true,
+    "physicalCameraAndMicrophoneUsed": false,
+    "recordingStarted": false,
+    "transcriptConflictDesktopDark": true,
+    "transcriptConflictMobileLight390": true,
+    "horizontalOverflow": false,
+    "manualCorrectionSavedAndReloaded": true,
+    "themePersistedAfterReload": true,
+    "keyboardFocusVisible": true,
+    "smsMissingServiceDisabled": true,
+    "fixtureStopped": true
+  },
+  "aiEvidence": [
+    "AI-REPORT-VERIFICATION-2026-10-31.json",
+    "AI-REPORT-FINAL-SCHEMA-2026-10-31.json"
+  ],
+  "providerActivation": {
+    "privateJudge0": false,
+    "publicTurn": false,
+    "sms": false,
+    "businessVerification": false
+  },
+  "integrityResearch": {
+    "emptyCollectionTemplatePrepared": true,
+    "realTrainingRows": 0,
+    "readyToTrain": false,
+    "trainedOperationalModel": false
+  },
+  "remaining": [
+    "Owner-controlled private Judge0 server and execution checks",
+    "Public TURN plus two-device different-network media/sharing/reconnection verification",
+    "Authorized real SMS delivery and genuine company verification",
+    "Both participants physical recording/audio and speech-accuracy validation",
+    "Representative face/object/gaze/speaker accuracy validation",
+    "Genuine separate research consent, independent labels and integrity-model evaluation",
+    "Broader independent AI review and repeated final-schema checks",
+    "Complete theme/route comparison, Firefox/Safari, physical mobile and screen-reader review"
+  ],
+  "productionRecruitmentRecordsModified": 0,
+  "providerSettingsChanged": false,
+  "exactThemeReproductionClaimed": false,
+  "interpretation": "Software regression tests and synthetic fixtures do not establish provider availability, physical-device accuracy, hiring accuracy or a trained integrity model."
+}

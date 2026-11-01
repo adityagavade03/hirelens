@@ -1,0 +1,66 @@
+{
+  "reviewedOn": "2026-10-31",
+  "stage": "Separately bounded final-schema report verification",
+  "previousStageRecord": "AI-REPORT-VERIFICATION-2026-10-31.json",
+  "syntheticOnly": true,
+  "provider": "Groq",
+  "model": "openai/gpt-oss-20b",
+  "strictJson": true,
+  "rubricVersion": "content-rubric-v2",
+  "productionRecordsChanged": 0,
+  "providerConfigurationChanged": false,
+  "automaticRetries": false,
+  "budget": {
+    "maximumRequests": 3,
+    "maximumTokenReserve": 20000,
+    "maximumDurationMs": 360000
+  },
+  "actual": {
+    "requestsAttempted": 3,
+    "http200Responses": 3,
+    "reportedTokens": 9558,
+    "durationMs": 56637
+  },
+  "originalResults": [
+    {
+      "id": "sparse-answer",
+      "passed": true,
+      "outcome": "Further evaluation; metric scores withheld below the evidence floor"
+    },
+    {
+      "id": "wrong-answers-injection",
+      "passed": false,
+      "reason": "New guard falsely rejected the explicit clarity/correctness contrast 'followable despite factual errors'.",
+      "retainedTechnicalScore": 0,
+      "retainedCommunicationScore": 3
+    },
+    {
+      "id": "reviewed-transcript-only",
+      "passed": true,
+      "outcome": "Transcript recognized as clear communication; unassessed coverage remained in limitations; no invented weakness"
+    }
+  ],
+  "correction": {
+    "scope": "Exclude explicitly named contrast clauses from correctness-as-communication checks; later causal judgments still reject.",
+    "changedModelScores": false,
+    "changedTechnicalExpectations": false,
+    "offlineReplay": {
+      "id": "wrong-answers-injection",
+      "passed": true,
+      "newProviderRequests": 0,
+      "technicalScore": 0,
+      "communicationScore": 3,
+      "sourceArtifactPreserved": true
+    }
+  },
+  "preservedArtifacts": [
+    ".data/runtime/ai-quality/groq-report-final-schema-20261031.json",
+    ".data/runtime/ai-quality/groq-report-concession-replay-20261031.json"
+  ],
+  "remaining": [
+    "Fresh repeated cloud report checks after the final wording-guard correction",
+    "Broader independent narrative assessment",
+    "Representative hiring accuracy and fairness evaluation"
+  ],
+  "interpretation": "Two cases passed fresh final-schema requests; the third passed an exact retained-output offline replay after fixing a concrete false rejection. Original failures are unchanged. This is targeted regression evidence, not a full-corpus rerun or an accuracy percentage."
+}

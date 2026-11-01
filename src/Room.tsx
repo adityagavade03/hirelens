@@ -123,6 +123,7 @@ function LegacyRoom() {
   const stopCapture = useRef<(() => Promise<void>) | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const audioStream = useRef<MediaStream | null>(null);
+  const speechVersion = useRef(0);
   const recordingTimeout = useRef<number | undefined>(undefined);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
@@ -144,6 +145,8 @@ function LegacyRoom() {
     ? code
     : (savedDraft ?? problem?.starter[language] ?? "");
   const question = interview?.questions[questionIndex];
+  const speechQuestionId = useRef(question?.id);
+  speechQuestionId.current = question?.id;
   const submitted = interview?.answers.find(
     (a) => a.questionId === question?.id,
   );
@@ -201,6 +204,7 @@ function LegacyRoom() {
       interview?.status === "completed" ||
       interview?.status === "cancelled"
     ) {
+      ++speechVersion.current;
       devices.stop();
       audioStream.current?.getTracks().forEach((t) => t.stop());
       clearTimeout(recordingTimeout.current);
@@ -233,6 +237,11 @@ function LegacyRoom() {
     return () => clearInterval(timer);
   }, [joined, candidate, record.reload, history.reload]);
   useEffect(() => {
+    ++speechVersion.current;
+    if (recorder.current?.state === "recording") recorder.current.stop();
+    audioStream.current?.getTracks().forEach((track) => track.stop());
+    clearTimeout(recordingTimeout.current);
+    setRecording(false);
     setAnswer("");
     setMode("typed");
     setReviewed(false);
@@ -259,6 +268,7 @@ function LegacyRoom() {
   useEffect(
     () => () => {
       activeRef.current = false;
+      ++speechVersion.current;
       audioStream.current?.getTracks().forEach((t) => t.stop());
       clearTimeout(recordingTimeout.current);
       if (recorder.current?.state === "recording") recorder.current.stop();
@@ -356,6 +366,24 @@ function LegacyRoom() {
       return;
     }
     setError("");
+    setBusy("microphone");
+    const version = ++speechVersion.current;
+    const requestedQuestion = question?.id;
+    const currentCapture = () =>
+      activeRef.current &&
+      version === speechVersion.current &&
+      speechQuestionId.current === requestedQuestion;
+    let capture: MediaStream | null = null;
+    let media: MediaRecorder | null = null;
+    let captureTimer: number | undefined;
+    const release = () => {
+      capture?.getTracks().forEach((track) => track.stop());
+      if (audioStream.current === capture) audioStream.current = null;
+      if (recorder.current === media) recorder.current = null;
+      clearTimeout(captureTimer);
+      if (recordingTimeout.current === captureTimer)
+        recordingTimeout.current = undefined;
+    };
     try {
       if (
         !navigator.mediaDevices?.getUserMedia ||
@@ -364,28 +392,40 @@ function LegacyRoom() {
         throw new Error(
           "Audio recording is unavailable in this browser. Use typed answers or open the secure link in a supported browser.",
         );
-      const capture = await monitoring.permissionDialog(() =>
+      capture = await monitoring.permissionDialog(() =>
         navigator.mediaDevices.getUserMedia({ audio: true }),
       );
-      if (!activeRef.current) {
-        capture.getTracks().forEach((t) => t.stop());
+      if (!currentCapture()) {
+        release();
         return;
       }
       audioStream.current = capture;
-      const mime = MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "audio/mp4";
-      const media = new MediaRecorder(capture, { mimeType: mime });
+      const mime = ["audio/webm", "audio/mp4"].find((type) =>
+        MediaRecorder.isTypeSupported(type),
+      );
+      if (!mime)
+        throw new Error(
+          "This browser cannot record a supported audio format. Use a typed answer.",
+        );
+      media = new MediaRecorder(capture, { mimeType: mime });
+      const audioRecorder = media;
       recorder.current = media;
       const chunks: BlobPart[] = [];
+      let failed = false;
       media.ondataavailable = (e) => {
         if (e.data.size) chunks.push(e.data);
       };
       media.onstop = async () => {
-        capture.getTracks().forEach((t) => t.stop());
-        if (!activeRef.current) return;
+        release();
+        if (!currentCapture()) return;
         setRecording(false);
-        clearTimeout(recordingTimeout.current);
+        if (failed) return;
+        if (!chunks.length) {
+          setError(
+            "No audio was captured. Check your microphone and try again, or use a typed answer.",
+          );
+          return;
+        }
         const form = new FormData();
         form.append(
           "audio",
@@ -397,18 +437,39 @@ function LegacyRoom() {
             `/interviews/${id}/transcribe`,
             { method: "POST", body: form },
           );
-          setAnswer(result.text);
-          setMode("spoken");
-          setReviewed(false);
+          if (currentCapture()) {
+            setAnswer(result.text);
+            setMode("spoken");
+            setReviewed(false);
+          }
         });
+      };
+      media.onerror = () => {
+        failed = true;
+        release();
+        if (audioRecorder.state !== "inactive") {
+          try {
+            audioRecorder.stop();
+          } catch {
+            /* Browser is already stopping. */
+          }
+        }
+        if (currentCapture()) {
+          setRecording(false);
+          setError("Audio capture stopped. Retry or use a typed answer.");
+        }
       };
       media.start();
       setRecording(true);
-      recordingTimeout.current = window.setTimeout(() => {
-        if (media.state === "recording") media.stop();
+      captureTimer = window.setTimeout(() => {
+        if (audioRecorder.state === "recording") audioRecorder.stop();
       }, 120000);
+      recordingTimeout.current = captureTimer;
     } catch (e) {
-      setError((e as Error).message);
+      release();
+      if (currentCapture()) setError((e as Error).message);
+    } finally {
+      if (currentCapture()) setBusy("");
     }
   }
   async function end() {
@@ -1030,6 +1091,7 @@ function LegacyRoom() {
                   {interview.questions.map((q, i) => (
                     <button
                       key={q.id}
+                      disabled={recording || !!busy}
                       className={
                         i === questionIndex
                           ? "active"
@@ -1201,6 +1263,7 @@ function LegacyRoom() {
                       <textarea
                         aria-label="Your answer"
                         value={answer}
+                        disabled={recording || !!busy}
                         onChange={(e) => setAnswer(e.target.value)}
                         placeholder="Start with your approach, share a concrete example, and explain your thinking…"
                         maxLength={20000}
@@ -1260,7 +1323,11 @@ function LegacyRoom() {
                     <span>{question.topic}</span>
                     <button
                       className="text-link"
-                      disabled={questionIndex >= interview.questions.length - 1}
+                      disabled={
+                        recording ||
+                        !!busy ||
+                        questionIndex >= interview.questions.length - 1
+                      }
                       onClick={() => setQuestionIndex((i) => i + 1)}
                     >
                       Next question <ArrowRight size={17} />

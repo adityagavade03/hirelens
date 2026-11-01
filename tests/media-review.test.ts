@@ -123,3 +123,121 @@ it("refreshes a failed transcription revision while preserving the manual draft 
   expect(clip.transcript).toBe(draft);
   expect(host.textContent).not.toContain("This transcript changed");
 });
+
+it.each(["Keep my corrections", "Use latest saved transcript"])(
+  "preserves unsaved corrections on background transcription and requires an explicit choice: %s",
+  async (choice) => {
+    const initialRevision = "2026-10-31T06:00:00.000Z";
+    const latestRevision = "2026-10-31T06:00:10.000Z";
+    let clip = {
+      _id: "clip-id",
+      ownerId: "hr-id",
+      role: "hr",
+      createdAt: initialRevision,
+      updatedAt: initialRevision,
+      offsetMs: 0,
+      durationMs: 30000,
+      transcript: "Initial automatic text.",
+      transcriptState: "ready",
+    };
+    const writes: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, options: RequestInit = {}) => {
+        if (url === "/api/interviews/interview-id/media")
+          return new Response(JSON.stringify([{ ...clip }]));
+        if (
+          url === "/api/media/clip-id/transcript" &&
+          options.method === "PATCH"
+        ) {
+          const input = JSON.parse(String(options.body));
+          writes.push(input);
+          clip = { ...clip, transcript: input.transcript };
+          return new Response(JSON.stringify({ ...clip }));
+        }
+        throw new Error(`Unexpected test request: ${url}`);
+      }),
+    );
+    await act(async () =>
+      root.render(createElement(MediaReview, { interviewId: "interview-id" })),
+    );
+    await act(async () => {
+      const select = host.querySelector("select")!;
+      select.value = "clip-id";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const textarea = host.querySelector("textarea")!;
+    const manual = "My independently reviewed correction.";
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )!.set!.call(textarea, manual);
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    clip = {
+      ...clip,
+      updatedAt: latestRevision,
+      transcript: "New background recognition.",
+    };
+    await act(async () => button("Refresh recordings").click());
+    expect(textarea.value).toBe(manual);
+    expect(host.textContent).toContain("unsaved corrections are preserved");
+    expect(button("Save reviewed transcript").disabled).toBe(true);
+    await act(async () => button("Save reviewed transcript").click());
+    expect(writes).toHaveLength(0);
+    await act(async () => button(choice).click());
+    const expected =
+      choice === "Keep my corrections" ? manual : clip.transcript;
+    expect(textarea.value).toBe(expected);
+    expect(button("Save reviewed transcript").disabled).toBe(false);
+    await act(async () => button("Save reviewed transcript").click());
+    expect(writes).toEqual([
+      {
+        transcript: expected,
+        reviewed: true,
+        expectedUpdatedAt: latestRevision,
+      },
+    ]);
+    expect(host.textContent).not.toContain("unsaved corrections are preserved");
+  },
+);
+
+it("refreshes server transcript text when the reviewer has made no local changes", async () => {
+  const revision = "2026-10-31T06:00:00.000Z";
+  let text = "Initial recognition.";
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              _id: "clip-id",
+              ownerId: "hr-id",
+              role: "hr",
+              createdAt: revision,
+              updatedAt: revision,
+              offsetMs: 0,
+              durationMs: 30000,
+              transcript: text,
+              transcriptState: "ready",
+            },
+          ]),
+        ),
+    ),
+  );
+  await act(async () =>
+    root.render(createElement(MediaReview, { interviewId: "interview-id" })),
+  );
+  await act(async () => {
+    const select = host.querySelector("select")!;
+    select.value = "clip-id";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(host.querySelector("textarea")!.value).toBe(text);
+  text = "The completed recognition.";
+  await act(async () => button("Refresh recordings").click());
+  expect(host.querySelector("textarea")!.value).toBe(text);
+  expect(host.textContent).not.toContain("unsaved corrections are preserved");
+});

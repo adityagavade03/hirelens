@@ -133,6 +133,15 @@ it("sends grounded report metrics without overlapping object-union keys rejected
   vi.mocked(fetch).mockImplementationOnce(async (_url, options) => {
     const request = JSON.parse(String(options?.body));
     const properties = request.response_format.json_schema.schema.properties;
+    expect(properties.summary).toBeUndefined();
+    expect(properties.weaknesses.items.properties.evidenceRef.enum).toContain(
+      "answer:hash",
+    );
+    expect(properties.weaknesses.items.required).toEqual([
+      "evidenceRef",
+      "quote",
+      "observation",
+    ]);
     for (const name of ["technical", "problemSolving", "communication"]) {
       // Groq rejects identical required-key sets in object anyOf alternatives.
       expect(properties[name].anyOf).toBeUndefined();

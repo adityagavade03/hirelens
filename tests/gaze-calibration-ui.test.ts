@@ -174,6 +174,63 @@ it("stops processing on consent withdrawal and never starts during an active int
   expect(host.textContent).toContain("Optional gaze calibration is off");
 });
 
+it("requires a new usable-image streak immediately after hiding or resizing the page", async () => {
+  await enable();
+  for (let i = 0; i < 3; i++) await frame();
+  expect(calibrationButton().disabled).toBe(false);
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(calibrationButton().disabled).toBe(true);
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await frame();
+  await frame();
+  expect(calibrationButton().disabled).toBe(true);
+  await frame();
+  expect(calibrationButton().disabled).toBe(false);
+  await act(async () => window.dispatchEvent(new Event("resize")));
+  expect(calibrationButton().disabled).toBe(true);
+});
+
+it("does not send a gaze bitmap captured before the page was hidden", async () => {
+  await enable();
+  let resolve!: (value: any) => void;
+  vi.stubGlobal(
+    "createImageBitmap",
+    vi.fn(
+      () =>
+        new Promise((r) => {
+          resolve = r;
+        }),
+    ),
+  );
+  video.currentTime += 0.25;
+  await act(async () => vi.advanceTimersByTimeAsync(250));
+  await act(async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const bitmap = { close: vi.fn() };
+  await act(async () => resolve(bitmap));
+  expect(bitmap.close).toHaveBeenCalledOnce();
+  expect(
+    worker.messages.filter((message) => message.kind === "frame"),
+  ).toHaveLength(0);
+});
+
 it("removes a previously validated estimate when the live camera stops delivering fresh images", async () => {
   await enable();
   await frame();

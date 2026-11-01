@@ -4,6 +4,30 @@
 
 The optional face model and speaker service run, but running a model is not an accuracy validation. Early physical gaze attempts could not gather enough eye images; the later 19 October attempt collected all 14 targets but failed the independent accuracy gate. The earlier public four-speaker audio example produced seven raw cluster labels. No calibrated gaze, face-detection or speaker-count accuracy claim follows from those results.
 
+## Camera lifecycle corrections — 31 October 2026
+
+Six reproduced software regressions were corrected without changing detection,
+image-quality or independent gaze-validation thresholds:
+
+- Face status and sustained observations now reset immediately when the page
+  hides or interview admission changes. A delayed result from the previous
+  visibility/admission period cannot restore a stale face count or bridge the
+  observation timer after returning.
+- Face and gaze bitmap capture recheck the page, camera and capture generation
+  before transferring the image to their local worker. Images captured across
+  a pause are released instead. No camera pixels are uploaded.
+- The face check no longer clears its sustained timer merely because a polling
+  tick sees the same frame. Slower advancing cameras can produce observations;
+  a frozen preview still pauses after three seconds without a new frame.
+- Hiding or resizing the gaze page immediately clears its usable-image streak.
+  Calibration requires three new usable images instead of reusing readiness
+  from the previous page/layout state.
+
+These are lifecycle fixes verified with simulated browser/worker inputs. They
+do not establish real phone/book, face, gaze or speaker accuracy. No physical
+camera, microphone or participant was used for this software check. The prior
+failed/inconclusive device results remain the current physical evidence.
+
 The 19 October code changes improve the gaze test itself:
 
 - The worker reports why it skipped a frame: absent/multiple faces, small eye patches, closed eye openings, clipping, low contrast, or an unreadable image.

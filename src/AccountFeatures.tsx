@@ -127,7 +127,12 @@ export function AccountAccess() {
 
 export function AccountSecurityPanel() {
   const { user, refresh } = useAuth();
-  const services = useResource<{ messagePreview?: boolean }>("/services", {});
+  const services = useResource<{ messagePreview?: boolean; sms?: boolean }>(
+    "/services",
+    {},
+  );
+  const canRequestPhone =
+    !!services.data.sms && !services.loading && !services.error;
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -151,7 +156,7 @@ export function AccountSecurityPanel() {
       description="Choose how you receive future recruitment updates."
     >
       <div className="panel-form">
-        <ErrorBox message={error} />
+        <ErrorBox message={error || services.error} />
         {message && <Notice>{message}</Notice>}
         {services.data.messagePreview && (
           <Notice>
@@ -179,6 +184,7 @@ export function AccountSecurityPanel() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (!canRequestPhone || busy) return;
             void run("/account/verify-phone", formObject(e));
           }}
         >
@@ -199,8 +205,17 @@ export function AccountSecurityPanel() {
               required
             />
           </Field>
-          <Submit busy={busy}>Send phone verification</Submit>
+          <Submit busy={busy} disabled={!canRequestPhone}>
+            Send phone verification
+          </Submit>
         </form>
+        {!canRequestPhone && !services.error && (
+          <p role="status">
+            {services.loading
+              ? "Checking SMS availability…"
+              : "SMS delivery is not connected yet. Phone verification becomes available when the platform administrator connects an SMS service. Email updates remain a separate option."}
+          </p>
+        )}
         <form
           key={`${user.notificationEmail}-${user.notificationSms}-${user.emailVerifiedAt}-${user.phoneVerifiedAt}`}
           onSubmit={(e) => {

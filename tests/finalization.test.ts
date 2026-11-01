@@ -55,7 +55,8 @@ const reportAssessment = {
   },
   problemSolving: {
     score: null,
-    explanation: "There is no worked problem-solving example.",
+    explanation:
+      "Problem solving cannot be assessed from the supplied definition.",
     evidenceRefs: [],
   },
   communication: {
@@ -64,12 +65,13 @@ const reportAssessment = {
     evidenceRefs: ["answer:q1"],
   },
   strengths: ["Identifies average constant-time lookup."],
-  weaknesses: ["Does not discuss collision behavior."],
+  weaknesses: [],
   improvements: ["Explain worst-case lookup complexity."],
   recommendation: "Needs Further Evaluation",
   recommendationReason: "One short answer is insufficient evidence.",
   limitations: [
     "Synthetic isolated provider fixture; no real candidate assessed.",
+    "Collision-strategy application was not assessed from this excerpt.",
   ],
 };
 

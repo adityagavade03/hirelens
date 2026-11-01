@@ -225,6 +225,44 @@ describe("interview peer lifecycle", () => {
     expect(peer.candidates).toEqual([ice, { candidate: "second" }]);
     expect(sent[0].description?.type).toBe("answer");
   });
+  it("answers a valid offer and processes the remaining queued routes when one ICE candidate fails", async () => {
+    const { session, peer, sent, error } = setup(true);
+    const stale = { candidate: "stale-route-without-ufrag" },
+      valid = { candidate: "valid-route", usernameFragment: "fixture" };
+    const candidateFailure = new Error("Synthetic stale ICE route");
+    vi.spyOn(peer, "addIceCandidate").mockImplementation(async (candidate) => {
+      if (candidate === stale) throw candidateFailure;
+      peer.candidates.push(candidate);
+    });
+    await session.receive({ candidate: stale });
+    await session.receive({ candidate: valid });
+    await session.receive({ description: { type: "offer", sdp: offerSdp() } });
+    expect(error).toHaveBeenCalledExactlyOnceWith(candidateFailure);
+    expect(peer.candidates).toEqual([valid]);
+    expect(sent.map((signal) => signal.description?.type)).toEqual(["answer"]);
+    expect(peer.signalingState).toBe("stable");
+    await session.receive({
+      description: { type: "offer", sdp: offerSdp("restart") },
+    });
+    expect(peer.addIceCandidate).toHaveBeenCalledTimes(2);
+    expect(sent.map((signal) => signal.description?.type)).toEqual([
+      "answer",
+      "answer",
+    ]);
+  });
+  it("does not attempt or report ignored glare candidates", async () => {
+    const { session, peer, error } = setup(false);
+    const add = vi
+      .spyOn(peer, "addIceCandidate")
+      .mockRejectedValue(new Error("Ignored route"));
+    await session.negotiate();
+    await session.receive({
+      description: { type: "offer", sdp: offerSdp("collision") },
+    });
+    await session.receive({ candidate: { candidate: "collision-route" } });
+    expect(add).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
   it("lets the polite peer accept a colliding offer and answer it", async () => {
     const { session, peer, sent, error } = setup(true);
     await session.receive({ description: { type: "offer", sdp: offerSdp() } });
